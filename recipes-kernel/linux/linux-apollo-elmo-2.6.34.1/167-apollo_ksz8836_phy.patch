@@ -1,0 +1,87 @@
+--- linux-2.6.34/drivers/net/LIPP_6300ETH/src/tmbslPhyAccess.c	2011-07-21 11:21:09.000000000 +0800
++++ linux-2.6.34-new/drivers/net/LIPP_6300ETH/src/tmbslPhyAccess.c	2011-07-28 16:01:50.000000000 +0800
+@@ -419,6 +419,74 @@
+     tmbslPhyIntel972GetLinkStatus
+ };
+ 
++static tmErrorCode_t KSZ8863PhyInit(tmUnitSelect_t phyUnitId)
++{
++    return TM_OK;
++}
++
++static tmErrorCode_t KSZ8863PhySetBasicModeControl(
++    tmUnitSelect_t                   		phyUnitId,   
++    ptmbslPhyBasicModeControl_t      		pPhyBasicModeControl
++    )
++{
++    return TM_OK;
++}
++
++static tmErrorCode_t KSZ8863PhyGetBasicModeStatus_t(
++    tmUnitSelect_t                  		phyUnitId,   
++    ptmbslPhyBasicModeStatus_t    			pPhyBasicModeStatus     
++    )
++{
++    pPhyBasicModeStatus->duplexMode = tmbslPhyFullDuplex;
++    pPhyBasicModeStatus->speed = tmbslPhySpeed100Mbps;
++    return TM_OK;
++}
++
++static tmErrorCode_t KSZ8863PhyAutoNegotiate(
++    tmUnitSelect_t                       	phyUnitId,   
++    ptmbslPhyAutoNegotitationMask_t      	pAutoNegotiationMask
++    )
++{
++    return TM_OK;
++}
++
++static tmErrorCode_t KSZ8863PhyGetLinkStatus(
++    tmUnitSelect_t                          phyUnitId,   
++    ptmbslPhyEnableDisable_t           		pLinkStatus
++    )
++{
++    *pLinkStatus = tmbslPhyEnable;
++    return TM_OK;
++}
++
++tmbslPhyConfig_t KSZ8863PhyInterface =
++{  
++    "KSZ8863 PHY",
++    0x00221430,
++    LAN_CLK_SEL,
++    LAN_CLK_SPEED_SEL,
++    Null,
++    Null,
++    KSZ8863PhyInit,
++    Null,
++    Null,
++    Null,
++    Null,
++    KSZ8863PhySetBasicModeControl,
++    KSZ8863PhyGetBasicModeStatus_t,
++    KSZ8863PhyAutoNegotiate,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    KSZ8863PhyGetLinkStatus
++};
++
+ phyID_interface_tbl phy_tbl[]={
+ {0x0, &gtmbslMYSTIPhyInterface},
+ {0x001cc912, &gtmbslRTL8211BNPhyInterface},
+@@ -426,7 +494,8 @@
+ {0x0, &gtmbslMoCAPhyInterface},
+ #endif
+ {0x00008201, &gtmbslLXT972APhyInterface},
+-{0x001378e2, &gtmbslLXT972APhyInterface}
++{0x001378e2, &gtmbslLXT972APhyInterface},
++{0x00221430, &KSZ8863PhyInterface}
+ };
+ 
+ void tmbslPhyGetInterface(int unitnumber, UInt32 phyID, UInt32 isExternal, tmbslPhyConfig_t ** pPhyInterface)

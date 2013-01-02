@@ -1,0 +1,12 @@
+[Unit]
+Description=CNXT Driver Initialization
+#After=syslog.target
+Before=display-manager.service
+#Conflicts=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/etc/init.d/cnxt_init'
+
+[Install]
+WantedBy=basic.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=Marusys DVB M/W
+After=cnxt.service
+#Before=display-manager.service
+#Conflicts=display-manager.service
+
+[Service]
+Type=simple
+ExecStart=/bin/sh -c '/etc/init.d/runstb.sh'
+
+[Install]
+WantedBy=basic.target

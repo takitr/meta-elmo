@@ -1,0 +1,11 @@
+--- linux-2.6.34.orig/net/wireless/Kconfig	2010-05-17 05:17:36.000000000 +0800
++++ linux-2.6.34/net/wireless/Kconfig	2011-07-04 16:04:35.000000000 +0800
+@@ -114,6 +114,8 @@ config CFG80211_WEXT
+ 	bool "cfg80211 wireless extensions compatibility"
+ 	depends on CFG80211
+ 	select WEXT_CORE
++	select WIRELESS_EXT 
++	select WEXT_PRIV 
+ 	default y
+ 	help
+ 	  Enable this option if you need old userspace for wireless

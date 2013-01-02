@@ -1,0 +1,33 @@
+--- linux-2.6.34/drivers/mtd/nand/nand_bbt.c	2011-07-21 11:21:09.000000000 +0800
++++ linux-2.6.34-new//drivers/mtd/nand/nand_bbt.c	2011-07-28 15:05:56.000000000 +0800
+@@ -465,12 +465,15 @@
+ {
+ 	struct mtd_oob_ops ops;
+ 	int j, ret;
+-
++    u_char *datbuf;
++ 
++    datbuf = kmalloc(mtd->writesize + mtd->oobsize, GFP_KERNEL);
++ 	memset(&ops, 0, sizeof(ops));
+ 	ops.ooblen = mtd->oobsize;
+ 	ops.oobbuf = buf;
+-	ops.ooboffs = 0;
+-	ops.datbuf = NULL;
+-	ops.mode = MTD_OOB_PLACE;
++	ops.datbuf = datbuf;
++	ops.len = mtd->writesize;
++	ops.mode = MTD_OOB_RAW;
+ 
+ 	for (j = 0; j < len; j++) {
+ 		/*
+@@ -487,6 +490,10 @@
+ 
+ 		offs += mtd->writesize;
+ 	}
++		
++    if(datbuf) kfree(datbuf); 
++    mtd->flags &= ~MTD_USE_DEV_OOB_LAYOUT;
++  
+ 	return 0;
+ }
+ 
