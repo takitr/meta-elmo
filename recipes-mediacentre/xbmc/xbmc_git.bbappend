@@ -2,6 +2,16 @@
 THISDIR := "${@os.path.dirname(bb.data.getVar('FILE', d, True))}"
 FILESPATH =. "${@base_set_filespath(["${THISDIR}/${PN}"], d)}:"
 
+DEPENDS = "libusb1 libcec libplist expat yajl gperf-native libxmu fribidi mpeg2dec ffmpeg samba fontconfig curl python libass libmodplug libmicrohttpd wavpack libmms cmake-native libsdl-image libsdl-mixer virtual/egl mysql5 sqlite3 libmms faad2 libcdio libpcre boost lzo enca avahi libsamplerate0 libxinerama libxrandr libxtst bzip2 virtual/libsdl jasper zip-native zlib libtinyxml taglib libpostproc"
+
+#beta3
+SRCREV = "ae60d24346e99e6e67d68e247ebaea8e6acb185c"
+
+PV = "12.0"
+PR = "beta3"
+
+SRC_URI = "git://github.com/xbmc/xbmc.git;tag=Frodo_beta3;protocol=git \
+	"
 SRC_URI += "file://Lircmap.xml \
                 file://autoexec.py \
                 file://home.xbmc.tar.gz "
@@ -33,3 +43,5 @@ do_install_append() {
 FILES_${PN}_append = " /home/root/.xbmc/"
 
 PARALLEL_MAKE = " -j8 "
+
+EXTRA_OECONF_append_armv7a = "--cpu=cortex-a9"
