@@ -24,4 +24,5 @@ RDEPENDS_${PN} = " \
 	libupnp \
 	nfs-utils-client \
 	libomxil-elmo	\
+	hddtemp \
 "
