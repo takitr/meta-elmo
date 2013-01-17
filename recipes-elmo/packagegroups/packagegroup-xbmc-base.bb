@@ -21,6 +21,12 @@ RDEPENDS_${PN} = " \
 	python-html	\
 	python-netserver	\
 	python-misc	\
+	connman-tests	\
+	python-pygobject	\
+	libpyglib-2.0-python0	\
+	python-textutils	\
+	python-dbus	\
+	libdbus-glib	\
 	libupnp \
 	nfs-utils-client \
 	libomxil-elmo	\
