@@ -9,7 +9,9 @@ COMPATIBLE_MACHINE = "(elmo)"
 
 PROVIDES += "virtual/egl"
 
-SRC_URI = "http://archive.marusys.com/SDK_OGLES2_LINUX_APOLLO_2.08.28.0634.tar.gz	\
+#SRC_URI = "http://archive.marusys.com/Apollo/Frodo/Sources/SDK_OGLES2_LINUX_APOLLO_2.08.28.0634.tar.gz	\
+
+SRC_URI = "http://192.168.103.100/download/drivers/elmo/SDK_OGLES2_LINUX_APOLLO_2.08.28.0634.tar.gz \
 		file://debug-sgxpack.tar.gz \
 		file://apollo.sgx.etc.tar.gz \
 		"

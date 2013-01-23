@@ -2,7 +2,11 @@
 THISDIR := "${@os.path.dirname(bb.data.getVar('FILE', d, True))}"
 FILESPATH =. "${@base_set_filespath(["${THISDIR}/${PN}"], d)}:"
 
-SRC_URI += "file://Lircmap.xml \
+DEPENDS += " taglib "
+PV = "12.0"
+PR = "rc3"
+SRC_URI = "git://github.com/xbmc/xbmc.git;branch=eden;protocol=git \
+		file://Lircmap.xml \
                 file://autoexec.py \
                 file://home.xbmc.tar.gz "
 

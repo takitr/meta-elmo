@@ -8,4 +8,5 @@ RPROVIDES_${PN} += "packagegroup-elmo-maruapp"
 
 RDEPENDS_${PN} = "\
 	maruapp \
+	libexif \
 	"
