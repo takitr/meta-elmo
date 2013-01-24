@@ -32,4 +32,6 @@ RDEPENDS_${PN} = " \
 	libomxil-elmo	\
 	hddtemp \
 	transmission \
+	libplist	\
+	libshairport	\
 "
