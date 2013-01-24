@@ -45,6 +45,9 @@ do_install_append() {
         cp ${WORKDIR}/autoexec.py ${D}/home/root/.xbmc/userdata/autoexec.py
 }
 
+do_package_qa(){
+}
+
 FILES_${PN}_append = " /home/root/.xbmc/"
 
 PARALLEL_MAKE = " -j8 "
