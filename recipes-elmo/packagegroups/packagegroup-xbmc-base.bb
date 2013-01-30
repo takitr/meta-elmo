@@ -23,12 +23,15 @@ RDEPENDS_${PN} = " \
 	python-misc	\
 	connman-tests	\
 	python-pygobject	\
-	libpyglib-2.0-python0	\
+	python-pygobject-lib	\
 	python-textutils	\
 	python-dbus	\
-	libdbus-glib	\
+	dbus-glib	\
 	libupnp \
 	nfs-utils-client \
 	libomxil-elmo	\
 	hddtemp \
+	transmission \
+	libplist	\
+	libshairport	\
 "
