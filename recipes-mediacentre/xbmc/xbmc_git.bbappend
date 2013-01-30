@@ -4,14 +4,13 @@ FILESPATH =. "${@base_set_filespath(["${THISDIR}/${PN}"], d)}:"
 
 DEPENDS = "libusb1 libcec libplist expat yajl gperf-native libxmu fribidi mpeg2dec ffmpeg samba fontconfig curl python libass libmodplug libmicrohttpd wavpack libmms cmake-native libsdl-image libsdl-mixer virtual/egl mysql5 sqlite3 libmms faad2 libcdio libpcre boost lzo enca avahi libsamplerate0 libxinerama libxrandr libxtst bzip2 virtual/libsdl jasper zip-native zlib libtinyxml taglib libpostproc"
 
-#beta3
-#SRCREV = "ae60d24346e99e6e67d68e247ebaea8e6acb185c"
-SRCREV = "7a6cb7f49ae19dca3c48c40fa3bd20dc3c490e60"
+SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
+
 
 PV = "12.0"
-PR = "rc3"
+PR = "r0"
 
-SRC_URI = "git://github.com/xbmc/xbmc.git;tag=Frodo_rc3;protocol=git \
+SRC_URI = "git://github.com/xbmc/xbmc.git;tag=12.0-Frodo;protocol=git \
 	"
 SRC_URI += "file://Lircmap.xml \
                 file://autoexec.py \
