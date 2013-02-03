@@ -114,7 +114,10 @@ SRC_URI = "${KERNELORG_MIRROR}/pub/linux/kernel/v2.6/linux-2.6.34.tar.bz2;name=k
 			file://172-apollo_splash.patch;apply=yes;striplevel=1 \
 			file://173-apollo_gmac.patch;apply=yes;striplevel=1 \
 			file://174-apollo_change_logo.patch \
+			file://200-systemd-patch-for-systemd.patch;apply=yes;striplevel=1 \
 			file://defconfig_wireless \
+			file://defconfig_wireless.systemd \
+			file://defconfig_wireless.systemd.memorydebug \
 			"
 
 #			${KERNELORG_MIRROR}/pub/linux/kernel/v2.6/longterm/v2.6.34/patch-${PV}.8.bz2;apply=yes;name=stablepatch \
@@ -125,7 +128,7 @@ S = "${WORKDIR}/linux-2.6.34"
 EXTRA_OEMAKE = "${PARALLEL_MAKE} "
 
 do_configure() {
-        oe_machinstall -m 0644 ${WORKDIR}/defconfig_wireless ${S}/.config
+        oe_machinstall -m 0644 ${WORKDIR}/defconfig_wireless.systemd ${S}/.config
         oe_runmake oldconfig
 }
 
