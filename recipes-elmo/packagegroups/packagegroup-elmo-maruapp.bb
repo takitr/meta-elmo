@@ -9,4 +9,6 @@ RPROVIDES_${PN} += "packagegroup-elmo-maruapp"
 RDEPENDS_${PN} = "\
 	maruapp \
 	libexif \
+	util-linux-sfdisk \
+	e2fsprogs-mke2fs \
 	"
