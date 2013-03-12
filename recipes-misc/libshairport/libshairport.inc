@@ -17,6 +17,7 @@ SRC_URI = "http://mirrors.xbmc.org/build-deps/darwin-libs/${PN}-${PV}_lib.tar.gz
            file://009_fix_ipv6.patch;apply=yes;striplevel=0 \
            file://010_handle_metadata.patch;apply=yes;striplevel=0 \
            file://011_fix_ipv4_fallback.patch;apply=yes;striplevel=0 \
+	   file://0001-xbmc-patch-for-xbmc.patch;apply=yes;striplevel=1 \
 		"
 
 #do_patch(){
