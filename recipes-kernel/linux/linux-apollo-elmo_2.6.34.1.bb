@@ -117,6 +117,7 @@ SRC_URI = "${KERNELORG_MIRROR}/pub/linux/kernel/v2.6/linux-2.6.34.tar.bz2;name=k
 			file://200-systemd-patch-for-systemd.patch;apply=yes;striplevel=1 \
 			file://defconfig_wireless \
 			file://defconfig_wireless.systemd \
+			file://defconfig_wireless.systemd.linuxtv \
 			file://defconfig_wireless.systemd.memorydebug \
 			"
 
@@ -128,7 +129,7 @@ S = "${WORKDIR}/linux-2.6.34"
 EXTRA_OEMAKE = "${PARALLEL_MAKE} "
 
 do_configure() {
-        oe_machinstall -m 0644 ${WORKDIR}/defconfig_wireless.systemd ${S}/.config
+        oe_machinstall -m 0644 ${WORKDIR}/defconfig_wireless.systemd.linuxtv ${S}/.config
         oe_runmake oldconfig
 }
 
