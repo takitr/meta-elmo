@@ -5,7 +5,7 @@ diff -Naurp linux-2.6.34.latest/arch/arm/Makefile linux-2.6.34/arch/arm/Makefile
  endif
  
  # Need -Uarm for gcc < 3.x
-+ifeq ($(findstring x4.5.,x$(shell $(CC) -v 2>&1 | tail -n 1 | awk -F ' ' '{print $$3}')),x4.5.)
++ifeq ($(findstring x4.7.,x$(shell $(CC) -v 2>&1 | tail -n 1 | awk -F ' ' '{print $$3}')),x4.7.)
 +KBUILD_CFLAGS	+=$(CFLAGS_ABI) $(CFLAGS_THUMB2) $(arch-y) $(tune-y) $(call cc-option,-mshort-load-bytes,$(call cc-option,-malignment-traps,)) -mhard-float -mfpu=vfpv3-d16 -Uarm
 +KBUILD_AFLAGS	+=$(CFLAGS_ABI) $(AFLAGS_THUMB2) $(arch-y) $(tune-y) -include asm/unified.h -mhard-float -mfpu=vfpv3-d16
 +else
@@ -87,8 +87,8 @@ diff -Naurp linux-2.6.34.latest/Makefile linux-2.6.34/Makefile
  # conserve stack if available
  KBUILD_CFLAGS   += $(call cc-option,-fconserve-stack)
  
-+ifeq ($(findstring x4.5.,x$(shell $(CC) -v 2>&1 | tail -n 1 | awk -F ' ' '{print $$3}')),x4.5.)
-+# Remove uninitialized warning for GCC-4.5.x
++ifeq ($(findstring x4.7.,x$(shell $(CC) -v 2>&1 | tail -n 1 | awk -F ' ' '{print $$3}')),x4.7.)
++# Remove uninitialized warning for GCC-4.7.x
 +KBUILD_CFLAGS   += $(call cc-option,-Wno-uninitialized)
 +
 +# Remove C enum-compare warning for GCC-4.5.x
