@@ -119,6 +119,7 @@ SRC_URI = "${KERNELORG_MIRROR}/pub/linux/kernel/v2.6/linux-2.6.34.tar.bz2;name=k
 			file://defconfig_wireless.systemd \
 			file://defconfig_wireless.systemd.linuxtv \
 			file://defconfig_wireless.systemd.memorydebug \
+			file://defconfig_wireless.systemd.linuxtv.release \
 			"
 
 #			${KERNELORG_MIRROR}/pub/linux/kernel/v2.6/longterm/v2.6.34/patch-${PV}.8.bz2;apply=yes;name=stablepatch \
