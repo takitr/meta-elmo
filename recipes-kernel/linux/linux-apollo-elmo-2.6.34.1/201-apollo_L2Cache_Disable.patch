@@ -1,0 +1,15 @@
+diff --git a/arch/arm/mach-apollo/pnx8492.c b/arch/arm/mach-apollo/pnx8492.c
+index 8b43c33..de1e869 100644
+--- a/arch/arm/mach-apollo/pnx8492.c
++++ b/arch/arm/mach-apollo/pnx8492.c
+@@ -415,8 +415,8 @@ static int __init apollo_l2x0_init(void)
+                  * Zero enable 
+ 		 * Bits:  0011 0010 0000 0010 0001 0000 0000 0001
+ 		 */
+-		l2x0_init(__io_address(APOLLO_CORTEX_A9_L2CACHE_BASE),
+-			  0x32021001, 0xffffffff);
++		l2x0_init(__io_address(APOLLO_CORTEX_A9_L2CACHE_BASE), /* Here we are disabling data prefetching */
++			  0x22021001, 0xffffffff);
+ 
+ 		/* Change the ACTRL register to Exlusive, Zero Enable, L1 prefetch, L2 prefetch */
+                 __asm__("mrc p15, 0, r12, c1, c0, 1\n\t"
