@@ -14,14 +14,14 @@ KV = "2.6.37"
 
 PV = "3.3.0"
 
-SRCDATE = "20121205"
+SRCDATE = "20130408"
 
 
 #RDEPENDS = "kernel"
 PR = "SDK.GA330.${SRCDATE}"
 
 
-SRC_URI = "http://192.168.103.200/download/drivers/elmo/elmo-dualhd-gcc-4.4.2_glibc-linux-debug-${PR}.tar.gz "
+SRC_URI = "http://192.168.103.100/download/drivers/elmo/elmo-dualhd-gcc-4.4.2_glibc-linux-debug-${PR}.tar.gz "
 SRC_URI += "file://S10_stb_sys_startup.sh \
 	    file://S15_stb_dev_node.sh \
 	    file://S50_stb_load_app.sh \
@@ -71,8 +71,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "7fdba61cb7c156ce8f4c8760746d36fa"
-SRC_URI[sha256sum] = "9071d0c144eccb3e4d2ac0b476b1975cac1de6710ac39e4570605425d21806ef"
+SRC_URI[md5sum] = "70a77d42c51605bab424330df3869526"
+SRC_URI[sha256sum] = "bc9cd18406ca89ee034bb161d9dbb242a16c9b28396e2af68e1626a26fa70d0a"
 
 #PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "

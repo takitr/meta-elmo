@@ -61,29 +61,16 @@ if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxIPfeDrv.ko ]; then
 insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxIPfeDrv.ko
 fi
 
-if [ -f opt/lib/modules/$KERNEL_VERSION/extra/lnxdvbciDrv.ko ]; then
-insmod opt/lib/modules/$KERNEL_VERSION/extra/lnxdvbciDrv.ko
+if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxdvbciDrv.ko ]; then
+insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxdvbciDrv.ko
 fi
 
 if [ -f /opt/lib/modules/$KERNEL_VERSION/fuse.ko ]; then
 insmod /opt/lib/modules/$KERNEL_VERSION/fuse.ko
 fi
 
-#if [ -f /opt/3ddrivers/lib/modules/$KERNEL_VERSION/pvrsrvkm.ko ]; then
-insmod /opt/3ddrivers/lib/modules/$KERNEL_VERSION/extra/pvrsrvkm.ko
-#fi
-#if [ -f /opt/3ddrivers/lib/modules/$KERNEL_VERSION/pvrnxpdc.ko ]; then
-insmod /opt/3ddrivers/lib/modules/$KERNEL_VERSION/extra/pvrnxpdc.ko fb_width=1280 fb_height=720
-#fi
-
-insmod /opt/3ddrivers/lib/modules/$KERNEL_VERSION/extra/pvrvssbc.ko
-
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxplatLircDev.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxplatLircDev.ko
-fi
-
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxplatLirc.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxplatLirc.ko
+if [ -f /opt/lib/modules/$KERNEL_VERSION/tntfs.ko ]; then
+insmod /opt/lib/modules/$KERNEL_VERSION/tntfs.ko
 fi
 
 echo "Driver modules loaded, please start the app now"
