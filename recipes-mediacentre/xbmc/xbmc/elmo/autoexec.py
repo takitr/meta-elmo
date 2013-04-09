@@ -24,6 +24,6 @@
 
 import xbmc
 
-xbmc.executescript('/home/root/.xbmc/addons/script.mbox/default.py')
+xbmc.executescript('/usr/share/xbmc/addons/script.mbox/default.py')
 #xbmc.executescript('c:\\Documents and Settings\\lael98\\Application Data\XBMC\\addons\\script.mbox\\default.py')
 #xbmc.executescript('/pvr/script.mythbox/default.py')

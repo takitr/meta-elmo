@@ -34,4 +34,7 @@ RDEPENDS_${PN} = " \
 	transmission \
 	libplist	\
 	libshairport	\
+ 	python-simplejson \
+	python-textutils \
+	python-subprocess \
 "
