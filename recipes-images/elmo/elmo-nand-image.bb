@@ -4,6 +4,8 @@ IMAGE_INSTALL += " \
 	packagegroup-elmo-drivers \
 	packagegroup-elmo-maruapp \
 	packagegroup-xbmc \
+	script-mbox	\
+	script-module-elisinterface \
 "
 
 #	packagegroup-gnome \

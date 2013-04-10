@@ -12,11 +12,8 @@ PR = "r0"
 
 SRC_URI = "git://github.com/xbmc/xbmc.git;tag=12.0-Frodo;protocol=git \
 	"
-SRC_URI += "file://Lircmap.xml \
-                file://autoexec.py \
-		file://remote.xml \
-		file://keyboard.xml \
-                file://home.xbmc.tar.gz "
+SRC_URI += "file://autoexec.py \
+	"
 
 EXTRA_OECONF = " \
  --disable-rpath \
@@ -35,19 +32,13 @@ EXTRA_OECONF = " \
  --enable-player=omxplayer \
 "
 do_install_append() {
-        cp ${WORKDIR}/Lircmap.xml ${D}${datadir}/xbmc/system/Lircmap.xml
-        cp ${WORKDIR}/keyboard.xml ${D}${datadir}/xbmc/system/keymaps/keyboard.xml
-        cp ${WORKDIR}/remote.xml ${D}${datadir}/xbmc/system/keymaps/remote.xml
-        #cp ${WORKDIR}/autoexec.py ${D}${datadir}/xbmc/scripts/autoexec.py
-        install -d ${D}/home/root/.xbmc/userdata
-        cp ${WORKDIR}/xbmc/* ${D}/home/root/.xbmc/ -av
-        cp ${WORKDIR}/autoexec.py ${D}/home/root/.xbmc/userdata/autoexec.py
+        install -d ${D}/mnt/hdd0/program/.xbmc/userdata
+	cp ${WORKDIR}/autoexec.py ${D}/usr/share/xbmc/autoexec.py
 }
 
 do_package_qa(){
 }
 
-FILES_${PN}_append = " /home/root/.xbmc/"
 
 PARALLEL_MAKE = " -j8 "
 
