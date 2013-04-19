@@ -10,18 +10,25 @@ RDEPENDS_${PN} = "\
   wireless-tools \
   wpa-supplicant \
   kernel-module-tunnel4 \
+  kernel-module-psnap \
+  kernel-module-p8022 \
+  kernel-module-stp \
+  kernel-module-8021q \
+  kernel-module-bridge \
+  kernel-module-pktgen \
+  kernel-module-llc \
+  kernel-module-hostap \
+  kernel-module-libertas \
+  kernel-module-ath9k \
+  kernel-module-scsi-wait-scan \
+  kernel-module-sr-mod \
+  kernel-module-p54common \
 "
 
-#  kernel-module-ieee80211-crypt \
-#  kernel-module-ieee80211-crypt-ccmp \
-#  kernel-module-ieee80211-crypt-tkip \
-#  kernel-module-ieee80211-crypt-wep \
-
-
-
-
-
 WLAN_CRYPTO_MODULES = "\
+   kernel-module-lib80211-crypt-ccmp \
+   kernel-module-lib80211-crypt-tkip \
+   kernel-module-lib80211-crypt-wep \
 "
 
 WLAN_PCI_MODULES = "\
