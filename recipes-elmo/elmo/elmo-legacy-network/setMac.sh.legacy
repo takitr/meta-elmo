@@ -1,0 +1,15 @@
+CMDLINE=`cat /config/macinfo`
+ifdown eth0
+ifconfig eth0 hw ether $CMDLINE
+ifup eth0
+while read line
+do
+        if [ "$line" = "auto ra0" ]
+        then
+                echo start network ra0. ifdown eth0 !!
+                ifdown eth0
+                break
+
+        fi
+done < /etc/network/interfaces
+

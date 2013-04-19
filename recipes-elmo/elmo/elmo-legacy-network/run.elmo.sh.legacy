@@ -1,0 +1,22 @@
+#!/bin/sh
+
+export LD_LIBRARY_PATH=/opt/lib
+umount /media/sda*
+rmmod usb_storage
+sleep 2
+
+if [ -e /config/macinfo ]; then
+	./setMac.sh&	
+fi
+cp ./thumb.jpg /mtmp/
+while true
+do 
+	if [ -e /mtmp/runStandby ]; then
+		echo "Find runStandby, So Run Maruapp"
+		./iftest.sh&
+		./launcher&
+		./maruapp&
+		./run.xbmc.sh
+	fi
+	sleep 5
+done

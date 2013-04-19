@@ -1,0 +1,10 @@
+[Unit]
+Description=Connection service
+After=syslog.target
+
+[Service]
+Type=dbus
+BusName=net.connman
+
+[Install]
+WantedBy=multi-user.target

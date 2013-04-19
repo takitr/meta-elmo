@@ -1,44 +1,25 @@
-#require console-image.bb
-
-LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
-
-IMAGE_PREPROCESS_COMMAND = "rootfs_update_timestamp"
-
-DISTRO_UPDATE_ALTERNATIVES = ""
-ROOTFS_PKGMANAGE_PKGS ?= '${@base_conditional("ONLINE_PACKAGE_MANAGEMENT", "none", "", "${ROOTFS_PKGMANAGE} ${DISTRO_UPDATE_ALTERNATIVES}", d)}'
-
-CONMANPKGS ?= "connman connman-plugin-loopback connman-plugin-ethernet connman-plugin-wifi connman-systemd"
-CONMANPKGS_libc-uclibc = ""
-
-IMAGE_INSTALL += " \
-        angstrom-packagegroup-boot \
-        packagegroup-basic \
-        ${CONMANPKGS} \
-        ${ROOTFS_PKGMANAGE_PKGS} \
-        timestamp-service \
-"
-
-IMAGE_DEV_MANAGER   = "udev"
-IMAGE_INIT_MANAGER  = "systemd"
-IMAGE_INITSCRIPTS   = " "
-IMAGE_LOGIN_MANAGER = "tinylogin shadow"
-
-
+require systemd-image.bb
 
 IMAGE_INSTALL += " \
 	packagegroup-elmo-drivers \
+	packagegroup-elmo-maruapp \
+	packagegroup-xbmc \
+	packagegroup-base \
+	${@base_contains("MACHINE_FEATURES", "wifi", "packagegroup-elmo-wlan", "", d)} \
+	mtd-utils \
+	emergency-update \
+	packagegroup-elmo-legacy \
 "
+ROOTFS_POSTPROCESS_COMMAND = " legacy_network_files ; "
 
-#	packagegroup-xbmc \
-#	packagegroup-gnome \
-#	packagegroup-gnome-apps \
-#	packagegroup-gnome-themes \
-#	packagegroup-gnome-xserver-base \
-#	packagegroup-core-x11-xserver \
-#	packagegroup-gnome-fonts \
+legacy_network_files (){
+        mv ${IMAGE_ROOTFS}/app/run.elmo.sh.legacy ${IMAGE_ROOTFS}/app/run.elmo.sh
+        mv ${IMAGE_ROOTFS}/lib/systemd/system/connman.service.legacy ${IMAGE_ROOTFS}/lib/systemd/system/connman.service
+        mv ${IMAGE_ROOTFS}/etc/network/interfaces.legacy ${IMAGE_ROOTFS}/etc/network/interfaces
+        mv ${IMAGE_ROOTFS}/app/setMac.sh.legacy ${IMAGE_ROOTFS}/app/setMac.sh
+}
+
 
 
 export IMAGE_BASENAME = "elmo-nand-image2"
 
-inherit image

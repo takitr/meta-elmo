@@ -11,4 +11,5 @@ RDEPENDS_${PN} = "\
 	libexif \
 	util-linux-sfdisk \
 	e2fsprogs-mke2fs \
+	hdparm \
 	"

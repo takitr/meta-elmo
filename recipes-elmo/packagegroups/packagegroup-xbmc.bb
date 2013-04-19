@@ -13,4 +13,8 @@ RPROVIDES_${PN} += "packagegroup-xbmc"
 RDEPENDS_${PN} = " \
 	packagegroup-xbmc-base \
 	xbmc \
+	script-mbox \
+	script-module-elisinterface \
+	script-module-elementtree \
+	script-module-beatifulsoup \
 "

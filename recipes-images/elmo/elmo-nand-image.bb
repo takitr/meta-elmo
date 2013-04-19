@@ -4,16 +4,11 @@ IMAGE_INSTALL += " \
 	packagegroup-elmo-drivers \
 	packagegroup-elmo-maruapp \
 	packagegroup-xbmc \
-	script-mbox	\
-	script-module-elisinterface \
+	packagegroup-base \
+	${@base_contains("MACHINE_FEATURES", "wifi", "packagegroup-elmo-wlan", "", d)} \
+	mtd-utils \
+	emergency-update \
 "
-
-#	packagegroup-gnome \
-#	packagegroup-gnome-apps \
-#	packagegroup-gnome-themes \
-#	packagegroup-gnome-xserver-base \
-#	packagegroup-core-x11-xserver \
-#	packagegroup-gnome-fonts \
 
 
 export IMAGE_BASENAME = "elmo-nand-image"
