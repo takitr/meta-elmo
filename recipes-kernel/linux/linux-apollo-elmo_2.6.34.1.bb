@@ -115,6 +115,7 @@ SRC_URI = "${KERNELORG_MIRROR}/pub/linux/kernel/v2.6/linux-2.6.34.tar.bz2;name=k
 			file://173-apollo_gmac.patch;apply=yes;striplevel=1 \
 			file://174-apollo_change_logo.patch \
 			file://200-systemd-patch-for-systemd.patch;apply=yes;striplevel=1 \
+			file://300-LIPP_6300ETH-ifup-ifdown-bugs-when-ethernet-is-unplu.patch;apply=yes;striplevel=1 \
 			file://defconfig_wireless \
 			file://defconfig_wireless.systemd \
 			file://defconfig_wireless.systemd.linuxtv \
