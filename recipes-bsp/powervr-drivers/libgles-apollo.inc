@@ -9,9 +9,7 @@ COMPATIBLE_MACHINE = "(elmo)"
 
 PROVIDES += "virtual/egl"
 
-SRC_URI = "http://archive.marusys.com/SDK_OGLES2_LINUX_APOLLO_2.08.28.0634.tar.gz	\
-		file://debug-sgxpack.tar.gz \
-		file://apollo.sgx.etc.tar.gz \
+SRC_URI = "http://update.prismcube.com/Ruby/SDK_OGLES2_LINUX_APOLLO_2.08.28.0634.tar.gz	\
 		"
 
 S = "${WORKDIR}/SDKPackage_OGLES2"

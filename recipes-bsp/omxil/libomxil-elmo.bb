@@ -9,13 +9,13 @@ KV = "2.6.34"
 
 PV = "${KV}"
 
-SRCDATE = "20120321"
+SRCDATE = "20130415"
 
 
 PR = "r101-${SRCDATE}"
 
 
-SRC_URI = "file://libomxil-elmo-debug-${SRCDATE}.tar.gz \
+SRC_URI = "http://update.prismcube.com/Ruby/libomxil-elmo-debug-${SRCDATE}.tar.gz \
 	   file://apollo_openmax_license.txt \
 	   file://libomxil-elmo.pc	\
           "
@@ -38,7 +38,8 @@ do_package_qa() {
 
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "83cf2228609523009cb8ca45507965c6"
+SRC_URI[md5sum] = "04832a673db708ea8bd30057ab8de75f"
+SRC_URI[sha256sum] = "15b15cacf96b8d94f0db8e41f11d1893ec0392fd3b05b1330c9016247529c197"
 #PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGES = "${PN} ${PN}-dbg "
 FILES_${PN} = "/usr/lib/* /usr/lib/pkgconfig/*"

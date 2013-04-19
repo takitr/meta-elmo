@@ -1,27 +1,18 @@
 DESCRIPTION = "Hardware drivers for ELMO"
-#SECTION = "base"
-#PRIORITY = "required"
 LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
-#def get_modules_extension(bb, d):
-#	if bb.data.getVar('GLIBC_ADDONS', d, 1) in ['nptl']:
-#		return "-gcc4.4"
-#	return ""
-
 KV = "2.6.37"
-
 
 PV = "3.3.0"
 
 SRCDATE = "20130408"
 
-
-#RDEPENDS = "kernel"
 PR = "SDK.GA330.${SRCDATE}"
 
+INHIBIT_PACKAGE_STRIP = "1"
 
-SRC_URI = "http://192.168.103.100/download/drivers/elmo/elmo-dualhd-gcc-4.4.2_glibc-linux-debug-${PR}.tar.gz "
+SRC_URI = "http://update.prismcube.com/Ruby/elmo-dualhd-gcc-4.4.2_glibc-linux-debug-${PR}.tar.gz"
 SRC_URI += "file://S10_stb_sys_startup.sh \
 	    file://S15_stb_dev_node.sh \
 	    file://S50_stb_load_app.sh \
@@ -44,10 +35,6 @@ do_install() {
 	install -m 0755 ${WORKDIR}/S*_stb_*.sh ${D}${sysconfdir}/init.d/
 	install -m 0755 ${WORKDIR}/cnxt_init ${D}${sysconfdir}/init.d/
 	install -d ${D}${sysconfdir}/rcS.d
-	#cd ${D}${sysconfdir}/rcS.d	
-	#ln -sf ../init.d/S10_stb_sys_startup.sh S52stb1
-	#ln -sf ../init.d/S15_stb_dev_node.sh S52stb2
-	#ln -sf ../init.d/S50_stb_load_app.sh S52stb3
 	touch ${WORKDIR}/opt/.appfs
 	install -d ${D}/app/
 	install -m 0755 ${WORKDIR}/lircd.conf ${D}${sysconfdir}/
@@ -71,8 +58,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "70a77d42c51605bab424330df3869526"
-SRC_URI[sha256sum] = "bc9cd18406ca89ee034bb161d9dbb242a16c9b28396e2af68e1626a26fa70d0a"
+SRC_URI[md5sum] = "11ba2099ff96d045924c73e19926f1f6"
+SRC_URI[sha256sum] = "f7a4ea3a3630958687bceca4d30ad00b7a5fbd2136d7aa58dd1ed195e64b31b6"
 
 #PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "

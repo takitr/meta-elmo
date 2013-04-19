@@ -1,3 +1,4 @@
+#!/bin/sh
 export EDITOR='/bin/vi'
 export HOME='/home/root'
 export LOGNAME='root'
@@ -12,10 +13,21 @@ export TERM='linux'
 export TSLIB_TSDEVICE='/dev/input/touchscreen0'
 export TZ='UTC'
 export USER='root'
-cd /app/
-./run.elmo.sh > /dev/null 2&>1 &
-cd /opt/bin
-. ./alsa.sh
+export LD_LIBRARY_PATH=/opt/lib
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/lib
-xbmc &
+mkdir /mtmp
+mount -t tmpfs tmpfs /mtmp 
+USB_PATH="/media/sdb1"
+CP_PATH="/mtmp"
+echo "Check Test Program"
+mkdir /media/sda2/thumbnail
+if [ -f $CP_PATH/run.testprogram.sh ]; then
+        cd $CP_PATH
+        ./run.testprogram.sh &
+else
+        echo "TestProgram NOT found"
+        cd /app/
+        ./StandbyProgram > /dev/null 2>&1 &
+        ./run.elmo.sh > /dev/null 2>&1
+fi

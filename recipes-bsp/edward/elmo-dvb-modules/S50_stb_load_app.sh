@@ -20,7 +20,9 @@
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
-echo nameserver 211.47.128.1 > /etc/resolv.conf
+#echo nameserver 211.47.128.1 > /etc/resolv.conf
+echo nameserver  168.126.63.1 > /etc/resolv.conf
+route add default gw 192.168.100.1 eth0
 /opt/bin/lircd --device=/dev/lirc0 -n --logfile=/dev/null >/dev/null 2>&1 &
 
 if [ -x /opt/bin/autorun.sh ] ; then

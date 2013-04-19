@@ -1,5 +1,5 @@
 DESCRIPTION = "Kernel drivers for the PowerVR SGX chipset found in the Apollo"
-LICENSE = "GPLv2"
+LICENSE = "proprietary"
 
 # download required binary distribution from:
 # http://software-dl.ti.com/dsps/dsps_public_sw/sdo_sb/targetcontent/gfxsdk/latest/index_FDS.html

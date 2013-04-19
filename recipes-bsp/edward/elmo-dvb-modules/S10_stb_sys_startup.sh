@@ -47,6 +47,10 @@ fi
 if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxtmasDrv.ko ]; then
 insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxtmasDrv.ko
 fi
+
+#mount stotage Device
+/app/mount.sh
+
 if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxtmvssDrv.ko ]; then
 insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxtmvssDrv.ko
 fi
@@ -54,23 +58,62 @@ if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxpvrDrv.ko ]; then
 insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxpvrDrv.ko
 fi
 if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=2
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1
+CMDLINE=`cat /proc/cmdline`
+
+echo $CMDLINE
+
+foundNTSC="False"
+for X in $CMDLINE
+do
+        #echo $X
+        case $X in
+                videomode=NTSC)
+                        echo found ntsc value = $X
+                        foundNTSC="True"
+        esac
+done
+
+if [ $foundNTSC = "True" ]
+then
+echo "found NTSC Mode"
+insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=2 ntscmode=1
+insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1 ntscmode=1
+else
+echo "found PAL Mode"
+insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=2 ntscmode=0
+insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1 ntscmode=0
+fi
 fi
 if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxIPfeDrv.ko ]; then
 insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxIPfeDrv.ko
 fi
 
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxdvbciDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxdvbciDrv.ko
+if [ -f opt/lib/modules/$KERNEL_VERSION/extra/lnxdvbciDrv.ko ]; then
+insmod opt/lib/modules/$KERNEL_VERSION/extra/lnxdvbciDrv.ko
 fi
 
 if [ -f /opt/lib/modules/$KERNEL_VERSION/fuse.ko ]; then
 insmod /opt/lib/modules/$KERNEL_VERSION/fuse.ko
 fi
 
-if [ -f /opt/lib/modules/$KERNEL_VERSION/tntfs.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/tntfs.ko
+if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/tntfs.ko ]; then
+insmod /opt/lib/modules/$KERNEL_VERSION/extra/tntfs.ko
+fi
+insmod /opt/lib/modules/2.6.34/extra/dvb-core.ko
+insmod /opt/lib/modules/2.6.34/extra/LinuxDVB.ko
+insmod /opt/lib/modules/2.6.34/extra/LinuxDVBSC.ko
+mknod /dev/sci0 c 230 0
+mknod /dev/sci1 c 230 1
+
+if [ -f /media/sdb1/run.checkusb.sh ]; then
+	echo "TEST LOG !!"
+	cd /media/sdb1
+	./run.checkusb.sh 
+elif [ -f /media/sda1/run.checkusb2.sh ]; then
+	cd /media/sda1
+	./run.checkusb2.sh 
+else
+	echo "Test File not found"
 fi
 
 echo "Driver modules loaded, please start the app now"
