@@ -1,0 +1,10 @@
+ctrl_interface=/var/run/wpa_supplicant
+eapol_version=1
+fast_reauth=1
+ap_scan=1
+network={
+	ssid="PrismCubeAP"
+	scan_ssid=0
+	key_mgmt=WPA-PSK
+	psk="curlyonion757"
+}
