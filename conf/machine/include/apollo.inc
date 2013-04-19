@@ -1,5 +1,6 @@
 SOC_FAMILY = "omap3"
 TARGET_ARCH = "arm"
+inherit image_types_ubi
 
 #require conf/machine/include/tune-cortexa9.inc
 #require conf/machine/include/tune-cortexa8.inc
