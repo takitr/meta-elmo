@@ -1,0 +1,14 @@
+require linux-firmware.inc
+
+DESCRIPTION = "Firmware for Atheros HTC devices ar9271"
+
+LICENSE = "Unknown"
+LIC_FILES_CHKSUM = "file://Marvell-Licence.txt;md5=4725db20ee6d3466bfc15f27076df560"
+
+SRCREV = "a3ffb1a98408f713ff82d59ae1fd203d650974c4"
+
+do_install() {
+	install -d ${D}${base_libdir}/firmware
+	install -m 0644 ar9271.fw ${D}${base_libdir}/firmware
+	install -m 0644 LICENCE.atheros_firmware ${D}${base_libdir}/firmware/LICENCE_ar9271.txt
+}

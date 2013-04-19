@@ -1,0 +1,24 @@
+diff --git a/include/osdep_service.h b/include/osdep_service.h
+index 4aa6478..c15539b 100755
+--- a/include/osdep_service.h
++++ b/include/osdep_service.h
+@@ -46,7 +46,6 @@
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,5))
+ 	#include <linux/kref.h>
+ #endif
+-	#include <linux/smp_lock.h>
+ 	#include <linux/netdevice.h>
+ 	#include <linux/skbuff.h>
+ 	#include <linux/circ_buf.h>
+diff --git a/include/rtw_io.h b/include/rtw_io.h
+index 15065c6..dab90b7 100755
+--- a/include/rtw_io.h
++++ b/include/rtw_io.h
+@@ -33,7 +33,6 @@
+ #include <linux/semaphore.h>
+ #endif
+ #include <linux/list.h>
+-#include <linux/smp_lock.h>
+ #include <linux/spinlock.h>
+ #include <asm/atomic.h>
+ 
