@@ -145,6 +145,7 @@ do_install_append () {
         install -d ${D}/boot
         install -m 0755 vmlinux ${D}/boot/vmlinux
         ${OBJCOPY} -O binary -R .note.gnu.build-id vmlinux vmlinux.bin
+	cp ${S}/vmlinux.bin ${D}/boot/ -a
         gzip ${D}/boot/vmlinux
 	oe_runmake headers_install INSTALL_HDR_PATH=${D}${exec_prefix}/src/linux-${KERNEL_VERSION} ARCH=$ARCH
 }
