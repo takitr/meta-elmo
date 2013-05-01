@@ -39,10 +39,15 @@ EXTRA_OECONF = " \
  --enable-player=omxplayer \
 "
 do_configure_prepend() {
-	git clone git://update.prismcube.com/pvr-addons.git ${S}/pvr-addons
-	cd ${S}/pvr-addons
-	git checkout -b ruby remotes/origin/ruby
-	cd -
+        if [ ! -e ${S}/pvr-addons ]; then
+                git clone git://update.prismcube.com/pvr-addons.git ${S}/pvr-addons
+                cd ${S}/pvr-addons
+                git checkout -b ruby remotes/origin/ruby
+        else
+                cd ${S}/pvr-addons
+                git pull
+        fi
+        cd -
 }
 
 do_install_append() {
