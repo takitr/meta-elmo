@@ -96,9 +96,6 @@ if [ -f /opt/lib/modules/$KERNEL_VERSION/fuse.ko ]; then
 insmod /opt/lib/modules/$KERNEL_VERSION/fuse.ko
 fi
 
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/tntfs.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/tntfs.ko
-fi
 insmod /opt/lib/modules/2.6.34/extra/dvb-core.ko
 insmod /opt/lib/modules/2.6.34/extra/LinuxDVB.ko
 insmod /opt/lib/modules/2.6.34/extra/LinuxDVBSC.ko

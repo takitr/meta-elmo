@@ -174,7 +174,7 @@ FILES_${PN}-dev = "${includedir}"
 
 # Append to update-rc.d postinst
 pkg_postinst_${PN}_append() {
-	oenote  "pkg_postinst...."
+#	oenote  "pkg_postinst...."
 #	rm -f /etc/powervr-esrev
 }
 

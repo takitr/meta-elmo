@@ -6,13 +6,11 @@ KV = "2.6.37"
 
 PV = "3.3.0"
 
-SRCDATE = "20130408"
-
+SRCDATE = "20130519"
 PR = "SDK.GA330.${SRCDATE}"
-
 INHIBIT_PACKAGE_STRIP = "1"
 
-SRC_URI = "http://update.prismcube.com/Ruby/elmo-dualhd-gcc-4.4.2_glibc-linux-debug-${PR}.tar.gz"
+SRC_URI = "http://update.prismcube.com/Ruby/elmo-${PR}.tar.gz"
 SRC_URI += "file://S10_stb_sys_startup.sh \
 	    file://S15_stb_dev_node.sh \
 	    file://S50_stb_load_app.sh \
@@ -58,8 +56,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "11ba2099ff96d045924c73e19926f1f6"
-SRC_URI[sha256sum] = "f7a4ea3a3630958687bceca4d30ad00b7a5fbd2136d7aa58dd1ed195e64b31b6"
+SRC_URI[md5sum] = "6ec1548a005f69c631ea6ce8fe2170d0"
+SRC_URI[sha256sum] = "a21ccb553b1a69b5eb749fa8756cb06b78f854486e7f115d7c8703726d1504e5"
 
 #PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "

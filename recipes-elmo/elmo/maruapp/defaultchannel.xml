@@ -133,7 +133,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 3A_KU</SatName>
+<SatName>EUTELSAT 3A/KU</SatName>
 <Longitude>30</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -183,7 +183,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 3A_C</SatName>
+<SatName>EUTELSAT 3A/C</SatName>
 <Longitude>30</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -197,7 +197,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ASTRA 4A_KU</SatName>
+<SatName>ASTRA 4A/KU</SatName>
 <Longitude>48</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -634,7 +634,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 7A_KU</SatName>
+<SatName>EUTELSAT 7A/KU</SatName>
 <Longitude>70</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -882,7 +882,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 9A_KU</SatName>
+<SatName>EUTELSAT 9A/KU</SatName>
 <Longitude>90</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -1202,7 +1202,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 10A_KU</SatName>
+<SatName>EUTELSAT 10A/KU</SatName>
 <Longitude>100</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -1405,7 +1405,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 10A_C</SatName>
+<SatName>EUTELSAT 10A/C</SatName>
 <Longitude>100</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -1437,7 +1437,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>HOTBIRD_KU</SatName>
+<SatName>HOTBIRD/KU</SatName>
 <Longitude>130</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -2351,7 +2351,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 16A_KU</SatName>
+<SatName>EUTELSAT 16A/KU</SatName>
 <Longitude>160</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -2734,7 +2734,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ASTRA 1_KU</SatName>
+<SatName>ASTRA 1/KU</SatName>
 <Longitude>192</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -3657,7 +3657,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ARABSAT 5C_C</SatName>
+<SatName>ARABSAT 5C/C</SatName>
 <Longitude>200</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -3743,7 +3743,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 21A_KU</SatName>
+<SatName>EUTELSAT 21A/KU</SatName>
 <Longitude>216</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -3856,7 +3856,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ASTRA 3B_KU</SatName>
+<SatName>ASTRA 3B/KU</SatName>
 <Longitude>235</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -4050,7 +4050,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 25A_KU</SatName>
+<SatName>EUTELSAT 25A/KU</SatName>
 <Longitude>255</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -4145,7 +4145,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>BADR 4,5,6_KU</SatName>
+<SatName>BADR 4,5,6/KU</SatName>
 <Longitude>260</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -4798,7 +4798,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ASTRA 2A,2B_KU</SatName>
+<SatName>ASTRA 2A,2B/KU</SatName>
 <Longitude>282</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -5307,7 +5307,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 28A_KU</SatName>
+<SatName>EUTELSAT 28A/KU</SatName>
 <Longitude>285</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -5582,7 +5582,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ARABSAT 5A_KU</SatName>
+<SatName>ARABSAT 5A/KU</SatName>
 <Longitude>305</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -5848,7 +5848,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ARABSAT 5A_C</SatName>
+<SatName>ARABSAT 5A/C</SatName>
 <Longitude>305</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -5916,7 +5916,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 24_KU</SatName>
+<SatName>INTELSAT 24/KU</SatName>
 <Longitude>310</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -5930,7 +5930,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ASTRA 1G_KU</SatName>
+<SatName>ASTRA 1G/KU</SatName>
 <Longitude>315</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -6016,7 +6016,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 33A_KU</SatName>
+<SatName>EUTELSAT 33A/KU</SatName>
 <Longitude>330</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -6084,7 +6084,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 36A_KU</SatName>
+<SatName>EUTELSAT 36A/KU</SatName>
 <Longitude>360</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -6431,7 +6431,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 36B_KU</SatName>
+<SatName>EUTELSAT 36B/KU</SatName>
 <Longitude>361</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -6553,7 +6553,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>HELLAS SAT 2_KU</SatName>
+<SatName>HELLAS SAT 2/KU</SatName>
 <Longitude>390</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -6738,7 +6738,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM1_KU</SatName>
+<SatName>EXPRESS AM1/KU</SatName>
 <Longitude>400</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -6752,7 +6752,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM1_C</SatName>
+<SatName>EXPRESS AM1/C</SatName>
 <Longitude>400</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -6775,7 +6775,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>TURKSAT 2A_KU</SatName>
+<SatName>TURKSAT 2A/KU</SatName>
 <Longitude>420</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -7374,7 +7374,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 12_KU</SatName>
+<SatName>INTELSAT 12/KU</SatName>
 <Longitude>450</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -7442,7 +7442,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>YAMAL 202_C</SatName>
+<SatName>YAMAL 202/C</SatName>
 <Longitude>490</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -7645,7 +7645,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>YAHSAT 1A_KU</SatName>
+<SatName>YAHSAT 1A/KU</SatName>
 <Longitude>525</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -7776,7 +7776,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM22_KU</SatName>
+<SatName>EXPRESS AM22/KU</SatName>
 <Longitude>530</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -8042,7 +8042,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>BONUM 1_KU</SatName>
+<SatName>BONUM 1/KU</SatName>
 <Longitude>560</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -8119,7 +8119,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>NSS 12_KU</SatName>
+<SatName>NSS 12/KU</SatName>
 <Longitude>570</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -8169,7 +8169,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>NSS 12_C</SatName>
+<SatName>NSS 12/C</SatName>
 <Longitude>570</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -8228,7 +8228,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 904_KU</SatName>
+<SatName>INTELSAT 904/KU</SatName>
 <Longitude>600</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -8449,7 +8449,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 904_C</SatName>
+<SatName>INTELSAT 904/C</SatName>
 <Longitude>600</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -8463,7 +8463,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 902_KU</SatName>
+<SatName>INTELSAT 902/KU</SatName>
 <Longitude>620</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -8549,7 +8549,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 902_C</SatName>
+<SatName>INTELSAT 902/C</SatName>
 <Longitude>620</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -8563,7 +8563,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 906_KU</SatName>
+<SatName>INTELSAT 906/KU</SatName>
 <Longitude>642</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -8577,7 +8577,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 906_C</SatName>
+<SatName>INTELSAT 906/C</SatName>
 <Longitude>642</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -8636,7 +8636,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 17_KU</SatName>
+<SatName>INTELSAT 17/KU</SatName>
 <Longitude>660</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -8686,7 +8686,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 17_C</SatName>
+<SatName>INTELSAT 17/C</SatName>
 <Longitude>660</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -8808,7 +8808,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 20_KU</SatName>
+<SatName>INTELSAT 20/KU</SatName>
 <Longitude>685</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -8948,7 +8948,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 20_C</SatName>
+<SatName>INTELSAT 20/C</SatName>
 <Longitude>685</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -9583,7 +9583,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 70A_KU</SatName>
+<SatName>EUTELSAT 70A/KU</SatName>
 <Longitude>705</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -9597,7 +9597,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM2_C</SatName>
+<SatName>EXPRESS AM2/C</SatName>
 <Longitude>800</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -9737,7 +9737,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 15_KU</SatName>
+<SatName>INTELSAT 15/KU</SatName>
 <Longitude>852</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -9877,7 +9877,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>KAZSAT 2_KU</SatName>
+<SatName>KAZSAT 2/KU</SatName>
 <Longitude>865</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -9927,7 +9927,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>YAMAL 201_KU</SatName>
+<SatName>YAMAL 201/KU</SatName>
 <Longitude>900</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -9995,7 +9995,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>YAMAL 201_C</SatName>
+<SatName>YAMAL 201/C</SatName>
 <Longitude>900</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -10252,7 +10252,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>NSS 6_KU</SatName>
+<SatName>NSS 6/KU</SatName>
 <Longitude>950</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -10374,7 +10374,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM33_KU</SatName>
+<SatName>EXPRESS AM33/KU</SatName>
 <Longitude>965</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -10532,7 +10532,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM33_C</SatName>
+<SatName>EXPRESS AM33/C</SatName>
 <Longitude>965</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -10636,7 +10636,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ASIASAT 5_C</SatName>
+<SatName>ASIASAT 5/C</SatName>
 <Longitude>1005</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -10911,7 +10911,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM3_KU</SatName>
+<SatName>EXPRESS AM3/KU</SatName>
 <Longitude>1400</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -10952,7 +10952,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM3_C</SatName>
+<SatName>EXPRESS AM3/C</SatName>
 <Longitude>1400</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -11065,7 +11065,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 707_C</SatName>
+<SatName>INTELSAT 707/C</SatName>
 <Longitude>3070</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -11079,7 +11079,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 14_KU</SatName>
+<SatName>INTELSAT 14/KU</SatName>
 <Longitude>3150</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -11102,7 +11102,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 11_C</SatName>
+<SatName>INTELSAT 11/C</SatName>
 <Longitude>3170</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -11341,7 +11341,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>NSS 806_C</SatName>
+<SatName>NSS 806/C</SatName>
 <Longitude>3195</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -12120,7 +12120,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>NSS 10_C</SatName>
+<SatName>NSS 10/C</SatName>
 <Longitude>3225</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -12143,7 +12143,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 903_KU</SatName>
+<SatName>INTELSAT 903/KU</SatName>
 <Longitude>3255</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -12211,7 +12211,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 903_C</SatName>
+<SatName>INTELSAT 903/C</SatName>
 <Longitude>3255</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -12279,7 +12279,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 25_KU</SatName>
+<SatName>INTELSAT 25/KU</SatName>
 <Longitude>3285</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -12293,7 +12293,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 25_C</SatName>
+<SatName>INTELSAT 25/C</SatName>
 <Longitude>3285</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -12307,7 +12307,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>HISPASAT 1C_KU</SatName>
+<SatName>HISPASAT 1C/KU</SatName>
 <Longitude>3300</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -12663,7 +12663,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 907_KU</SatName>
+<SatName>INTELSAT 907/KU</SatName>
 <Longitude>3325</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -12686,7 +12686,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 907_C</SatName>
+<SatName>INTELSAT 907/C</SatName>
 <Longitude>3325</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -12763,7 +12763,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 905_KU</SatName>
+<SatName>INTELSAT 905/KU</SatName>
 <Longitude>3355</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -12804,7 +12804,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 905_C</SatName>
+<SatName>INTELSAT 905/C</SatName>
 <Longitude>3355</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -12836,7 +12836,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>NSS 7_KU</SatName>
+<SatName>NSS 7/KU</SatName>
 <Longitude>3380</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -12868,7 +12868,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>NSS 7_C</SatName>
+<SatName>NSS 7/C</SatName>
 <Longitude>3380</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -12882,7 +12882,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>NSS 5_KU</SatName>
+<SatName>NSS 5/KU</SatName>
 <Longitude>3400</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -12905,7 +12905,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>NSS 5_C</SatName>
+<SatName>NSS 5/C</SatName>
 <Longitude>3400</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -12937,7 +12937,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 901_KU</SatName>
+<SatName>INTELSAT 901/KU</SatName>
 <Longitude>3420</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -12960,7 +12960,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 901_C</SatName>
+<SatName>INTELSAT 901/C</SatName>
 <Longitude>3420</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -13010,7 +13010,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>TELSTAR 12_KU</SatName>
+<SatName>TELSTAR 12/KU</SatName>
 <Longitude>3450</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -13159,7 +13159,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS A4_C</SatName>
+<SatName>EXPRESS A4/C</SatName>
 <Longitude>3460</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -13182,7 +13182,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 12WA_KU</SatName>
+<SatName>EUTELSAT 12WA/KU</SatName>
 <Longitude>3475</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -13349,7 +13349,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM44_KU</SatName>
+<SatName>EXPRESS AM44/KU</SatName>
 <Longitude>3490</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -13453,7 +13453,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM44_C</SatName>
+<SatName>EXPRESS AM44/C</SatName>
 <Longitude>3490</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -13467,7 +13467,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT 8WA_KU</SatName>
+<SatName>EUTELSAT 8WA/KU</SatName>
 <Longitude>3520</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -13571,7 +13571,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>NILESAT_KU</SatName>
+<SatName>NILESAT/KU</SatName>
 <Longitude>3530</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -14269,7 +14269,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT_5WA_KU</SatName>
+<SatName>EUTELSAT/5WA/KU</SatName>
 <Longitude>3550</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -14382,7 +14382,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EUTELSAT_5WA_C</SatName>
+<SatName>EUTELSAT/5WA/C</SatName>
 <Longitude>3550</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -14612,7 +14612,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>AMOS 2,3_KU</SatName>
+<SatName>AMOS 2,3/KU</SatName>
 <Longitude>3560</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -15031,7 +15031,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 1002_KU</SatName>
+<SatName>INTELSAT 1002/KU</SatName>
 <Longitude>3590</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -15207,7 +15207,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INTELSAT 1002_C</SatName>
+<SatName>INTELSAT 1002/C</SatName>
 <Longitude>3590</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -15257,7 +15257,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>THOR 3,5_KU</SatName>
+<SatName>THOR 3,5/KU</SatName>
 <Longitude>3592</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -15694,7 +15694,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ABS 1_KU</SatName>
+<SatName>ABS 1/KU</SatName>
 <Longitude>750</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -15807,7 +15807,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ABS 1_C</SatName>
+<SatName>ABS 1/C</SatName>
 <Longitude>750</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -15902,7 +15902,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS AM2_C</SatName>
+<SatName>EXPRESS AM2/C</SatName>
 <Longitude>800</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -16042,7 +16042,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>EXPRESS A2_C</SatName>
+<SatName>EXPRESS A2/C</SatName>
 <Longitude>1030</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -16340,7 +16340,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ASIASAT 5_KU</SatName>
+<SatName>ASIASAT 5/KU</SatName>
 <Longitude>1005</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -16390,7 +16390,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ASIASAT 3S_KU</SatName>
+<SatName>ASIASAT 3S/KU</SatName>
 <Longitude>1055</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -16467,7 +16467,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>ASIASAT 3S_C</SatName>
+<SatName>ASIASAT 3S/C</SatName>
 <Longitude>1055</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -17418,7 +17418,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>AMAZONAS 1_C</SatName>
+<SatName>AMAZONAS 1/C</SatName>
 <Longitude>2990</Longitude>
 <Band>C</Band>
 <Transponder>
@@ -17703,7 +17703,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INSAT 4A_KU</SatName>
+<SatName>INSAT 4A/KU</SatName>
 <Longitude>830</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -17816,7 +17816,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>MEASAT 3_KU</SatName>
+<SatName>MEASAT 3/KU</SatName>
 <Longitude>915</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -18118,7 +18118,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>AMC 9_C</SatName>
+<SatName>AMC 9/C</SatName>
 <Longitude>2770</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -18159,7 +18159,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>AMAZONAS 1_KU</SatName>
+<SatName>AMAZONAS 1/KU</SatName>
 <Longitude>2990</Longitude>
 <Band>Ku</Band>
 <Transponder>
@@ -18407,7 +18407,7 @@
 </Transponder>
 </Satellite>
 <Satellite>
-<SatName>INSAT 4A_C</SatName>
+<SatName>INSAT 4A/C</SatName>
 <Longitude>830</Longitude>
 <Band>C</Band>
 <Transponder>

@@ -1,6 +1,5 @@
 #!/bin/sh
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/lib
-/etc/init.d/transmission restart &
 
 while true
 do
@@ -9,15 +8,12 @@ do
 		modprobe usb_storage
 		echo "Find runMaru, so Run XBMC"
 		mkdir /mnt/hdd0/program/.xbmc/userdata -p
-		if [ -f /mnt/hdd0/program/.xbmc/userdata/autoexec.py ]; then
-		        echo "autoexec.py exist!!"
-		else
-		        cp /usr/share/xbmc/autoexec.py /mnt/hdd0/program/.xbmc/userdata/ -a
-		fi
+		cp /usr/share/xbmc/autoexec.py /mnt/hdd0/program/.xbmc/userdata/ -a
 		while true
 		do
+			/app/check_script.sh post &
 			xbmc
-			sleep 3
+			sleep 1
 		done
 	fi
 	sleep 1

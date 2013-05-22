@@ -11,7 +11,7 @@ PV = "12.0"
 
 PR = "r0"
 
-RV = "1.0.0.beta8"
+RV = "1.0.0.beta10"
 
 SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${RV} \
 "

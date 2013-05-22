@@ -31,10 +31,18 @@ do_install() {
 }
 
 pkg_postinst(){
-	mv /app/run.elmo.sh.legacy /app/run.elmo.sh
-	mv /lib/systemd/system/connman.service.legacy /lib/systemd/system/connman.service
-	mv /etc/network/interfaces.legacy /etc/network/interfaces
-	mv /app/setMac.sh.legacy /app/setMac.sh
+	if [ -f /app/run.elmo.sh.legacy ];then 
+		mv /app/run.elmo.sh.legacy /app/run.elmo.sh
+	fi
+	if [ -f /lib/systemd/system/connman.service.legacy ];then
+		mv /lib/systemd/system/connman.service.legacy /lib/systemd/system/connman.service
+	fi
+	if [ -f /etc/network/interfaces.legacy ];then
+		mv /etc/network/interfaces.legacy /etc/network/interfaces
+	fi
+	if [ -f /app/setMac.sh.legacy ];then
+		mv /app/setMac.sh.legacy /app/setMac.sh
+	fi
 }
 
 PACKAGES = "${PN} "

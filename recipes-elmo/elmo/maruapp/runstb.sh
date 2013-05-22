@@ -16,15 +16,13 @@ export USER='root'
 export LD_LIBRARY_PATH=/opt/lib
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
-mkdir /mtmp
-mount -t tmpfs tmpfs /mtmp 
 USB_PATH="/media/sdb1"
 CP_PATH="/mtmp"
 echo "Check Test Program"
 mkdir /media/sda2/thumbnail
 if [ -f $CP_PATH/run.testprogram.sh ]; then
         cd $CP_PATH
-        ./run.testprogram.sh &
+        ./run.testprogram.sh 
 else
         echo "TestProgram NOT found"
         cd /app/

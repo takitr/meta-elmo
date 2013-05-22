@@ -6,17 +6,20 @@ rmmod usb_storage
 sleep 2
 
 if [ -e /config/macinfo ]; then
-	./setMac.sh&	
+	./setMac.sh&
+else
+	/etc/init.d/networking restart &
 fi
 cp ./thumb.jpg /mtmp/
 while true
 do 
 	if [ -e /mtmp/runStandby ]; then
 		echo "Find runStandby, So Run Maruapp"
+		./check_script.sh pre
 		./iftest.sh&
 		./launcher&
 		./maruapp&
 		./run.xbmc.sh
 	fi
-	sleep 5
+	sleep 1
 done

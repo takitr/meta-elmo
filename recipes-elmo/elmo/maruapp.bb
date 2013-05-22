@@ -4,14 +4,15 @@ LICENSE = "proprietary"
 
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
-PV = "1.0.0.beta8"
+PV = "1.0.0.beta10"
 
-SRCDATE = "20130414"
+SRCDATE = "20130519"
 
 
 SRC_URI = "http://update.prismcube.com/Ruby/elmo-maruapp-${PV}-${SRCDATE}.tar.gz "
 SRC_URI += "file://runstb.sh \
 	    file://defaultchannel.xml \
+	    file://check_script.sh \
 	    file://checkswap \
 	    file://none.html \
 	    file://icons.tar.gz	\
@@ -24,6 +25,8 @@ do_install() {
         install -d ${D}/app
         install -d ${D}/app/tmp
 	cp ${WORKDIR}/release/* ${D}/app/ -av 
+	install -d ${D}/app/pre-maruapp
+	install -d ${D}/app/post-maruapp
 	install -d ${D}${sysconfdir}/init.d
 	install -m 0755 ${WORKDIR}/runstb.sh ${D}${sysconfdir}/init.d/
 	install -m 0755 ${WORKDIR}/defaultchannel.xml ${D}/app/
@@ -44,8 +47,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags"
 
-SRC_URI[md5sum] = "58f2d4bff61e45d21a935c68aff0fdb1"
-SRC_URI[sha256sum] = "b19768e435e020028a7ead8f3ac6a59ab44a1fc251ebebeef8f6ff92b995cb3c"
+SRC_URI[md5sum] = "a6cbaba110d17b63f1009b12e3002fe9"
+SRC_URI[sha256sum] = "d198ee5452a84626a876d3203c178935344cf51802b73298da2409fd14a46c0b"
 
 PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "

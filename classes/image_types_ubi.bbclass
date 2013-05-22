@@ -12,6 +12,6 @@ IMAGE_CMD_ubi_prepend = " \
 "
 
 IMAGE_CMD_ubi_append = " \
-	cp ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.ubi update_ruby/rootfs.ubi -a; \
+	cp ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.ubi update_ruby/rootfs.rootfs.ubi -a; \
 	zip -v ${IMAGE_NAME}_update.zip update_ruby/*; \
 "
