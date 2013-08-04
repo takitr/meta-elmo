@@ -37,4 +37,6 @@ RDEPENDS_${PN} = " \
  	python-simplejson \
 	python-textutils \
 	python-subprocess \
+	python-xmlrpc   \
+	eglibc-gconv-cp1252 \
 "
