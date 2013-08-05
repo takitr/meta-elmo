@@ -16,7 +16,7 @@ KERNEL_IMAGETYPE = "vmlinux"
 
 COMPATIBLE_MACHINE = "(elmo)"
 
-PR = "r8"
+PR = "r9"
 PV = "2.6.34.2"
 
 MODULE = "linux-2.6.34"

@@ -9,10 +9,10 @@ do
 		echo "Find runMaru, so Run XBMC"
 		mkdir /mnt/hdd0/program/.xbmc/userdata -p
 		cp /usr/share/xbmc/autoexec.py /mnt/hdd0/program/.xbmc/userdata/ -a
+		/app/check_script.sh post &
 		while true
 		do
-			/app/check_script.sh post &
-			xbmc
+			xbmc 
 			sleep 1
 		done
 	fi
