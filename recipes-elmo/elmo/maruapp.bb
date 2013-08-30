@@ -4,9 +4,9 @@ LICENSE = "proprietary"
 
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
-PV = "1.1.8"
+PV = "1.1.10"
 
-SRCDATE = "20130819"
+SRCDATE = "20130830"
 
 
 SRC_URI = "http://update.prismcube.com/Ruby/elmo-maruapp-${PV}-${SRCDATE}.tar.gz "
@@ -47,8 +47,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags"
 
-SRC_URI[md5sum] = "1babec5d14b2e4a1af15323ba2b3832b"
-SRC_URI[sha256sum] = "9346a7f0d066ac510db18ba16ca973b63055edb51294153499e947451dec590d"
+SRC_URI[md5sum] = "a2365597d121b144af171f57aa3d6836"
+SRC_URI[sha256sum] = "30446d813305c2dce8397b4282ff0909574d8cc86410812bf380a5c51f4a7d21"
 
 PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "

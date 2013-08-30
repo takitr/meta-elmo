@@ -1,5 +1,7 @@
 require systemd-image.bb
 
+PV = "1.1.10"
+
 IMAGE_INSTALL += " \
 	packagegroup-elmo-drivers \
 	packagegroup-elmo-maruapp \

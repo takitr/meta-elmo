@@ -56,8 +56,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "337e5f655c93b0d06b7430319b2fedc3"
-SRC_URI[sha256sum] = "0e2e3b1071661f52dbd97eb48f395dbc74682593aef0aa96f81d2c188838a13e"
+SRC_URI[md5sum] = "ba4a7002b9efb1f9ff36dfcbbffd5d50"
+SRC_URI[sha256sum] = "5a5daf8c38739e783fb6af0666c821f6f6c888f1e6157fc2733173e1c14e0183"
 
 #PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "
