@@ -8,7 +8,7 @@ SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
 
 PV = "12.0"
 
-PR = "r1"
+PR = "r6"
 
 RV = "1.1.10"
 
