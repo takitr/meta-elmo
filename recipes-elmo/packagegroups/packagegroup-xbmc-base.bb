@@ -35,6 +35,7 @@ RDEPENDS_${PN} = " \
 	libplist	\
 	libshairport	\
 	librtmp	\
+	libbluray \
  	python-simplejson \
 	python-textutils \
 	python-subprocess \
