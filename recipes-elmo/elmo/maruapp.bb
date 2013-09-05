@@ -5,7 +5,7 @@ LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
 PV = "1.1.10"
-
+PR = "r1"
 SRCDATE = "20130830"
 
 
@@ -25,13 +25,12 @@ do_install() {
         install -d ${D}/app
         install -d ${D}/app/tmp
 	cp ${WORKDIR}/release/* ${D}/app/ -av 
-	install -d ${D}/app/pre-maruapp
-	install -d ${D}/app/post-maruapp
 	install -d ${D}${sysconfdir}/init.d
 	install -m 0755 ${WORKDIR}/runstb.sh ${D}${sysconfdir}/init.d/
 	install -m 0755 ${WORKDIR}/defaultchannel.xml ${D}/app/
 	install -m 0777 ${WORKDIR}/checkswap ${D}/app/
 	install -m 0777 ${WORKDIR}/none.html ${D}/app/tmp/
+	install -m 0777 ${WORKDIR}/check_script.sh ${D}/app/
 	install -d ${D}/config
 	install -d ${D}/devel
 	install -d ${D}/var/CI
