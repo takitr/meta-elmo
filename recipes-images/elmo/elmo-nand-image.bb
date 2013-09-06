@@ -9,6 +9,7 @@ IMAGE_INSTALL += " \
 	mtd-utils \
 	emergency-update \
 	packagegroup-elmo-legacy \
+	packagegroup-elmo-hbbtv \
 "
 ROOTFS_POSTPROCESS_COMMAND = " legacy_network_files ; "
 

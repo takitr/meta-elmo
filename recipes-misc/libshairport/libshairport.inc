@@ -1,7 +1,7 @@
 DESCRIPTION = "libshairport for oe."
 SECTION = "misc"
 HOMEPAGE = "http://xbmc.org/"
-DEPENDS = ""
+DEPENDS = "openssl"
 LICENSE = "GPLv2"
 INC_PR = "r4"
 S="${WORKDIR}/${PN}-${PV}_lib"
