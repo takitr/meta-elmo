@@ -5,6 +5,8 @@ RDEPENDS_${PN} = "netbase connman maruapp elmo-dvb-modules"
 inherit pkgconfig
 COMPATIBLE_MACHINE = "(elmo)"
 
+PR = "r1"
+
 SRC_URI = " file://iftest.sh \
 	    file://run.elmo.sh.legacy \
 	    file://connman.service.legacy \

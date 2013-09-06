@@ -6,7 +6,7 @@ KV = "2.6.37"
 
 PV = "3.3.0"
 
-SRCDATE = "20130819"
+SRCDATE = "20130906"
 PR = "SDK.GA330.${SRCDATE}"
 INHIBIT_PACKAGE_STRIP = "1"
 
@@ -28,7 +28,7 @@ do_compile() {
 }
 do_install() {
         install -d ${D}/opt
-	cp ${WORKDIR}/opt/* ${D}/opt/ -av 
+	cp ${WORKDIR}/opt/* ${D}/opt/ -a
 	install -d ${D}${sysconfdir}/init.d
 	install -m 0755 ${WORKDIR}/S*_stb_*.sh ${D}${sysconfdir}/init.d/
 	install -m 0755 ${WORKDIR}/cnxt_init ${D}${sysconfdir}/init.d/
@@ -56,8 +56,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "ba4a7002b9efb1f9ff36dfcbbffd5d50"
-SRC_URI[sha256sum] = "5a5daf8c38739e783fb6af0666c821f6f6c888f1e6157fc2733173e1c14e0183"
+SRC_URI[md5sum] = "6b32699dbd03a3a720e91ec48b201f87"
+SRC_URI[sha256sum] = "ca50a22e24c7976345d1ea0c988aca9358da40dff81ae3bc72c2c5c1932136bf"
 
 #PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "

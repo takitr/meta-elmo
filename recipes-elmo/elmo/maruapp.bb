@@ -4,10 +4,10 @@ LICENSE = "proprietary"
 
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
-PV = "1.1.10"
-PR = "r1"
-SRCDATE = "20130830"
-
+PV = "1.1.11"
+PR = "r2"
+SRCDATE = "20130906"
+INHIBIT_PACKAGE_STRIP = "1"
 
 SRC_URI = "http://update.prismcube.com/Ruby/elmo-maruapp-${PV}-${SRCDATE}.tar.gz "
 SRC_URI += "file://runstb.sh \
@@ -17,6 +17,7 @@ SRC_URI += "file://runstb.sh \
 	    file://none.html \
 	    file://icons.tar.gz	\
 	    file://upnp_xml.tar.gz \
+	    file://release.info.${PV} \
 	"
 
 S = "${WORKDIR}"
@@ -24,7 +25,7 @@ S = "${WORKDIR}"
 do_install() {
         install -d ${D}/app
         install -d ${D}/app/tmp
-	cp ${WORKDIR}/release/* ${D}/app/ -av 
+	cp ${WORKDIR}/release/* ${D}/app/ -a
 	install -d ${D}${sysconfdir}/init.d
 	install -m 0755 ${WORKDIR}/runstb.sh ${D}${sysconfdir}/init.d/
 	install -m 0755 ${WORKDIR}/defaultchannel.xml ${D}/app/
@@ -38,6 +39,7 @@ do_install() {
 	cp ${WORKDIR}/icons  ${D}/home/root/ -a
 	install -d ${D}/usr/local
 	cp ${WORKDIR}/share ${D}/usr/local -a
+	install -m 0755 ${WORKDIR}/release.info.${PV} ${D}${sysconfdir}/release.info
 
 }
 
@@ -46,8 +48,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags"
 
-SRC_URI[md5sum] = "a2365597d121b144af171f57aa3d6836"
-SRC_URI[sha256sum] = "30446d813305c2dce8397b4282ff0909574d8cc86410812bf380a5c51f4a7d21"
+SRC_URI[md5sum] = "4ea24c96711ab5b57b3086229eb375de"
+SRC_URI[sha256sum] = "3d8a23deab1f56de1a3549b29695eeae7ff63653c13506045245dc6b756d58d3"
 
 PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "

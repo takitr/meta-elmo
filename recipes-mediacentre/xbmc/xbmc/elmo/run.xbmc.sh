@@ -10,6 +10,7 @@ do
 		mkdir /mnt/hdd0/program/.xbmc/userdata -p
 		cp /usr/share/xbmc/autoexec.py /mnt/hdd0/program/.xbmc/userdata/ -a
 		/app/check_script.sh post &
+		ulimit -s 1024
 		while true
 		do
 			xbmc 

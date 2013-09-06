@@ -17,7 +17,7 @@ Before=getty.target
 
 [Service]
 Environment=TERM=vt100
-# ExecStart=-/sbin/agetty -s %I @BAUDRATE@
+ExecStart=-/sbin/agetty -s %I @BAUDRATE@
 Restart=always
 RestartSec=0
 UtmpIdentifier=%I

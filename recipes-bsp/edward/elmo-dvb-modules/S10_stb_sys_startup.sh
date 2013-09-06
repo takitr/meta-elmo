@@ -96,12 +96,6 @@ if [ -f /opt/lib/modules/$KERNEL_VERSION/fuse.ko ]; then
 insmod /opt/lib/modules/$KERNEL_VERSION/fuse.ko
 fi
 
-insmod /opt/lib/modules/2.6.34/extra/dvb-core.ko
-insmod /opt/lib/modules/2.6.34/extra/LinuxDVB.ko
-insmod /opt/lib/modules/2.6.34/extra/LinuxDVBSC.ko
-mknod /dev/sci0 c 230 0
-mknod /dev/sci1 c 230 1
-
 if [ -f /media/sdb1/run.checkusb.sh ]; then
 	echo "TEST LOG !!"
 	cd /media/sdb1
@@ -112,6 +106,17 @@ elif [ -f /media/sda1/run.checkusb2.sh ]; then
 else
 	echo "Test File not found"
 fi
+
+if [ -f /mtmp/run.testprogram.sh ]; then
+	echo "run.testprogram.sh found. Do not insmod DVB"
+else
+	insmod /opt/lib/modules/2.6.34/extra/dvb-core.ko
+	insmod /opt/lib/modules/2.6.34/extra/LinuxDVB.ko
+	insmod /opt/lib/modules/2.6.34/extra/LinuxDVBSC.ko
+	mknod /dev/sci0 c 230 0
+	mknod /dev/sci1 c 230 1
+fi
+
 
 echo "Driver modules loaded, please start the app now"
 
