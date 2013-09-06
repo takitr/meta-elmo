@@ -1,0 +1,177 @@
+From ae953bbcac6f22ca056497643370b1904400d5c0 Mon Sep 17 00:00:00 2001
+From: doliyu <doliyu@doliyu-virtual-machine.(none)>
+Date: Fri, 19 Apr 2013 03:16:29 +0900
+Subject: [PATCH] [LIPP_6300ETH]ifup/ifdown bugs when ethernet is unplugged.
+
+---
+ .../tmbslPhyMYSTI110E/src/tmbslPhyMYSTI110E.c      |   12 +++++++---
+ .../LIPP_6300ETH/intfs/ItmbslPhy/inc/tmbslPhy.h    |    2 ++
+ drivers/net/LIPP_6300ETH/src/gmac_drv.c            |   25 ++++++++++----------
+ 3 files changed, 24 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/LIPP_6300ETH/comps/tmbslPhyMYSTI110E/src/tmbslPhyMYSTI110E.c b/drivers/net/LIPP_6300ETH/comps/tmbslPhyMYSTI110E/src/tmbslPhyMYSTI110E.c
+index 5b387af..ecbec2f 100644
+--- a/drivers/net/LIPP_6300ETH/comps/tmbslPhyMYSTI110E/src/tmbslPhyMYSTI110E.c
++++ b/drivers/net/LIPP_6300ETH/comps/tmbslPhyMYSTI110E/src/tmbslPhyMYSTI110E.c
+@@ -45,7 +45,9 @@
+ #include <linux/delay.h>
+ #include "remap.h"
+ #include <asm/io.h>
+-#define AUTO_NEG_DELAY_MULTIPLIER (300)
++#define AUTO_NEG_DELAY_MULTIPLIER (100) // (300) by doliyu 2013.04.18 only check during 100ms
++#define AUTO_NEG_DELAY_MULTIPLIER_TIMER (10) // (300) by doliyu 2013.04.18 only check during 100ms
++
+ #endif
+ 
+ /* Defines */
+@@ -1065,7 +1067,8 @@ tmbslPhyMYSTI110EAutoNegotiate (
+ {
+ 
+     tmErrorCode_t   ethStatus=TM_OK;
+-    UInt32             timeout=AUTO_NEG_DELAY_MULTIPLIER; /* Timeout of 800*5 msecs = 4 Sec */
++    UInt32             timeout=pAutoNegotiationMask->maskFromInterrupt ? AUTO_NEG_DELAY_MULTIPLIER_TIMER : AUTO_NEG_DELAY_MULTIPLIER; /* Timeout of 800*5 msecs = 4 Sec */
++	
+ 
+     UInt16 regVal = ANAR_DEFAULT_VAL;
+     UInt16 mask =0;
+@@ -1142,7 +1145,10 @@ tmbslPhyMYSTI110EAutoNegotiate (
+     while(((regVal & TMBSL_PHYMYSTI110E_BMSR_AN_VAL) != TMBSL_PHYMYSTI110E_BMSR_AN_VAL) &&
+            (timeout > 0 ) )
+     {
+-        mdelay(10);
++	if( pAutoNegotiationMask->maskFromInterrupt == True )
++		mdelay(10); //by doliyu 2013.04.18
++	else
++		msleep( 10 );
+ 
+         ethStatus = tmbslPhyMYSTI110ERead(ethUnitId,tmbslPhyMYSTI110EBmsr,&regVal);
+ 
+diff --git a/drivers/net/LIPP_6300ETH/intfs/ItmbslPhy/inc/tmbslPhy.h b/drivers/net/LIPP_6300ETH/intfs/ItmbslPhy/inc/tmbslPhy.h
+index 6bf9760..c4e53eb 100644
+--- a/drivers/net/LIPP_6300ETH/intfs/ItmbslPhy/inc/tmbslPhy.h
++++ b/drivers/net/LIPP_6300ETH/intfs/ItmbslPhy/inc/tmbslPhy.h
+@@ -170,6 +170,8 @@ typedef struct	_tmbslPhyAutoNegotiationMask_t
+     Bool                            mask1000BaseTFullDuplexSupport;
+     Bool                            mask1000BaseTHalfDuplexSupport;    
+     /* 1G related ends*/
++	/*reserved for user*/
++    Bool				maskFromInterrupt;
+ } tmbslPhyAutoNegotiationMask_t, *ptmbslPhyAutoNegotitationMask_t;
+ 
+ 
+diff --git a/drivers/net/LIPP_6300ETH/src/gmac_drv.c b/drivers/net/LIPP_6300ETH/src/gmac_drv.c
+index d711fdf..d0db425 100644
+--- a/drivers/net/LIPP_6300ETH/src/gmac_drv.c
++++ b/drivers/net/LIPP_6300ETH/src/gmac_drv.c
+@@ -185,8 +185,8 @@ static __s32 alloc_dma_descriptors( struct net_device *dev );
+ static void free_dma_descriptors( lipp_6300Eth_PRIV_t * priv );
+ static __s32 setup_dma_descriptors( lipp_6300Eth_PRIV_t * priv );
+ static __s32 down_lipp_6300Eth( struct net_device *dev );
+-static __s32 up_lipp_6300Eth( struct net_device *dev );
+-static __s32 setup_phy( struct net_device *dev );
++static __s32 up_lipp_6300Eth( struct net_device *dev, Bool fromTimer );
++static __s32 setup_phy( struct net_device *dev, Bool fromTimer );
+ static __s32 setup_mac( struct net_device *dev );
+ static __s32 setup_filter_config( struct net_device *dev );
+ static __s32 generate_crc(char *data, __s32 data_len);
+@@ -1056,7 +1056,7 @@ static __s32 setup_dma_descriptors( lipp_6300Eth_PRIV_t * priv )
+  *NOTES:
+  */
+ /*--------------------------------------------------------------------------*/
+-static __s32 up_lipp_6300Eth( struct net_device *dev )
++static __s32 up_lipp_6300Eth( struct net_device *dev, Bool fromTimer )
+ {
+     unsigned long flags ;
+     tmhwLIPP6100Eth_EnTxfr_t Txfer;
+@@ -1069,7 +1069,7 @@ static __s32 up_lipp_6300Eth( struct net_device *dev )
+ 
+     /* Normal operation of the driver  */
+     /* Do autonegotiation or setup the PHY parameters to fixed values */
+-    if( setup_phy(dev) != 0 )
++    if( setup_phy(dev, fromTimer) != 0 )
+     {
+         GMAC_PRINT_ERR("Error while Setting up PHY\n");
+         goto _err_up_lipp_6300Eth ;
+@@ -1185,7 +1185,7 @@ _err_up_lipp_6300Eth:
+  *--------------------------------------------------------------------------
+  */
+ 
+-static __s32 setup_phy( struct net_device *dev )
++static __s32 setup_phy( struct net_device *dev, Bool fromTimer )
+ {
+     __s32 i = 0 ;
+     lipp_6300Eth_PRIV_t * priv = NETDEV_PRIV( dev ) ;
+@@ -1286,6 +1286,7 @@ static __s32 setup_phy( struct net_device *dev )
+         }
+ #endif
+ 
++	auto_neg_mask.maskFromInterrupt = fromTimer;
+ 
+         /* autonegotiate for three times. If every time it fails, then set fixed values */
+         for( i = 0 ; i < AUTO_NEG_RETRY_COUNT ; i++ )
+@@ -1965,7 +1966,7 @@ static __s32 lipp_6300Eth_open(struct net_device *dev)
+     memset( &priv->stats, 0, sizeof( struct net_device_stats ) ) ;
+ 
+     /* Bring up the interface */
+-    if( up_lipp_6300Eth( dev ) != 0 )
++    if( up_lipp_6300Eth( dev , false ) != 0 )
+     {
+         goto _err_free_intr ;
+     }
+@@ -2756,7 +2757,7 @@ static __s32 lipp_6300Eth_do_ioctl(struct net_device *dev, struct ifreq *ifr, __
+                 down_lipp_6300Eth( dev ) ;
+ 
+                 /* bring up the interface with new settings */
+-                if( up_lipp_6300Eth( dev ) != 0 )
++                if( up_lipp_6300Eth( dev, false ) != 0 )
+                 {
+                     GMAC_PRINT_ERR("Error in up_lipp_6300Eth");
+                     retVal = -1;
+@@ -2999,7 +3000,7 @@ static void lipp_6300Eth_work_reset_link(struct work_struct *pWork)
+     */
+     priv->u_autoneg = ETH_AUTO_NEGOTIATION;
+     priv->u_mode = ETH_LINK_MODE;
+-    ret_val = up_lipp_6300Eth(dev);
++    ret_val = up_lipp_6300Eth(dev, false);
+ 
+     spin_unlock_irqrestore(&priv->lock,flags);
+ 
+@@ -3101,7 +3102,7 @@ static void lipp_6300Eth_timer( unsigned long data)
+         {
+             priv->linkStatus = 1;            
+             /* Bring up the interface */
+-            if( up_lipp_6300Eth( dev ) != 0 )
++            if( up_lipp_6300Eth( dev, true ) != 0 )
+             {
+                 GMAC_PRINT_ERR("Error in Timer up_lipp_6300Eth");
+                 goto _err_timer;
+@@ -4239,7 +4240,7 @@ static __s32 lipp_6300Eth_ethtool_set_settings(struct net_device *dev, struct et
+     }
+ 
+     /* bring up the interface */
+-    if( up_lipp_6300Eth( dev ) != 0 )
++    if( up_lipp_6300Eth( dev, false ) != 0 )
+     {
+         goto _err_ethtool_set_settings ;
+     }
+@@ -4391,7 +4392,7 @@ static __s32 lipp_6300Eth_ethtool_set_pauseparam(struct net_device *dev, struct
+     down_lipp_6300Eth( dev ) ;
+ 
+     /* bring up the interface */
+-    if( up_lipp_6300Eth( dev ) != 0 )
++    if( up_lipp_6300Eth( dev, false ) != 0 )
+     {
+         goto _err_set_pauseparam ;
+     }
+@@ -4523,7 +4524,7 @@ static int lipp_6300Eth_resume(struct platform_device *pdev)
+ 	/* Allocates DMA descriptors, receive buffers, adds the PHY timer,
+ 	** enables GMAC, GMAC DMA
+ 	*/
+-	if( up_lipp_6300Eth(dev) != 0 )
++	if( up_lipp_6300Eth(dev, false) != 0 )
+ 	{
+ 		goto _err_lipp_6300Eth_resume;
+ 	}
+-- 
+1.7.9.5
+

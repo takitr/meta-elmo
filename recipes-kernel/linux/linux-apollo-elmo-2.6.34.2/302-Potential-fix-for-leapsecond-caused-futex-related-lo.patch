@@ -1,0 +1,26 @@
+From c0c2ca158cee3ea398a6ce53fa7ab5188b1cd20f Mon Sep 17 00:00:00 2001
+From: doliyu <doliyu@doliyu-virtual-machine.(none)>
+Date: Thu, 11 Jul 2013 13:56:24 +0900
+Subject: [PATCH 2/2] Potential fix for leapsecond caused futex related load
+ spikes
+
+---
+ kernel/time/timekeeping.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+index 39f6177..864856d 100644
+--- a/kernel/time/timekeeping.c
++++ b/kernel/time/timekeeping.c
+@@ -178,6 +178,8 @@ void timekeeping_leap_insert(int leapsecond)
+ 	xtime.tv_sec += leapsecond;
+ 	wall_to_monotonic.tv_sec -= leapsecond;
+ 	update_vsyscall(&xtime, timekeeper.clock, timekeeper.mult);
++	if( leapsecond )
++		clock_was_set();
+ }
+ 
+ #ifdef CONFIG_GENERIC_TIME
+-- 
+1.7.9.5
+

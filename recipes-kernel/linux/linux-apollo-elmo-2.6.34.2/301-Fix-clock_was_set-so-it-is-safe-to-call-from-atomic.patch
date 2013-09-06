@@ -1,0 +1,45 @@
+From 2614bb60266bca2743b1b7d38ca5ce24c7ac02c3 Mon Sep 17 00:00:00 2001
+From: doliyu <doliyu@doliyu-virtual-machine.(none)>
+Date: Thu, 11 Jul 2013 13:56:04 +0900
+Subject: [PATCH 1/2] Fix clock_was_set so it is safe to call from atomic
+
+---
+ kernel/hrtimer.c |   17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
+index 0086628..5a872d4 100644
+--- a/kernel/hrtimer.c
++++ b/kernel/hrtimer.c
+@@ -647,12 +647,27 @@ static void retrigger_next_event(void *arg)
+  * resolution timer interrupts. On UP we just disable interrupts and
+  * call the high resolution interrupt code.
+  */
+-void clock_was_set(void)
++static void do_clock_was_set(struct work_struct *work)
+ {
+ 	/* Retrigger the CPU local events everywhere */
+ 	on_each_cpu(retrigger_next_event, NULL, 1);
+ }
+ 
++static DECLARE_WORK(clock_was_set_work, do_clock_was_set);
++
++void clock_was_set(void)
++{
++	/*
++	 * We can't call on_each_cpu() from atomic context,
++	 * so if we're in_atomic, schedule the clock_was_set
++	 * for later.
++	 */
++	if (in_atomic())
++		schedule_work(&clock_was_set_work);
++	else
++		do_clock_was_set(NULL);
++}
++
+ /*
+  * During resume we might have to reprogram the high resolution timer
+  * interrupt (on the local CPU):
+-- 
+1.7.9.5
+

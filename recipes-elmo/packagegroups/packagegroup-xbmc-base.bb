@@ -34,7 +34,14 @@ RDEPENDS_${PN} = " \
 	transmission \
 	libplist	\
 	libshairport	\
+	librtmp	\
+	libbluray \
  	python-simplejson \
 	python-textutils \
 	python-subprocess \
+	python-xmlrpc   \
+	eglibc-gconv-cp1252 \
+	python-pprint \
+	python-robotparser \
+	python-difflib \
 "

@@ -20,7 +20,11 @@ startup() {
   esac
 }
 
-for i in /app/$1-maruapp/S*
+if [ ! -e /config/$1-maruapp ]; then
+	mkdir /config/$1-maruapp
+fi
+
+for i in /config/$1-maruapp/S*
 do
 	[ ! -f $i ] && continue
 
