@@ -1,0 +1,62 @@
+diff --git a/drivers/media/dvb/dvb-core/dvbdev.c b/drivers/media/dvb/dvb-core/dvbdev.c
+index 94159b9..791ed11 100644
+--- a/drivers/media/dvb/dvb-core/dvbdev.c
++++ b/drivers/media/dvb/dvb-core/dvbdev.c
+@@ -267,6 +267,9 @@ int dvb_register_device(struct dvb_adapter *adap, struct dvb_device **pdvbdev,
+ 	dprintk(KERN_DEBUG "DVB: register adapter%d/%s%d @ minor: %i (0x%02x)\n",
+ 		adap->num, dnames[type], id, minor, minor);
+ 
++//	printk("***************** DVB: register adapter%d/%s%d @ minor: %i (0x%02x)\n",
++//		adap->num, dnames[type], id, minor, minor);
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL(dvb_register_device);
+@@ -303,7 +306,8 @@ static int dvbdev_check_free_adapter_num(int num)
+ 
+ static int dvbdev_get_free_adapter_num (void)
+ {
+-	int num = 0;
++	
++	int num = 1; //hack
+ 
+ 	while (num < DVB_MAX_ADAPTERS) {
+ 		if (dvbdev_check_free_adapter_num(num))
+@@ -320,22 +324,25 @@ int dvb_register_adapter(struct dvb_adapter *adap, const char *name,
+ 			 short *adapter_nums)
+ {
+ 	int i, num;
+-
++        
+ 	mutex_lock(&dvbdev_register_lock);
+-
+-	for (i = 0; i < DVB_MAX_ADAPTERS; ++i) {
+-		num = adapter_nums[i];
+-		if (num >= 0  &&  num < DVB_MAX_ADAPTERS) {
+-		/* use the one the driver asked for */
+-			if (dvbdev_check_free_adapter_num(num))
++//hack
++	if (strcmp (name,"Ruby") == 0)
++	    num = 0;
++	else {
++		for (i = 1; i < DVB_MAX_ADAPTERS; ++i) {
++			num = adapter_nums[i];
++			if (num >= 1  &&  num < DVB_MAX_ADAPTERS) {
++			/* use the one the driver asked for */
++				if (dvbdev_check_free_adapter_num(num))
++					break;
++			} else {
++				num = dvbdev_get_free_adapter_num();
+ 				break;
+-		} else {
+-			num = dvbdev_get_free_adapter_num();
+-			break;
++			}
++			num = -1;
+ 		}
+-		num = -1;
+ 	}
+-
+ 	if (num < 0) {
+ 		mutex_unlock(&dvbdev_register_lock);
+ 		return -ENFILE;
