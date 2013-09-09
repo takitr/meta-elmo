@@ -13,7 +13,7 @@ IMAGE_INSTALL += " \
 	emergency-update \
 	packagegroup-elmo-legacy \
 "
-ROOTFS_POSTPROCESS_COMMAND = " legacy_network_files ; "
+ROOTFS_POSTPROCESS_COMMAND += " legacy_network_files ; "
 
 legacy_network_files (){
         mv ${IMAGE_ROOTFS}/app/run.elmo.sh.legacy ${IMAGE_ROOTFS}/app/run.elmo.sh
