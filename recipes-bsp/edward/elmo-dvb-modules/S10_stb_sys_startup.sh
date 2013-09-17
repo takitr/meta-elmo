@@ -110,7 +110,7 @@ fi
 if [ -f /mtmp/run.testprogram.sh ]; then
 	echo "run.testprogram.sh found. Do not insmod DVB"
 else
-	insmod /opt/lib/modules/2.6.34/extra/dvb-core.ko
+	modprobe dvb-core
 	insmod /opt/lib/modules/2.6.34/extra/LinuxDVB.ko
 	insmod /opt/lib/modules/2.6.34/extra/LinuxDVBSC.ko
 	mknod /dev/sci0 c 230 0

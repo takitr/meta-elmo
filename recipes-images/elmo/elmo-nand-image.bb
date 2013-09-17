@@ -1,7 +1,7 @@
 require systemd-image.bb
 
-PV = "1.1.11"
-PR = "r2"
+PV = "1.1.12"
+PR = "r1"
 
 IMAGE_INSTALL += " \
 	packagegroup-elmo-drivers \

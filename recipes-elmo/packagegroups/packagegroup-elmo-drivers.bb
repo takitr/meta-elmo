@@ -11,6 +11,7 @@ RDEPENDS_${PN} = "\
 	libgles-apollo \
 	elmo-dvb-modules \
 	kernel-vmlinux \
+	kernel-module-dvb-core \
 	"
 
 RRECOMMENDS_${PN} = "\

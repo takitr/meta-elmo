@@ -8,9 +8,9 @@ SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
 
 PV = "12.0"
 
-PR = "r9"
+PR = "r0"
 
-RV = "1.1.11"
+RV = "1.1.12"
 
 SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${RV} \
 "
