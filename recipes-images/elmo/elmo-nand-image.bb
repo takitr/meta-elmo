@@ -1,6 +1,6 @@
 require systemd-image.bb
 
-PV = "1.1.12"
+PV = "1.1.13"
 PR = "r1"
 
 IMAGE_INSTALL += " \

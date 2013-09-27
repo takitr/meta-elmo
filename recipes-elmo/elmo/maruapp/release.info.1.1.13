@@ -1,0 +1,10 @@
+Version=1.1.13
+Date=2013.09.27
+
+1.1.13 Release Note 
+
+- Support Language Ukrainian ( and virtual keyboard )
+- Fixed focus issue on ChannelList
+- Fixed osd clear issue on media player fullscreen 
+- Fixed bugs on channel data save
+- Fixed bugs on smart card operation
