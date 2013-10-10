@@ -12,6 +12,9 @@ RDEPENDS_${PN} = "\
 	elmo-dvb-modules \
 	kernel-vmlinux \
 	kernel-module-dvb-core \
+	kernel-module-usbserial \
+	kernel-module-ftdi-sio \
+	kernel-module-pl2303 \
 	"
 
 RRECOMMENDS_${PN} = "\
