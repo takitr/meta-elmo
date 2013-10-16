@@ -12,4 +12,5 @@ RDEPENDS_${PN} = "\
 	util-linux-sfdisk \
 	e2fsprogs-mke2fs \
 	hdparm \
+	vsftpd \
 	"

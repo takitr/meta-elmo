@@ -5,6 +5,7 @@ LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=a6067ad950b28336613aed9dd47b1271"
 
 DEPENDS = "libcap openssl"
+PR = "ruby-r1"
 
 SRC_URI = "https://security.appspot.com/downloads/vsftpd-${PV}.tar.gz \
            file://makefile-destdir.patch \
@@ -16,6 +17,7 @@ SRC_URI = "https://security.appspot.com/downloads/vsftpd-${PV}.tar.gz \
            file://vsftpd.ftpusers \
            file://change-secure_chroot_dir.patch \
            file://volatiles.99_vsftpd \
+	   file://vsftpd.chroot_list \
 "
 
 LIC_FILES_CHKSUM = "file://COPYING;md5=a6067ad950b28336613aed9dd47b1271 \
@@ -64,6 +66,7 @@ do_install() {
 
     install -m 600 ${WORKDIR}/vsftpd.ftpusers ${D}${sysconfdir}/
     install -m 600 ${WORKDIR}/vsftpd.user_list ${D}${sysconfdir}/
+    install -m 600 ${WORKDIR}/vsftpd.chroot_list ${D}${sysconfdir}/
     if ! test -z ${PAMLIB} ; then
         install -d ${D}${sysconfdir}/pam.d/
         cp ${S}/RedHat/vsftpd.pam ${D}${sysconfdir}/pam.d/vsftpd
