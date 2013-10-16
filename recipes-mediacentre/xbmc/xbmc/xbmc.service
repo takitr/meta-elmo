@@ -1,0 +1,13 @@
+[Unit]
+Description=xbmc service starting...
+After=cnxt.service
+#Before=display-manager.service
+#Conflicts=display-manager.service
+
+[Service]
+Type=simple
+ExecStart=/bin/sh -c '/app/run.xbmc.sh'
+TimeoutSec="5min 20s"
+
+[Install]
+WantedBy=graphical.target

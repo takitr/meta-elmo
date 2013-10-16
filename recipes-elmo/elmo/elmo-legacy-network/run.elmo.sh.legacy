@@ -28,8 +28,7 @@ do
 		./check_script.sh pre
 		./iftest.sh&
 		./launcher&
-		./maruapp &
-		./run.xbmc.sh
+		./maruapp
 	fi
 	sleep 1
 done
