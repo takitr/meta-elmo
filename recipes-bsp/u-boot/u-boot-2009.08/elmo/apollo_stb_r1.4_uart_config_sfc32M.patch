@@ -1,0 +1,418 @@
+diff -Naur u-boot-2009.08/common/cmd_gcs.c u-boot-2009.08_uart_config_sfc32M/common/cmd_gcs.c
+--- u-boot-2009.08/common/cmd_gcs.c	2010-10-08 01:54:48.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/common/cmd_gcs.c	2010-10-07 22:39:03.000000000 -0500
+@@ -12,13 +12,13 @@
+ #include "ip2070gcs.h"
+ //#include "board.h"
+ #include "stbcfg.h"
+-
++#include <asm/io.h>
+ 
+ extern gcs_global_info gFlashInfo;
+ int gcs_flash_sel(const char* altflashtype);
+ void gcs_display_info(flashtype_t flashtype);
+ extern void nand_init(void);
+-extern int nx_sfc_mtd_init(void);
++extern int nx_sfc_mtd_init(devicetype_t type);
+ 
+ int do_gcs(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
+ {
+@@ -136,7 +136,7 @@
+       gFlashInfo.altflashtype1 = FLASH_TYPE_SFC;
+       /* Configuring SFC Flash device on CS2 */
+       nx_gcs_init(CFG_SFC_FLASH_TYPE, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
+-      nx_sfc_mtd_init();	  
++      nx_sfc_mtd_init(CFG_SFC_FLASH_TYPE);	  
+    }
+    else
+    {
+diff -Naur u-boot-2009.08/common/hdcp.c u-boot-2009.08_uart_config_sfc32M/common/hdcp.c
+--- u-boot-2009.08/common/hdcp.c	2010-10-08 01:54:48.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/common/hdcp.c	2010-10-07 20:52:03.000000000 -0500
+@@ -8,6 +8,7 @@
+ #include <asm/byteorder.h>
+ #include "stbcfg.h"
+ #include "ldr_types.h"
++#include <asm/io.h>
+ 
+ #define SSP_KEY_LEN 336
+ 
+diff -Naur u-boot-2009.08/config.mk u-boot-2009.08_uart_config_sfc32M/config.mk
+--- u-boot-2009.08/config.mk	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/config.mk	2010-10-07 20:44:44.000000000 -0500
+@@ -132,6 +132,7 @@
+ CPPFLAGS += -I$(OBJTREE)/include2 -I$(OBJTREE)/include
+ endif
+ 
++CPPFLAGS += -I$(TOPDIR)/lib_$(ARCH)
+ CPPFLAGS += -I$(TOPDIR)/include
+ CPPFLAGS += -fno-builtin -ffreestanding -nostdinc	\
+ 	-isystem $(gccincdir) -pipe $(PLATFORM_CPPFLAGS)
+diff -Naur u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/config.mk u-boot-2009.08_uart_config_sfc32M/cpu/arm_cortexa8/pnx84xx/config.mk
+--- u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/config.mk	2010-10-08 01:54:48.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/cpu/arm_cortexa8/pnx84xx/config.mk	2010-10-08 01:57:19.000000000 -0500
+@@ -25,7 +25,7 @@
+ 		     -msoft-float
+ 
+ # Make ARMv5 to allow more compilers to work, even though its v7a.
+-PLATFORM_CPPFLAGS += -march=armv5 -D__UBOOT__ -DSWCONFIG_INCL=1
++PLATFORM_CPPFLAGS += -march=armv5 -D__UBOOT__ -DSWCONFIG_INCL=1 
+ #PLATFORM_CPPFLAGS += -mcpu=cortex-a9 -mfpu=vfpv3-d16 -mfloat-abi=softfp -D__UBOOT__ -DSWCONFIG_INCL=1
+ PLATFORM_CPPFLAGS += -I$(_TMROOT)/inc
+ PLATFORM_CPPFLAGS += -I$(_TMTGTBUILDROOT)/cfgtoh/$(STB_HW_CONFIG)-$(STB_SW_CONFIG)
+diff -Naur u-boot-2009.08/drivers/mtd/sfc/nx_sfc.c u-boot-2009.08_uart_config_sfc32M/drivers/mtd/sfc/nx_sfc.c
+--- u-boot-2009.08/drivers/mtd/sfc/nx_sfc.c	2010-10-08 01:54:48.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/drivers/mtd/sfc/nx_sfc.c	2010-10-07 20:30:43.000000000 -0500
+@@ -101,9 +101,11 @@
+      u8 * prefetch_buf_ptr = (u8*)&prefetch_buf_store;
+      u8 * buf_ptr = flash->cd.buffer;
+      
++     if (flash->cd.offset >= 0x1000000)
++         nx_sfc_32b_en(flash);
+ 
+    /* Program the protocol delay regsister */
+-      writel(SFC_PROTCOL_DELAY_READ,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++  //    writel(SFC_PROTCOL_DELAY_READ,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
+    
+    /* Program the CSR Register ------------*/
+       writel(SFC_CSR_READ, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
+@@ -140,6 +142,8 @@
+          if (count == flash->cd.length)
+             break;
+       }
++      if (flash->cd.offset >= 0x1000000)
++         nx_sfc_32b_dis(flash);
+ 
+       return flash->cd.length;
+ }
+@@ -153,9 +157,10 @@
+      u8 * prefetch_buf_ptr = (u8*)&prefetch_buf_store;
+      u8 * buf_ptr = flash->cd.buffer;
+      
+-
++     if (flash->cd.offset >= 0x1000000) 
++       nx_sfc_32b_en(flash); 
+    /* Program the protocol delay regsister */
+-      writel(SFC_PROTOCL_DELAY_WRITE,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++//      writel(SFC_PROTOCL_DELAY_WRITE,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
+    
+    /* Program the CSR Register ------------*/
+       writel(SFC_CSR_WRITE, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
+@@ -184,6 +189,9 @@
+       /* -------Write the CMD to the DEV_CMD Register---------- */
+       writel(SFC_DEV_CMD_WRITE,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
+       nx_sfc_wait(flash->mmio_base);
++      if (flash->cd.offset >= 0x1000000)
++         nx_sfc_32b_dis(flash);
++ 
+       return flash->cd.length;
+ }
+ 
+@@ -193,7 +201,7 @@
+ {
+ 
+    /* Program the protocol delay regsister */
+-      writel(0x10008000,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++  //    writel(0x10008000,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
+    
+    /* Program the CSR Register ------------*/
+       writel(0x0000167, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
+@@ -218,7 +226,7 @@
+ ssize_t nx_sfc_write(struct nx_sfc_ctrl *flash) 
+ {
+    /* Program the protocol delay regsister */
+-      writel(0x10000000, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++   //   writel(0x10000000, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
+   
+    /* Program the CSR Register ------------*/
+       writel(0x03C20001, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
+@@ -242,7 +250,8 @@
+ ssize_t nx_sfc_erase(struct nx_sfc_ctrl *flash) 
+ {
+    /* Program the protocol delay regsister */
+-    
++   if (flash->cd.offset >= 0x1000000)
++      nx_sfc_32b_en(flash);
+    
+    /* Program the CSR Register ------------*/
+    writel(SFC_CSR_ERASE,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
+@@ -253,6 +262,10 @@
+    /* Write the CMD to the DEV_CMD Register */
+    writel(SFC_DEV_CMD_ERASE, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
+    nx_sfc_wait(flash->mmio_base);
++   
++   if (flash->cd.offset >= 0x1000000)
++      nx_sfc_32b_dis(flash);
++
+    return flash->cd.length;
+ }
+  
+@@ -819,6 +832,9 @@
+ 	{ "w25x32", 0xef3016, 0, 64 * 1024, 64, SECT_4K, },
+ 	{ "w25x64", 0xef3017, 0, 64 * 1024, 128, SECT_4K, },
+ 	{ "w25x128",0xef4018, 0, 64 * 1024, 256, },
++	
++        /* Macronics 32MB Flash */
++        { "MX25L",0xC22019, 0, 64 * 1024, 512, },
+ };
+ 
+ static struct sfc_flash_info * jedec_probe(struct nx_sfc_drv *sfc)
+@@ -836,14 +852,13 @@
+ 	 */
+    	struct nx_sfc_ctrl *flash = sfc->nx_sfc;
+    	tmp = nx_sfc_read_id(flash->mmio_base);
+-	if (tmp < 0) {
+-		#if 0
+-		MTDDEBUG(MTD_DEBUG_LEVEL0, "error %d reading JEDEC ID\n",
++	if (tmp == 0xFFFFFFFF) {
++		
++		printk(KERN_ERR "error %d reading JEDEC ID\n",
+ 			tmp);
+-		#endif
+ 		return NULL;
+ 	}
+-   	id = (u8 *) &tmp;
++	id = (u8 *) &tmp;
+  	jedec = id[0];
+ 	jedec = jedec << 8;
+ 	jedec |= id[1];
+@@ -1005,14 +1020,78 @@
+ 	return nx_sfc_mtd_read(&flash->mtd, (loff_t) flash_sect_addr, (size_t) len, (size_t *) &retlen, (u_char*)env_buffer);
+ }
+ 
+-int  nx_sfc_mtd_init(void)
++int  nx_sfc_mtd_init(devicetype_t type)
+ {
+    ulong status;
+    status = nx_sfc_probe(&sfc[0]);
+-   if(status == 0)
+-		sfc_info[0] = &((sfc[0].nx_sfc)->mtd);
+-    return status;	
++   if(status == 0){
++	   sfc_info[0] = &((sfc[0].nx_sfc)->mtd);
++	   struct nx_sfc_ctrl	*flash = sfc[0].nx_sfc;
++	   	   
++	   switch(type)
++	   {
++	       case SPI_16bit:
++	          /* Program the protocol delay regsister, SFC_PROTOCOL_DELAY_VAL_16B; 0x00038000; */
++		      writel(SFC_PROTOCOL_DELAY_VAL_16B, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++	        break;
++
++	       case SPI_24bit:
++	         /* Program the protocol delay regsister, SFC_PROTOCOL_DELAY_VAL_24B; 0x10038000; */
++		      writel(SFC_PROTOCOL_DELAY_VAL_24B, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++	        break;
++
++	       case SPI_32bit:
++	          /* Program the protocol delay regsister, SFC_PROTOCOL_DELAY_VAL_32B; 0x20038000; */
++		      writel(SFC_PROTOCOL_DELAY_VAL_32B, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++	        break;
++			
++	       default:
++	         break;
++	   }
++   }
++   return status;	
++}
++
++
++void nx_sfc_32b_en(struct nx_sfc_ctrl *flash)
++{
++   u32 status;
++   nx_sfc_write_en(flash->mmio_base);
++   //Program the CSR register, enable prefetch, tx_en, tx_hold_en
++   writel(0x67, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++   // Do SPL CMD- "32b Addr Enable for enabling the 4th Addr Byte" - B7h
++   writel(0xB70D0203, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++   nx_sfc_wait(flash->mmio_base);
++   status = nx_sfc_read_RSCUR(flash->mmio_base);
++ //  printk(KERN_ERR "32bstatus = %d \n", status);
++   writel(SFC_PROTOCOL_DELAY_VAL_32B,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++
+ }
+ 
++void nx_sfc_32b_dis(struct nx_sfc_ctrl *flash)
++{
++   u32 status;
++   nx_sfc_write_en(flash->mmio_base);
++   //Program the CSR register, enable prefetch, tx_en, tx_hold_en
++   writel(0x67, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++   // Do SPL CMD- "32b Addr Enable for enabling the 4th Addr Byte" - B7h
++   writel(0xE90D0203, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++   nx_sfc_wait(flash->mmio_base);
++   status = nx_sfc_read_RSCUR(flash->mmio_base);
++//   printk(KERN_ERR "32bstatus-dis = %d \n", status);
++   writel(SFC_PROTOCOL_DELAY_VAL_24B,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++
++}
+ 
++u32 nx_sfc_read_RSCUR(void __iomem  * sfc_regs)
++{
++   u32 status;
++   writel(0x7, sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++   writel(0x1, sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++   writel(0x050D0203, sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++   nx_sfc_wait(sfc_regs);
++   status = readl(sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR0_DATA_REG);
++
++   return status;
++}
+ 
+diff -Naur u-boot-2009.08/drivers/mtd/sfc/nx_sfc.h u-boot-2009.08_uart_config_sfc32M/drivers/mtd/sfc/nx_sfc.h
+--- u-boot-2009.08/drivers/mtd/sfc/nx_sfc.h	2010-10-08 01:54:48.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/drivers/mtd/sfc/nx_sfc.h	2010-10-07 20:40:50.000000000 -0500
+@@ -1,4 +1,6 @@
+ #ifndef NX_SFC_FLASH_H
++#include "ldr_types.h"
++
+ #define NX_SFC_FLASH_H
+ 	#define		PNX8XXX_SFC_BASE		(PNX84XX_GCS_BASE + PNX84XX_GCS_SPI_OFSET )
+    #define IPBGCSFLSHNTWK_BASE 0x0
+@@ -381,8 +383,11 @@
+ 	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_15_BUFF_15_SHIFT 0
+ 	#define IPBGCSFLSHNTWK_SFC_MODULE_ID_REG  (0xfc)
+ 
+-#define SFC_PROTCOL_DELAY_READ   0x10008000
+-#define SFC_PROTOCL_DELAY_WRITE  0x10038000
++//#define SFC_PROTCOL_DELAY_READ   0x10008000
++//#define SFC_PROTOCL_DELAY_WRITE  0x10038000
++#define SFC_PROTOCOL_DELAY_VAL_16B 0x00038000
++#define SFC_PROTOCOL_DELAY_VAL_24B 0x10038000
++#define SFC_PROTOCOL_DELAY_VAL_32B 0x20038000
+ #define SFC_CSR_READ          0x0000027
+ #define SFC_CSR_WRITE         0x00420001
+ #define SFC_CSR_ERASE         0x20001
+@@ -446,7 +451,11 @@
+ };
+ #endif
+ void nx_sfc_wait(void __iomem * sfc_regs);
+-int  nx_sfc_mtd_init(void);
++int  nx_sfc_mtd_init(devicetype_t type);
++void nx_sfc_32b_en(struct nx_sfc_ctrl *flash);
++void nx_sfc_write_en(void __iomem  * sfc_regs);
++u32 nx_sfc_read_RSCUR(void __iomem  * sfc_regs);
++void nx_sfc_32b_dis(struct nx_sfc_ctrl *flash);
+ #endif
+ 
+ 
+diff -Naur u-boot-2009.08/drivers/serial/serial.c u-boot-2009.08_uart_config_sfc32M/drivers/serial/serial.c
+--- u-boot-2009.08/drivers/serial/serial.c	2010-10-08 01:54:48.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/drivers/serial/serial.c	2010-10-08 01:43:54.000000000 -0500
+@@ -35,6 +35,20 @@
+ #include <serial.h>
+ #endif
+ 
++#ifdef CONFIG_PNX84XX
++#include "stbcfg.h"
++
++#if (SERIAL1 == INTERNAL_UART1)
++	#define CONFIG_SYS_NS16550_COM1                      PNX84XX_UART1
++#elif (SERIAL1 == INTERNAL_UART2)
++	#define CONFIG_SYS_NS16550_COM1                      PNX84XX_UART2
++#elif (SERIAL1 == INTERNAL_UART3)
++	#define CONFIG_SYS_NS16550_COM1                      PNX84XX_UART3
++#else
++	#error " Unrecognised Serial Port "
++#endif
++#endif
++
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+ #if !defined(CONFIG_CONS_INDEX)
+diff -Naur u-boot-2009.08/include/asm-arm/arch-pnx84xx/pnx84xx.h u-boot-2009.08_uart_config_sfc32M/include/asm-arm/arch-pnx84xx/pnx84xx.h
+--- u-boot-2009.08/include/asm-arm/arch-pnx84xx/pnx84xx.h	2010-10-08 01:54:48.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/include/asm-arm/arch-pnx84xx/pnx84xx.h	2010-10-08 01:40:26.000000000 -0500
+@@ -101,11 +101,10 @@
+ #define ALT_PIN_MUX_REG_1              17
+ #define ALT_PIN_MUX_REG_2              18
+ 
+-
+ /* UART */
+-#define PNX84XX_UART1				(PNX84XX_L4_IO_BASE + 0xe0000)
+-#define PNX84XX_UART2				(PNX84XX_L4_IO_BASE + 0xe1000)
+-#define PNX84XX_UART3				(PNX84XX_L4_IO_BASE + 0xe2000)
++#define PNX84XX_UART1				(PNX84XX_L4_IO_BASE + 0xe2000)
++#define PNX84XX_UART2				(PNX84XX_L4_IO_BASE + 0xe3000)
++#define PNX84XX_UART3				(PNX84XX_L4_IO_BASE + 0xe4000)
+ 
+ /* General Purpose Timers */
+ #define CONFIG_SYS_TIMERBASE		(PNX84XX_IO_BASE + 0xe8000)
+diff -Naur u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08_uart_config_sfc32M/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-10-08 01:54:48.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/include/configs/vpe_apollo.h	2010-10-08 01:27:50.000000000 -0500
+@@ -107,9 +107,11 @@
+ #define CONFIG_SYS_NS16550_REG_SIZE (-4)
+ /*#define   CONFIG_SYS_NS16550_REG_SIZE (4)  */
+ #define CONFIG_SYS_NS16550_CLK  V_NS16550_CLK   /* 3MHz (1.5MHz*2) */
++/*
+ #ifdef CONFIG_PNX_EMU
+ #define CONFIG_SYS_NS16550_COM1 PNX84XX_UART3
+ #endif
++*/
+ #ifdef CONFIG_PNX_VPE
+ #define CONFIG_SYS_NS16550_COM1 PNX84XX_UART1
+ #endif
+@@ -117,7 +119,7 @@
+ /*
+  * select serial console configuration
+  */
+-#define CONFIG_SERIAL1  1   /* UART1 */
++#define CONFIG_SERIAL1  1  /* UART1 */
+ 
+ /* allow to overwrite serial and ethaddr */
+ #define CONFIG_ENV_OVERWRITE
+diff -Naur u-boot-2009.08/lib_arm/flash.c u-boot-2009.08_uart_config_sfc32M/lib_arm/flash.c
+--- u-boot-2009.08/lib_arm/flash.c	2010-10-08 01:54:48.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/lib_arm/flash.c	2010-10-07 22:38:22.000000000 -0500
+@@ -20,6 +20,7 @@
+ #include "stbcfg.h"
+ #include "../drivers/mtd/nor/nor.h"
+ #include <environment.h>
++#include <asm/io.h>
+ 
+ /* Glopbals*/
+ env_t *env_ptr;
+@@ -47,7 +48,7 @@
+ extern void env_relocate_spec_nor(void);
+ extern void env_relocate_spec_nand(void);
+ extern void env_relocate_spec_sfc(void);
+-extern int nx_sfc_mtd_init(void);
++extern int nx_sfc_mtd_init(devicetype_t type);
+ extern void nx_gcs_init_mode (void);
+ extern void nand_init(void);
+ 
+@@ -245,7 +246,7 @@
+       		}
+ 	       else if (FLASH_TYPE_SFC == eFlashtype){
+ 	         	puts("Boot Device: SPI Flash\r\n");
+-			nx_sfc_mtd_init();
++			nx_sfc_mtd_init(eBootDev);
+ 			env_ptr = (env_t *)((ulong)CONFIG_ENV_ADDR | CONFIG_SYS_SFC_FLASH_BASE);
+ 			flash_addr = (env_t *)((ulong)CONFIG_ENV_ADDR);
+ 			env_name_spec = env_name_spec_sfc;
+diff -Naur u-boot-2009.08/lib_arm/ldr_types.h u-boot-2009.08_uart_config_sfc32M/lib_arm/ldr_types.h
+--- u-boot-2009.08/lib_arm/ldr_types.h	2010-10-08 01:54:48.000000000 -0500
++++ u-boot-2009.08_uart_config_sfc32M/lib_arm/ldr_types.h	2010-10-07 20:46:41.000000000 -0500
+@@ -44,17 +44,18 @@
+ * related defines    *
+ **********************/
+ 
++#if !defined (_LINUX_TYPES_H)
+ #define readb(p)     (*(volatile HW_BYTE *)(p))
+ #define writeb(v,p)  ((*(volatile HW_BYTE *)(p)) = (v))
+ #define readl(p)     (*(LPREG)(p))
+ #define writel(v,p)  ((*(LPREG)(p)) = (v))
++#define __raw_readl(a)          (*(volatile u_int32 *)(a))
++#define __raw_writel(v,a)       (*(volatile u_int32 *)(a) = (v))
++#endif
+ 
+ #define INP32(pReg)             (*(volatile u_int32 *)(pReg))
+ #define OUT32(pReg, value)      (*(volatile u_int32 *)(pReg) = (u_int32)(value))
+ 
+-#define __raw_readl(a)          (*(volatile u_int32 *)(a))
+-#define __raw_writel(v,a)       (*(volatile u_int32 *)(a) = (v))
+-
+ #define  BIT_0_MSK   0x00000001
+ #define  BIT_1_MSK   0x00000002
+ #define  BIT_2_MSK   0x00000004

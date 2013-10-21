@@ -1,0 +1,53 @@
+diff -Naurp u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyAccess.c u-boot-2009.08.new/drivers/net/lipp_6300eth/tmbslPhyAccess.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyAccess.c	2010-06-24 22:21:10.000000000 -0500
++++ u-boot-2009.08.new/drivers/net/lipp_6300eth/tmbslPhyAccess.c	2010-06-24 17:12:24.000000000 -0500
+@@ -323,6 +323,7 @@ tmbslPhyConfig_t gtmbslRTL8211BNPhyInter
+ 
+ phyID_interface_tbl phy_tbl[]={
+ {0x0, &gtmbslMYSTIPhyInterface},
++{0x0293c411, &gtmbslMYSTIPhyInterface},
+ {0x001cc912,  &gtmbslRTL8211BNPhyInterface}
+ };
+ 
+diff -Naurp u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c u-boot-2009.08.new/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c	2010-07-12 11:36:47.000000000 -0500
++++ u-boot-2009.08.new/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c	2010-07-12 11:25:46.000000000 -0500
+@@ -52,6 +52,11 @@
+ 
+ #define PHY_TIMEOUT                 (100000)
+ 
++#define MYSTIPHY_APOLLO_M0_ID1 (0)
++#define MYSTIPHY_APOLLO_M0_ID2 (0)
++#define MYSTIPHY_APOLLO_M1_ID1 (0x0293)
++#define MYSTIPHY_APOLLO_M1_ID2 (0xC411)
++
+ #define MYSTI_ANAR_DEFAULT_VAL (0xDE1)
+ 
+ /* Global Data */
+@@ -316,15 +321,22 @@ tmbslPhyMYSTI110EInit(
+         return (ethStatus);
+     }
+ 
+-    if( (id1 == 0) && (id2 == 0x0) )
++    if( (id1 == MYSTIPHY_APOLLO_M0_ID1) && (id2 == MYSTIPHY_APOLLO_M0_ID2) )
+     {
+         /* IDs are valid. Do Nothing */
+     }
+     else
+     {
+-        return(TMBSL_ERR_PHY_NOT_SUPPORTED);
+-    }
+-
++        /* TODO: Add ID check for M1 */
++        if( (id1 == MYSTIPHY_APOLLO_M1_ID1) && (id2 == MYSTIPHY_APOLLO_M1_ID2) )
++        {
++            // ID's are valid.  Do Nothing
++        }
++		 else
++        {
++            return(TMBSL_ERR_PHY_NOT_SUPPORTED);
++        }
++	}
+     regval = 0;
+ 
+     /* Set the PHY for the 10Mbps and Half Duplex mode */

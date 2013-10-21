@@ -1,0 +1,225 @@
+diff -Naur u-boot-2009.08/drivers/mtd/sfc/nx_sfc.c u-boot-2009.08_sfc/drivers/mtd/sfc/nx_sfc.c
+--- u-boot-2009.08/drivers/mtd/sfc/nx_sfc.c	2010-10-27 13:01:54.481966000 +0530
++++ u-boot-2009.08_sfc/drivers/mtd/sfc/nx_sfc.c	2010-10-27 12:16:57.279674000 +0530
+@@ -378,8 +378,18 @@
+ }
+ 
+ void nx_sfc_init(void __iomem * sfc_regs)
+-{
+-   writel(0x1,sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_REG); 
++{  
++   u32 mask;
++
++   /* softreset SFC */
++   mask  = readl(sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++   mask |= (IPBGCSFLSHNTWK_SFC_SFC_CSR_SPI_RST_RW);    /* srst enabled   */
++   writel(mask, sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++   mask &= ~(IPBGCSFLSHNTWK_SFC_SFC_CSR_SPI_RST_RW);   /* srst disabled  */
++   writel(mask, sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++
++   writel(IPBGCSFLSHNTWK_SFC_SFC_CSR_SPI_EN_RW,
++      sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_REG); 
+    return;
+ }
+ 
+diff -Naur u-boot-2009.08/lib_arm/ip2070gcs.c u-boot-2009.08_sfc/lib_arm/ip2070gcs.c
+--- u-boot-2009.08/lib_arm/ip2070gcs.c	2010-10-27 13:01:53.535047000 +0530
++++ u-boot-2009.08_sfc/lib_arm/ip2070gcs.c	2010-10-27 11:40:15.407876000 +0530
+@@ -99,8 +99,8 @@
+                      writel(GCS_SFC_CLK_ENABLE, IPBGCSFLSHNTWK_GCS_CLOCK_MUX_REG);	
+                      // remap SFC  to NOR base and vice versa, cannot go with default, as we need support for 32b SFC device
+                      writel(NX_GCS_SFC_AHB_BUF, IPBGCSFLSHNTWK_AHB_DMA_SFC_BASE_ADDR_REG);
++                     writel(NX_GCS_NOR_AHB_BUF, IPBGCSFLSHNTWK_AHB_DMA_NOR_BASE_ADDR_REG);
+                      writel(CSn, IPBGCSFLSHNTWK_SFC_CS_ROUTE_REG);
+-
+ #ifdef SPI_CS2
+                      writel(GCS_SPI_CSROUTE_CS2, IPBGCSFLSHNTWK_NOR_CS_ROUTE_REG);
+ #endif
+diff -Naur u-boot-2009.08/lib_arm/ip2070gcs.h u-boot-2009.08_sfc/lib_arm/ip2070gcs.h
+--- u-boot-2009.08/lib_arm/ip2070gcs.h	2010-10-27 13:01:53.419045000 +0530
++++ u-boot-2009.08_sfc/lib_arm/ip2070gcs.h	2010-10-27 12:12:30.883219000 +0530
+@@ -1,34 +1,34 @@
+-/*
+-#===========================================================
+-#        COPYRIGHT (c) NXP B.V. 2009
+-#        All rights are reserved. Reproduction in whole or in part is
+-#        prohibited without the written consent of the copyright owner.
+-#
+-#        Author   : Makarand Pawagi
+-#
+-#        Filename : ip2070gcs.h
+-#
+-#        Purpose  : GCS Related definitions
+-#===========================================================
+-*/
+-#ifndef __IP2070GCS_H
+-#define __IP2070GCS_H
+-
+-/****************
+-* Include Files *
+-*****************/
+-#include "ldr_common.h"
+-#include "ldr_types.h"
+-
+-
+-/**********************
+-* Function Prototypes *
+-***********************/
+-retcode_t nx_gcs_init (devicetype_t eBootDev, flashtype_t eFlashtype, int CSn);
+-void nx_gcs_nand_init ( void ) ;
+-void nx_gcs_nor_init ( void ) ;
+-void nx_gcs_set_nor_width(devicetype_t type);
+-
++/*
++#===========================================================
++#        COPYRIGHT (c) NXP B.V. 2009
++#        All rights are reserved. Reproduction in whole or in part is
++#        prohibited without the written consent of the copyright owner.
++#
++#        Author   : Makarand Pawagi
++#
++#        Filename : ip2070gcs.h
++#
++#        Purpose  : GCS Related definitions
++#===========================================================
++*/
++#ifndef __IP2070GCS_H
++#define __IP2070GCS_H
++
++/****************
++* Include Files *
++*****************/
++#include "ldr_common.h"
++#include "ldr_types.h"
++
++
++/**********************
++* Function Prototypes *
++***********************/
++retcode_t nx_gcs_init (devicetype_t eBootDev, flashtype_t eFlashtype, int CSn);
++void nx_gcs_nand_init ( void ) ;
++void nx_gcs_nor_init ( void ) ;
++void nx_gcs_set_nor_width(devicetype_t type);
++
+ #define GCS_ENABLE_ISA_MODE_MSK            (0)
+ #define GCS_ENABLE_PCI_MODE_MSK            (1)
+ #define GCS_ENABLE_PCI_HOST_MODE_MSK       (0)
+@@ -43,61 +43,61 @@
+ #define GCS_NOR_16B_ENABLE                 (0x2)     
+ #define GCS_NOR_DCSN_ADDR_REMAP_ENABLE     (0x3)
+ 
+-#define GCS_IOCSROUTE_CS0                (0x0)
+-#define GCS_IOCSROUTE_CS1                (0x1)
+-#define GCS_IOCSROUTE_CS2                (0x2)
+-
+-/*************************
+-* NAND Register          *
+-* specific local defines *
+-**************************/
+-#ifdef TEST_VPE
+-#define NX_GCS_REG_BASE      (0xE0600000 + (0x30000)+ 0x2000)
+-#else
+-#define NX_GCS_REG_BASE      IPBGCSFLSHNTWK_GCS_MODE_REG
+-#endif
+-
+-#define NX_GCS_MODE                 (0x0)
+-#define NX_GCS_MODE_PCI             (1<0)
+-
+-#define NX_GCS_ROUTE_CS0            (7<0)
+-#define NX_GCS_ROUTE_CS1            (7<3)
+-#define NX_GCS_ROUTE_CS2            (7<6)
+-#define NX_GCS_ROUTE_CS3            (7<9)
+-
+-/* NOR */
+-#define NX_GCS_NOR_DMA_BASE_ADDR    (0x30)
+-#define NX_GCS_NOR_DMA_APERTURE     (0x34)
+-#define NX_GCS_NOR_CS_ROUTE         (0x50)
+-
+-#define NX_GCS_NOR_AHB_BUF          (NX_NOR_BUF_BASE)
+-#define NX_GCS_NOR_APERTURE         (0x3FFFFFFF)
+-
+-/* NAND */
+-#define NX_GCS_NAND_DMA_BASE_ADDR   (0x38)
+-#define NX_GCS_NAND_DMA_APERTURE    (0x3C)
+-#define NX_GCS_NAND_CS_ROUTE        (0x54)
+-
+-#define NX_GCS_NAND_AHB_BUF         (NX_NAND_BUF_BASE)
+-#define NX_GCS_NAND_APERTURE        (0x3FFFFFFF)
+-
+-#define NX_GCS_ISA_CS_ROUTE        (0x5C)
+-
+-/* SFC */
+-#define NX_GCS_SFC_AHB_BUF   (0x80000000) /* Use this AHD address when doing DMA */
+-
+-typedef struct _gcs_global_info {
++#define GCS_IOCSROUTE_CS0                (0x0)
++#define GCS_IOCSROUTE_CS1                (0x1)
++#define GCS_IOCSROUTE_CS2                (0x2)
++
++/*************************
++* NAND Register          *
++* specific local defines *
++**************************/
++#ifdef TEST_VPE
++#define NX_GCS_REG_BASE      (0xE0600000 + (0x30000)+ 0x2000)
++#else
++#define NX_GCS_REG_BASE      IPBGCSFLSHNTWK_GCS_MODE_REG
++#endif
++
++#define NX_GCS_MODE                 (0x0)
++#define NX_GCS_MODE_PCI             (1<0)
++
++#define NX_GCS_ROUTE_CS0            (7<0)
++#define NX_GCS_ROUTE_CS1            (7<3)
++#define NX_GCS_ROUTE_CS2            (7<6)
++#define NX_GCS_ROUTE_CS3            (7<9)
++
++/* NOR */
++#define NX_GCS_NOR_DMA_BASE_ADDR    (0x30)
++#define NX_GCS_NOR_DMA_APERTURE     (0x34)
++#define NX_GCS_NOR_CS_ROUTE         (0x50)
++
++#define NX_GCS_NOR_AHB_BUF          (NX_NOR_BUF_BASE)
++#define NX_GCS_NOR_APERTURE         (0x3FFFFFFF)
++
++/* NAND */
++#define NX_GCS_NAND_DMA_BASE_ADDR   (0x38)
++#define NX_GCS_NAND_DMA_APERTURE    (0x3C)
++#define NX_GCS_NAND_CS_ROUTE        (0x54)
++
++#define NX_GCS_NAND_AHB_BUF         (NX_NAND_BUF_BASE)
++#define NX_GCS_NAND_APERTURE        (0x3FFFFFFF)
++
++#define NX_GCS_ISA_CS_ROUTE        (0x5C)
++
++/* SFC */
++#define NX_GCS_SFC_AHB_BUF   (0x80000000) /* Use this AHD address when doing DMA */
++
++typedef struct _gcs_global_info {
+ 	devicetype_t  flashBootDev;
+-	flashtype_t   flashtype;
+-       flashtype_t   altflashtype1;
+-       u_int32       configstrap;
+-} gcs_global_info ;
+-
+-typedef struct _gcs_env {
+-   int (*init)(void);
+-   int (*save)(void);
+-   void (*relocate_spec)(void);
+-}gcs_env;
+-
+-#endif /* __IP2070GCS_H */
+-
++	flashtype_t   flashtype;
++       flashtype_t   altflashtype1;
++       u_int32       configstrap;
++} gcs_global_info ;
++
++typedef struct _gcs_env {
++   int (*init)(void);
++   int (*save)(void);
++   void (*relocate_spec)(void);
++}gcs_env;
++
++#endif /* __IP2070GCS_H */
++

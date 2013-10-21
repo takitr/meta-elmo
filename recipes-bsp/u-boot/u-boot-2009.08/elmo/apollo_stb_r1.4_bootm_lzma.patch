@@ -1,0 +1,105 @@
+diff -Naurp u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08.bootm/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-06-05 13:27:08.000000000 -0500
++++ u-boot-2009.08.bootm/include/configs/vpe_apollo.h	2010-05-30 01:19:38.000000000 -0500
+@@ -400,4 +391,9 @@
+ #define MTDPARTS_DEFAULT        "mtdparts=sys:11232k@176k(bootfs);sys:4000k@11408k(rootfs)"
+ #endif
+ 
++/*-----------------------------------------------------------------------
++ * Compression format
++ */
++#define CONFIG_LZMA
++
+ #endif /* __CONFIG_H */
+diff -Naurp u-boot-2009.08/lib_arm/bootm.c u-boot-2009.08.bootm/lib_arm/bootm.c
+--- u-boot-2009.08/lib_arm/bootm.c	2010-06-05 13:27:08.000000000 -0500
++++ u-boot-2009.08.bootm/lib_arm/bootm.c	2010-06-05 13:20:15.000000000 -0500
+@@ -91,28 +91,40 @@ int do_bootm_linux(int flag, int argc, c
+     defined (CONFIG_REVISION_TAG) || \
+     defined (CONFIG_LCD) || \
+     defined (CONFIG_VFD)
+-	setup_start_tag (bd);
++	//setup_start_tag (bd);
+ #ifdef CONFIG_SERIAL_TAG
+-	setup_serial_tag (&params);
++	//setup_serial_tag (&params);
+ #endif
+ #ifdef CONFIG_REVISION_TAG
+-	setup_revision_tag (&params);
++	//setup_revision_tag (&params);
+ #endif
+ #ifdef CONFIG_SETUP_MEMORY_TAGS
+-	setup_memory_tags (bd);
++	//setup_memory_tags (bd);
+ #endif
+ #ifdef CONFIG_CMDLINE_TAG
+-	setup_commandline_tag (bd, commandline);
++	//setup_commandline_tag (bd, commandline);
+ #endif
+ #ifdef CONFIG_INITRD_TAG
+ 	if (images->rd_start && images->rd_end)
+ 		setup_initrd_tag (bd, images->rd_start, images->rd_end);
+ #endif
+ #if defined (CONFIG_VFD) || defined (CONFIG_LCD)
+-	setup_videolfb_tag ((gd_t *) gd);
++	//setup_videolfb_tag ((gd_t *) gd);
+ #endif
+-	setup_end_tag (bd);
++	//setup_end_tag (bd);
+ #endif
++      patch_ataglist();
++		//*((unsigned int*)0xe06ead50) = MACH_TYPE ;
++		//*((unsigned int*)0xe06ead54) = 0x2000 ;
++		
++		asm("mov	r0, #0x0") ;
++		//asm("LDR	r4,=0xe06ead50") ;
++		asm("LDR	r1, =0x85D") ;
++	//	asm("LDR	r4,=0xe06ead54") ;
++		asm("LDR	r2, =0x2000") ;
++		asm("LDR	r3,=0x8000") ;
++		asm("mov	pc, r3") ;
++
+ 
+ 	/* we assume that the kernel is in place */
+ 	printf ("\nStarting kernel ...\n\n");
+diff -Naurp u-boot-2009.08/net/nfs.c u-boot-2009.08.bootm/net/nfs.c
+--- u-boot-2009.08/net/nfs.c	2010-06-05 13:27:08.000000000 -0500
++++ u-boot-2009.08.bootm/net/nfs.c	2010-06-02 16:23:53.000000000 -0500
+@@ -33,7 +33,7 @@
+ 
+ #define HASHES_PER_LINE 80	/* Number of "loading" hashes per line	*/
+ #define NFS_RETRY_COUNT 30
+-#define NFS_TIMEOUT 4000UL
++#define NFS_TIMEOUT 2000UL
+ 
+ static int fs_mounted = 0;
+ static unsigned long rpc_id = 0;
+@@ -516,7 +516,7 @@ nfs_readlink_reply (uchar *pkt, unsigned
+ 		strcat (nfs_path, "/");
+ 		pathlen = strlen(nfs_path);
+ 		memcpy (nfs_path+pathlen, (uchar *)&(rpc_pkt.u.reply.data[2]), rlen);
+-		nfs_path[pathlen+rlen+1] = 0;
++		nfs_path[pathlen + rlen] = 0;
+ 	} else {
+ 		memcpy (nfs_path, (uchar *)&(rpc_pkt.u.reply.data[2]), rlen);
+ 		nfs_path[rlen] = 0;
+@@ -571,13 +571,14 @@ Interfaces of U-BOOT
+ static void
+ NfsTimeout (void)
+ {
+-	if ( NfsTimeoutCount++ < NFS_RETRY_COUNT ) {
++	if ( ++NfsTimeoutCount > NFS_RETRY_COUNT ) {
++		puts ("\nRetry count exceeded; starting again\n");
++		NetStartAgain ();
++	} else {
++		puts("T ");
++		NetSetTimeout (NFS_TIMEOUT, NfsTimeout);
+ 		NfsSend ();
+-		return;
+ 	}
+-	puts ("Timeout\n");
+-	NetState = NETLOOP_FAIL;
+-	return;
+ }
+ 
+ static void

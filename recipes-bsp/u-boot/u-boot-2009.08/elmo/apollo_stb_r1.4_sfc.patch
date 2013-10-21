@@ -1,0 +1,2919 @@
+diff -Naur u-boot-2009.08/common/cmd_flash.c u-boot-2009.08_SFC/common/cmd_flash.c
+--- u-boot-2009.08/common/cmd_flash.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/common/cmd_flash.c	2010-06-09 00:00:17.000000000 -0500
+@@ -167,18 +167,22 @@
+ addr_spec(char *arg1, char *arg2, ulong *addr_first, ulong *addr_last)
+ {
+ 	char *ep;
+-	char len_used; /* indicates if the "start +length" form used */
++	char len_used =1; /* indicates if the "start +length" form used */
++	flash_info_t *info = &flash_info[0];
+ 
+ 	*addr_first = simple_strtoul(arg1, &ep, 16);
+ 	if (ep == arg1 || *ep != '\0')
+ 		return -1;
+-
++		
++	*addr_first+=info->start[0] ;
++	
++#if 0
+ 	len_used = 0;
+ 	if (arg2 && *arg2 == '+'){
+ 		len_used = 1;
+ 		++arg2;
+ 	}
+-
++#endif
+ 	*addr_last = simple_strtoul(arg2, &ep, 16);
+ 	if (ep == arg2 || *ep != '\0')
+ 		return -1;
+@@ -190,7 +194,7 @@
+ 		 * checked for in both the callers.
+ 		 */
+ 		*addr_last = *addr_first + *addr_last - 1;
+-
++  	
+ 		/*
+ 		 * It may happen that *addr_last doesn't fall on the sector
+ 		 * boundary. We want to round such an address to the next
+@@ -371,7 +375,7 @@
+ 				addr_first = part->offset + info->start[0];
+ 				addr_last = addr_first + part->size - 1;
+ 
+-				printf ("Erase Flash Parition %s, "
++				printf ("Erase Flash Partition %s, "
+ 						"bank %ld, 0x%08lx - 0x%08lx ",
+ 						argv[1], bank, addr_first,
+ 						addr_last);
+@@ -395,7 +399,7 @@
+ 					addr_first = part->offset + info->start[0];
+ 					addr_last = addr_first + part->size - 1;
+ 
+-					printf ("Erase Flash Parition %s, "
++					printf ("Erase Flash Partition %s, "
+ 							"bank %ld, 0x%08lx - 0x%08lx ",
+ 							argv[1], bank, addr_first,
+ 							addr_last);
+@@ -428,7 +432,7 @@
+ 		rcode = flash_erase (info, 0, info->sector_count-1);
+ 		return rcode;
+ 	}
+-
++	
+ 	if (addr_spec(argv[1], argv[2], &addr_first, &addr_last) < 0){
+ 		printf ("Bad address format\n");
+ 		return 1;
+@@ -438,7 +442,6 @@
+ 		cmd_usage(cmdtp);
+ 		return 1;
+ 	}
+-
+ 	rcode = flash_sect_erase(addr_first, addr_last);
+ 	return rcode;
+ #else
+@@ -694,6 +697,9 @@
+ 		cmd_usage(cmdtp);
+ 		return 1;
+ 	}
++	info = &flash_info[0];
++	addr_first+=info->start[0] ;
++	addr_last+=info->start[0] ;
+ 	rcode = flash_sect_protect (p, addr_first, addr_last);
+ #endif /* CONFIG_SYS_NO_FLASH */
+ 	return rcode;
+diff -Naur u-boot-2009.08/common/cmd_mtdparts.c u-boot-2009.08_SFC/common/cmd_mtdparts.c
+--- u-boot-2009.08/common/cmd_mtdparts.c	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08_SFC/common/cmd_mtdparts.c	2010-06-09 01:04:30.000000000 -0500
+@@ -1037,11 +1037,14 @@
+ 	} else if (strncmp(p, "nor", 3) == 0) {
+ 		*dev_type = MTD_DEV_TYPE_NOR;
+ 		p += 3;
++	} else if (strncmp(p, "sfc", 3) == 0) {
++		*dev_type = MTD_DEV_TYPE_SFC;
++		p += 3;
+ 	} else if (strncmp(p, "onenand", 7) == 0) {
+ 		*dev_type = MTD_DEV_TYPE_ONENAND;
+ 		p += 7;
+ 	} else {
+-		printf("incorrect device type in %s\n", id);
++		//printf("%s is not a device type %s\n", id);
+ 		return 1;
+ 	}
+ 
+diff -Naur u-boot-2009.08/common/cmd_nor.c u-boot-2009.08_SFC/common/cmd_nor.c
+--- u-boot-2009.08/common/cmd_nor.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/common/cmd_nor.c	2010-06-09 10:04:36.000000000 -0500
+@@ -27,6 +27,9 @@
+ extern unsigned char buffer[];
+ extern flash_info_t flash_info[];	/* info for FLASH chips */
+ extern int nx_nor_read (void * sect_addr,  int size,  void *buffer );
++extern int do_flerase (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[]);
++extern int do_flinfo ( cmd_tbl_t *cmdtp, int flag, int argc, char *argv[]);
++int write_clean_marker(ulong addr_last, flash_info_t *info , struct part_info *part);
+ 
+ static inline int str2long(char *p, ulong *num)
+ {
+@@ -61,12 +64,13 @@
+ 		 }
+ 		 addr_last +=blksize;
+ 	}
++	return 0;
+ }
+ 
+ int do_nor(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
+ {
+ 	ulong addr, sect_addr, off;
+-	size_t size;
++	 size_t size;
+ 	char *cmd, *s;
+ 	int j = 0;
+ 
+@@ -103,8 +107,8 @@
+ 						info = &flash_info[bank];
+ 						addr_first = part->offset + info->start[0];
+ 						if (argc == 4) {
+-							if (!(str2long(argv[3], (ulong *)size))) {
+-								printf("'%s' is not a number\n", argv[1]);
++							if (!(str2long(argv[3], (ulong *)&size))) {
++								printf("'%s' is not a number\n", argv[3]);
+ 								return -1;
+ 							}
+ 							if (size > part->size)
+@@ -151,7 +155,7 @@
+ 						info = &flash_info[bank];
+ 						addr_first = part->offset + info->start[0];
+ 						if (argc == 4) {
+-							if (!(str2long(argv[3], (ulong *)size))) {
++							if (!(str2long(argv[3], (ulong *)&size))) {
+ 								printf("'%s' is not a number\n", argv[1]);
+ 								return -1;
+ 							}
+@@ -244,7 +248,7 @@
+ 	} 
+        else if(strncmp(cmd, "erase", 4) == 0) {
+     
+-	    do_flerase (cmdtp, flag, argc, argv+1);
++	    do_flerase (cmdtp, flag, argc-1, argv+1);
+     		
+     	} 
+ 	else if(strncmp(cmd, "info", 4) == 0) {
+@@ -273,11 +277,9 @@
+ 	"nor read off size\n"	
+ 	"nor write off size\n"
+ 	"nor erase off size\n"
+-	"nor write kernel <size - optional>\n"
+-	"nor write rootfs <size - optional>\n"
+-	"nor write appfs <size - optional>\n"
+-	"addr - RAM address where Image is copied\n"			
++	"nor write <part-id> <size - optional>\n"
++	"nor erase <part-id>\n"
+ 	"off  - Image offset in Flash\n"			
+-	"size - Size of Image to be copied\n"				
++	"size - Size of Image\n"				
+ );
+ 
+diff -Naur u-boot-2009.08/common/cmd_sfc.c u-boot-2009.08_SFC/common/cmd_sfc.c
+--- u-boot-2009.08/common/cmd_sfc.c	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08_SFC/common/cmd_sfc.c	2010-06-09 09:05:17.000000000 -0500
+@@ -0,0 +1,201 @@
++/*
++ *  SFC- Serial Flash support
++ *  Karthik Murthy - Trident Microsystems
++ */
++
++
++#include <common.h>
++#include <linux/mtd/mtd.h>
++
++#if defined(CONFIG_CMD_SFC)
++
++#include <command.h>
++#include <watchdog.h>
++#include <malloc.h>
++#include <asm/byteorder.h>
++#include <jffs2/jffs2.h>
++
++
++//#include "ip1902dmac.h"
++
++
++extern ulong	NetBootFileXferSize;
++extern struct mtd_info *sfc_info[];
++
++#if defined(CONFIG_CMD_MTDPARTS)
++
++/* parition handling routines */
++int mtdparts_init(void);
++int id_parse(const char *id, const char **ret_id, u8 *dev_type, u8 *dev_num);
++int find_dev_and_part(const char *id, struct mtd_device **dev,
++		      u8 *part_num, struct part_info **part);
++#endif
++int nx_sfc_mtd_write(struct mtd_info *mtd, loff_t to, size_t len,
++	size_t *retlen, const u_char *buf);
++int nx_sfc_mtd_read(struct mtd_info *mtd, loff_t from, size_t len,
++	size_t *retlen, u_char *buf);
++int nx_sfc_mtd_erase(struct mtd_info *mtd, struct erase_info *instr);
++static int arg_off_size(int argc, char *argv[], struct mtd_info **sfc, ulong *off, size_t *size);
++
++/* ------------------------------------------------------------------------- */
++
++static inline int str2long(char *p, ulong *num)
++{
++	char *endptr;
++
++	*num = simple_strtoul(p, &endptr, 16);
++	return (*p != '\0' && *endptr == '\0') ? 1 : 0;
++}
++
++static int
++arg_off_size(int argc, char *argv[], struct mtd_info **sfc, ulong *off, size_t *size)
++{
++	int idx = 0;
++#if defined(CONFIG_CMD_MTDPARTS)
++	struct mtd_device *dev;
++	struct part_info *part;
++	u8 pnum;
++	*sfc = sfc_info[0];
++	if (argc >= 1 && !(str2long(argv[0], off))) {
++		if ((mtdparts_init() == 0) &&
++		    (find_dev_and_part(argv[0], &dev, &pnum, &part) == 0)) {
++			if (dev->id->type != MTD_DEV_TYPE_SFC) {
++				puts("not a SFC device\n");
++				return -1;
++			}
++			*off = part->offset;
++			if (argc >= 2) {
++				if (!(str2long(argv[1], (ulong *)size))) {
++					printf("'%s' is not a number\n", argv[1]);
++					return -1;
++				}
++				if (*size > part->size)
++					*size = part->size;
++			} else {
++				*size = part->size;
++			}
++			idx = dev->id->num;
++			goto out;
++		}
++	}
++#endif
++
++	if (argc >= 1) {
++		if (!(str2long(argv[0], off))) {
++			printf("'%s' is not a number\n", argv[0]);
++			return -1;
++		}
++	} else {
++		*off = 0;
++	}
++
++	if (argc >= 2) {
++		if (!(str2long(argv[1], (ulong *)size))) {
++			printf("'%s' is not a number\n", argv[1]);
++			return -1;
++		}
++		#if 0
++		else
++			*size = sfc->size - *off;
++		#endif
++	} 
++#if defined(CONFIG_CMD_MTDPARTS)
++out:
++#endif
++#if 0
++	printf("device %d ", idx);
++	if (*size == sfc->size)
++		puts("whole chip\n");
++	else
++#endif		
++		printf("offset 0x%lx, size 0x%zx\n", *off, *size);
++	return 0;
++}
++
++/*---------------------------------------------------------------------------------*/
++
++
++int do_sfc(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
++{
++	int ret = 0;
++	ulong addr, off;
++	size_t size, retlen;
++	char *cmd, *s;
++	struct mtd_info *sfc;
++	struct erase_info instr;
++
++	/* at least two arguments please */
++	if (argc < 2)
++		goto usage;
++
++	cmd = argv[1];
++	/*
++	 * Syntax is:
++	 *   0    1     2       3    
++	 *   sfc erase [off size]
++	 */
++	if (strcmp(cmd, "erase") == 0 ) {
++		printf("\nSFC %s: ",  "erase");
++		/* skip first two arguments, look for offset and size */
++		if (arg_off_size(argc - 2, argv + 2, &sfc, &off, &size) != 0)
++			return 1;
++		instr.addr = off;
++		instr.len = size;
++		ret = nx_sfc_mtd_erase(sfc, &instr);
++		printf("%s\n", ret ? "ERROR" : "OK");
++
++		return ret == 0 ? 0 : 1;
++	}
++
++	if (strncmp(cmd, "read", 4) == 0 || strncmp(cmd, "write", 5) == 0) {
++		int read, write;
++
++		if (argc < 3)
++			goto usage;
++		
++		s = getenv ("loadaddr");
++		addr= (int)simple_strtol(s, NULL, 10);
++		read = strncmp(cmd, "read", 4) == 0; /* 1 = read */
++		write = strncmp(cmd, "write", 5) == 0; /* 1 = write */
++		printf("\nSFC %s: ", read ? "read" : "write");
++		if (arg_off_size(argc - 2, argv + 2, &sfc, &off, &size) != 0)
++			return 1;
++
++		if (read)
++			ret = nx_sfc_mtd_read(sfc, off, size, &retlen,
++						 (u_char *)addr);
++		else if(write){
++			  if(NetBootFileXferSize)
++			  	size = NetBootFileXferSize;
++				ret = nx_sfc_mtd_write(sfc, off, size, &retlen,
++						  (u_char *)addr);
++			}
++		  else {
++			printf("Unknown  command  '%s'.\n", cmd);
++			return 1;
++		}
++
++		printf(" %zu bytes %s: %s\n", size,
++		       read ? "read" : "written", ret ? "ERROR" : "OK");
++
++		return ret == 0 ? 0 : 1;
++	}
++usage:
++	cmd_usage(cmdtp);
++	return 1;
++}
++
++U_BOOT_CMD(sfc, CONFIG_SYS_MAXARGS, 1, do_sfc,
++	"SFC sub-system",
++	"sfc read off size\n"
++	"sfc write off size\n"
++	"    read/write 'size' bytes starting at offset 'off'\n"
++	"    to/from memory address 'addr', skipping bad blocks.\n"
++	"sfc read [part-id] [size-optional]\n"
++	"sfc write [part-id] [size-optional\n"
++	"sfc erase off size- erase 'size' bytes from offset\n"
++	"sfc erase [part-id]- erase 'size' bytes from\n"
++);
++
++#endif
++
+diff -Naur u-boot-2009.08/common/env_sfc.c u-boot-2009.08_SFC/common/env_sfc.c
+--- u-boot-2009.08/common/env_sfc.c	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08_SFC/common/env_sfc.c	2010-06-09 10:05:20.000000000 -0500
+@@ -0,0 +1,398 @@
++/*
++ * (C) Copyright 2000-2002
++ * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
++ *
++ * (C) Copyright 2001 Sysgo Real-Time Solutions, GmbH <www.elinos.com>
++ * Andreas Heppel <aheppel@sysgo.de>
++
++ * See file CREDITS for list of people who contributed to this
++ * project.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++
++/* #define DEBUG */
++
++#include <common.h>
++#include <command.h>
++#include <environment.h>
++#include <linux/stddef.h>
++#include <malloc.h>
++#include "stbcfg.h"
++
++DECLARE_GLOBAL_DATA_PTR;
++
++#if defined(CONFIG_CMD_SAVEENV) && defined(CONFIG_CMD_SFC)
++#define CMD_SAVEENV
++#elif defined(CONFIG_ENV_ADDR_REDUND)
++#error Cannot use CONFIG_ENV_ADDR_REDUND without CONFIG_CMD_SAVEENV & CONFIG_CMD_SFC
++#endif
++
++#if defined(CONFIG_ENV_SIZE_REDUND) && (CONFIG_ENV_SIZE_REDUND < CONFIG_ENV_SIZE)
++#error CONFIG_ENV_SIZE_REDUND should not be less then CONFIG_ENV_SIZE
++#endif
++
++#ifdef CONFIG_INFERNO
++# ifdef CONFIG_ENV_ADDR_REDUND
++#error CONFIG_ENV_ADDR_REDUND is not implemented for CONFIG_INFERNO
++# endif
++#endif
++
++char * env_name_spec_sfc = "SFC Flash";
++
++#ifdef ENV_IS_EMBEDDED
++
++extern uchar environment[];
++env_t *env_ptr = (env_t *)(&environment[0]);
++
++#ifdef CMD_SAVEENV
++/* static env_t *flash_addr = (env_t *)(&environment[0]);-broken on ARM-wd-*/
++static env_t *flash_addr = (env_t *)CONFIG_ENV_ADDR;
++#endif
++
++#else /* ! ENV_IS_EMBEDDED */
++
++extern env_t *env_ptr ; //= (env_t *)((ulong)CONFIG_ENV_ADDR | CONFIG_SYS_FLASH_BASE);
++//env_t *env_ptr = (env_t *)CONFIG_ENV_ADDR
++#ifdef CMD_SAVEENV
++extern env_t *flash_addr; 
++//static env_t *flash_addr = (env_t *)(CONFIG_ENV_ADDR);
++#endif
++
++#endif /* ENV_IS_EMBEDDED */
++
++#ifdef CONFIG_ENV_ADDR_REDUND
++static env_t *flash_addr_new = (env_t *)CONFIG_ENV_ADDR_REDUND;
++
++/* CONFIG_ENV_ADDR is supposed to be on sector boundary */
++static ulong end_addr = CONFIG_ENV_ADDR + CONFIG_ENV_SECT_SIZE - 1;
++static ulong end_addr_new = CONFIG_ENV_ADDR_REDUND + CONFIG_ENV_SECT_SIZE - 1;
++
++#define ACTIVE_FLAG   1
++#define OBSOLETE_FLAG 0
++#endif /* CONFIG_ENV_ADDR_REDUND */
++
++extern uchar default_environment[];
++
++#if 0
++uchar env_get_char_spec (int index)
++{
++	return ( *((uchar *)(gd->env_addr + index)) );
++}
++#endif
++
++extern int sfc_flash_sect_erase(ulong flash_sect_addr, int len);
++extern int sfc_flash_write(char *env_buffer, ulong flash_sect_addr, int len);
++extern int sfc_flash_read(char *env_buffer, ulong flash_sect_addr, int len);
++static void use_default(void);
++
++#ifdef CONFIG_ENV_ADDR_REDUND
++
++int  env_init(void)
++{
++	int crc1_ok = 0, crc2_ok = 0;
++
++	uchar flag1 = flash_addr->flags;
++	uchar flag2 = flash_addr_new->flags;
++
++	ulong addr_default = (ulong)&default_environment[0];
++	ulong addr1 = (ulong)&(flash_addr->data);
++	ulong addr2 = (ulong)&(flash_addr_new->data);
++
++	crc1_ok = (crc32(0, flash_addr->data, ENV_SIZE) == flash_addr->crc);
++	crc2_ok = (crc32(0, flash_addr_new->data, ENV_SIZE) == flash_addr_new->crc);
++
++	if (crc1_ok && ! crc2_ok) {
++		gd->env_addr  = addr1;
++		gd->env_valid = 1;
++	} else if (! crc1_ok && crc2_ok) {
++		gd->env_addr  = addr2;
++		gd->env_valid = 1;
++	} else if (! crc1_ok && ! crc2_ok) {
++		gd->env_addr  = addr_default;
++		gd->env_valid = 0;
++	} else if (flag1 == ACTIVE_FLAG && flag2 == OBSOLETE_FLAG) {
++		gd->env_addr  = addr1;
++		gd->env_valid = 1;
++	} else if (flag1 == OBSOLETE_FLAG && flag2 == ACTIVE_FLAG) {
++		gd->env_addr  = addr2;
++		gd->env_valid = 1;
++	} else if (flag1 == flag2) {
++		gd->env_addr  = addr1;
++		gd->env_valid = 2;
++	} else if (flag1 == 0xFF) {
++		gd->env_addr  = addr1;
++		gd->env_valid = 2;
++	} else if (flag2 == 0xFF) {
++		gd->env_addr  = addr2;
++		gd->env_valid = 2;
++	}
++
++	return (0);
++}
++
++#ifdef CMD_SAVEENV
++int saveenv(void)
++{
++	char *saved_data = NULL;
++	int rc = 1;
++	char flag = OBSOLETE_FLAG, new_flag = ACTIVE_FLAG;
++#if CONFIG_ENV_SECT_SIZE > CONFIG_ENV_SIZE
++	ulong up_data = 0;
++#endif
++
++	debug ("Protect off %08lX ... %08lX\n",
++		(ulong)flash_addr, end_addr);
++
++	if (flash_sect_protect (0, (ulong)flash_addr, end_addr)) {
++		goto Done;
++	}
++
++	debug ("Protect off %08lX ... %08lX\n",
++		(ulong)flash_addr_new, end_addr_new);
++
++	if (flash_sect_protect (0, (ulong)flash_addr_new, end_addr_new)) {
++		goto Done;
++	}
++
++#if CONFIG_ENV_SECT_SIZE > CONFIG_ENV_SIZE
++	up_data = (end_addr_new + 1 - ((long)flash_addr_new + CONFIG_ENV_SIZE));
++	debug ("Data to save 0x%x\n", up_data);
++	if (up_data) {
++		if ((saved_data = malloc(up_data)) == NULL) {
++			printf("Unable to save the rest of sector (%ld)\n",
++				up_data);
++			goto Done;
++		}
++		memcpy(saved_data,
++			(void *)((long)flash_addr_new + CONFIG_ENV_SIZE), up_data);
++		debug ("Data (start 0x%x, len 0x%x) saved at 0x%x\n",
++			   (long)flash_addr_new + CONFIG_ENV_SIZE,
++				up_data, saved_data);
++	}
++#endif
++	puts ("Erasing Flash...\n");
++	debug (" %08lX ... %08lX ...",
++		(ulong)flash_addr_new, end_addr_new);
++
++	if (flash_sect_erase ((ulong)flash_addr_new, end_addr_new)) {
++		goto Done;
++	}
++
++	puts ("Writing to Flash...\n");
++	debug (" %08lX ... %08lX ...",
++		(ulong)&(flash_addr_new->data),
++		sizeof(env_ptr->data)+(ulong)&(flash_addr_new->data));
++	if ((rc = flash_write((char *)env_ptr->data,
++			(ulong)&(flash_addr_new->data),
++			sizeof(env_ptr->data))) ||
++	    (rc = flash_write((char *)&(env_ptr->crc),
++			(ulong)&(flash_addr_new->crc),
++			sizeof(env_ptr->crc))) ||
++	    (rc = flash_write(&flag,
++			(ulong)&(flash_addr->flags),
++			sizeof(flash_addr->flags))) ||
++	    (rc = flash_write(&new_flag,
++			(ulong)&(flash_addr_new->flags),
++			sizeof(flash_addr_new->flags))))
++	{
++		flash_perror (rc);
++		goto Done;
++	}
++	puts ("done\n");
++
++#if CONFIG_ENV_SECT_SIZE > CONFIG_ENV_SIZE
++	if (up_data) { /* restore the rest of sector */
++		debug ("Restoring the rest of data to 0x%x len 0x%x\n",
++			   (long)flash_addr_new + CONFIG_ENV_SIZE, up_data);
++		if (flash_write(saved_data,
++				(long)flash_addr_new + CONFIG_ENV_SIZE,
++				up_data)) {
++			flash_perror(rc);
++			goto Done;
++		}
++	}
++#endif
++	{
++		env_t * etmp = flash_addr;
++		ulong ltmp = end_addr;
++
++		flash_addr = flash_addr_new;
++		flash_addr_new = etmp;
++
++		end_addr = end_addr_new;
++		end_addr_new = ltmp;
++	}
++
++	rc = 0;
++Done:
++
++	if (saved_data)
++		free (saved_data);
++	/* try to re-protect */
++	(void) flash_sect_protect (1, (ulong)flash_addr, end_addr);
++	(void) flash_sect_protect (1, (ulong)flash_addr_new, end_addr_new);
++
++	return rc;
++}
++#endif /* CMD_SAVEENV */
++
++#else /* ! CONFIG_ENV_ADDR_REDUND */
++
++int  env_init_sfc(void)
++{
++  //long flash_sect_addr;
++ //  ulong len = ENV_SIZE;
++ //flash_sect_addr = ((ulong)flash_addr) & ~(CONFIG_ENV_SECT_SIZE-1);
++ #if 0
++	if (crc32(0, env_ptr->data, len) == env_ptr->crc) {
++		gd->env_addr  = (ulong)&(env_ptr->data);
++		gd->env_valid = 1;
++		return(0);
++	}
++#endif
++	gd->env_addr  = (ulong)&default_environment[0];
++	gd->env_valid = 1;
++	return (0);
++}
++
++#ifdef CMD_SAVEENV
++
++int saveenv_sfc(void)
++{
++	int	len;
++	ulong	end_addr;
++	ulong	flash_sect_addr;
++#if defined(CONFIG_ENV_SECT_SIZE) && (CONFIG_ENV_SECT_SIZE > CONFIG_ENV_SIZE)
++	ulong	flash_offset;
++	uchar	env_buffer[CONFIG_ENV_SECT_SIZE];
++#else
++	uchar *env_buffer = (uchar *)env_ptr;
++#endif	/* CONFIG_ENV_SECT_SIZE */
++	int rcode = 0;
++
++#if defined(CONFIG_ENV_SECT_SIZE) && (CONFIG_ENV_SECT_SIZE > CONFIG_ENV_SIZE)
++
++	flash_offset    = ((ulong)flash_addr) & (CONFIG_ENV_SECT_SIZE-1);
++	flash_sect_addr = ((ulong)flash_addr) & ~(CONFIG_ENV_SECT_SIZE-1);
++
++	debug ( "copy old content: "
++		"sect_addr: %08lX  env_addr: %08lX  offset: %08lX\n",
++		flash_sect_addr, (ulong)flash_addr, flash_offset);
++
++	/* copy old contents to temporary buffer */
++	//memcpy (env_buffer, (void *)(flash_sect_addr | CONFIG_SYS_SFC_FLASH_BASE), CONFIG_ENV_SECT_SIZE);
++	sfc_flash_read((char *)env_buffer, flash_sect_addr, len);
++
++	/* copy current environment to temporary buffer */
++	memcpy ((uchar *)((unsigned long)env_buffer),
++		env_ptr,
++		CONFIG_ENV_SIZE);
++	/* copy current environment to temporary buffer */
++/*	memcpy ((uchar *)((unsigned long)env_buffer + flash_offset),
++		gd->env_addr,
++		CONFIG_ENV_SIZE);*/
++
++	len	 = CONFIG_ENV_SECT_SIZE;
++#else
++	flash_sect_addr = (ulong)flash_addr;
++	len	 = CONFIG_ENV_SIZE;
++#endif	/* CONFIG_ENV_SECT_SIZE */
++
++#ifndef CONFIG_INFERNO
++	end_addr = flash_sect_addr + len - 1;
++#else
++	/* this is the last sector, and the size is hardcoded here */
++	/* otherwise we will get stack problems on loading 128 KB environment */
++	end_addr = flash_sect_addr + len - 1;
++#endif
++	debug ("Protect off %08lX ... %08lX\n",
++		(ulong)flash_sect_addr, end_addr);
++
++       if(sfc_flash_sect_erase(flash_sect_addr, len))
++	   	return 1;
++	if(sfc_flash_write((char *)env_buffer, flash_sect_addr, len))
++		return 1;
++	return rcode;
++}
++
++#endif /* CMD_SAVEENV */
++
++#endif /* CONFIG_ENV_ADDR_REDUND */
++
++void env_relocate_spec_sfc (void)
++{
++#if !defined(ENV_IS_EMBEDDED) || defined(CONFIG_ENV_ADDR_REDUND)
++#ifdef CONFIG_ENV_ADDR_REDUND
++	if (gd->env_addr != (ulong)&(flash_addr->data)) {
++		env_t * etmp = flash_addr;
++		ulong ltmp = end_addr;
++
++		flash_addr = flash_addr_new;
++		flash_addr_new = etmp;
++
++		end_addr = end_addr_new;
++		end_addr_new = ltmp;
++	}
++
++	if (flash_addr_new->flags != OBSOLETE_FLAG &&
++	    crc32(0, flash_addr_new->data, ENV_SIZE) ==
++	    flash_addr_new->crc) {
++		char flag = OBSOLETE_FLAG;
++
++		gd->env_valid = 2;
++		flash_sect_protect (0, (ulong)flash_addr_new, end_addr_new);
++		flash_write(&flag,
++			    (ulong)&(flash_addr_new->flags),
++			    sizeof(flash_addr_new->flags));
++		flash_sect_protect (1, (ulong)flash_addr_new, end_addr_new);
++	}
++
++	if (flash_addr->flags != ACTIVE_FLAG &&
++	    (flash_addr->flags & ACTIVE_FLAG) == ACTIVE_FLAG) {
++		char flag = ACTIVE_FLAG;
++
++		gd->env_valid = 2;
++		flash_sect_protect (0, (ulong)flash_addr, end_addr);
++		flash_write(&flag,
++			    (ulong)&(flash_addr->flags),
++			    sizeof(flash_addr->flags));
++		flash_sect_protect (1, (ulong)flash_addr, end_addr);
++	}
++
++	if (gd->env_valid == 2)
++		puts ("*** Warning - some problems detected "
++		      "reading environment; recovered successfully\n\n");
++#endif /* CONFIG_ENV_ADDR_REDUND */
++#ifdef CMD_SAVEENV
++	//memcpy (env_ptr, (void*)((ulong)flash_addr | CONFIG_SYS_SFC_FLASH_BASE), CONFIG_ENV_SIZE);
++	sfc_flash_read((char *)env_ptr, (ulong)flash_addr, CONFIG_ENV_SIZE);
++	if (crc32(0, env_ptr->data, ENV_SIZE) != env_ptr->crc)
++		return use_default();
++#endif
++#endif /* ! ENV_IS_EMBEDDED || CONFIG_ENV_ADDR_REDUND */
++}
++
++
++#if !defined(ENV_IS_EMBEDDED)
++static void use_default(void)
++{
++	puts ("*** Warning - bad CRC or NAND, using default environment\n\n");
++	set_default_env();
++}
++#endif
++
++
+diff -Naur u-boot-2009.08/common/Makefile u-boot-2009.08_SFC/common/Makefile
+--- u-boot-2009.08/common/Makefile	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/common/Makefile	2010-06-08 17:29:50.000000000 -0500
+@@ -58,6 +58,7 @@
+ COBJS-$(CONFIG_ENV_IS_IN_FLASH) += env_flash.o
+ COBJS-$(CONFIG_ENV_IS_IN_MG_DISK) += env_mgdisk.o
+ COBJS-$(CONFIG_ENV_IS_IN_NAND) += env_nand.o
++COBJS-$(CONFIG_ENV_IS_IN_SFC) += env_sfc.o
+ COBJS-$(CONFIG_ENV_IS_IN_NVRAM) += env_nvram.o
+ COBJS-$(CONFIG_ENV_IS_IN_ONENAND) += env_onenand.o
+ COBJS-$(CONFIG_ENV_IS_IN_SPI_FLASH) += env_sf.o
+@@ -118,7 +119,8 @@
+ COBJS-$(CONFIG_CMD_MTDPARTS) += cmd_mtdparts.o
+ COBJS-y += cmd_nand.o
+ COBJS-$(CONFIG_CMD_NOR) += cmd_nor.o
+-COBJS-y += cmd_gcs.o
++COBJS-$(CONFIG_CMD_SFC) += cmd_sfc.o
++COBJS-$(CONFIG_CMD_GCS) += cmd_gcs.o
+ COBJS-$(CONFIG_CMD_NET) += cmd_net.o
+ COBJS-$(CONFIG_CMD_ONENAND) += cmd_onenand.o
+ COBJS-$(CONFIG_CMD_OTP) += cmd_otp.o
+diff -Naur u-boot-2009.08/drivers/dma/nx_dmac_ip1902.c u-boot-2009.08_SFC/drivers/dma/nx_dmac_ip1902.c
+--- u-boot-2009.08/drivers/dma/nx_dmac_ip1902.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/drivers/dma/nx_dmac_ip1902.c	2010-06-09 07:59:38.000000000 -0500
+@@ -286,15 +286,14 @@
+ 	/* Get the free channel */
+ 	chan = &nx_dmac->chans[chanid];
+ 	chan->chan_status = 0;
++	/* Get the channel start */
++	chan_start = nx_dmac->dmac_base + (NX_DMAC_CHAN0_SRC + (NX_DMAC_CHAN_OFF * chanid));
+ 
+ 	if(!(chan->busy)) {
+ 		printk(KERN_ERR "nx_dmac: DMAC tfr complete \r\n");
+ 		chan->chan_status = -EIO;
+ 	}
+ 	else {
+-		/* Get the channel start */
+-		chan_start = nx_dmac->dmac_base + (NX_DMAC_CHAN0_SRC + (NX_DMAC_CHAN_OFF * chanid));
+-
+ 		/* Wait DMAC interrupt */
+ 		set_timeout(PNX8XXX_TIMEOUT);
+ 		int_status = readl(nx_dmac->dmac_base + NX_DMAC_INT_STATUS);
+diff -Naur u-boot-2009.08/drivers/mtd/cfi_flash.c u-boot-2009.08_SFC/drivers/mtd/cfi_flash.c
+--- u-boot-2009.08/drivers/mtd/cfi_flash.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/drivers/mtd/cfi_flash.c	2010-06-09 10:39:50.000000000 -0500
+@@ -1077,7 +1077,8 @@
+ 	if (prot) {
+ 		printf ("- Warning: %d protected sectors will not be erased!\n",
+ 			prot);
+-	} else if (flash_verbose) {
++	} 
++	else if (flash_verbose) {
+ 		putc ('\n');
+ 	}
+ 
+@@ -1124,14 +1125,15 @@
+ 			if (flash_full_status_check
+ 			    (info, sect, info->erase_blk_tout, "erase")) {
+ 				rcode = 1;
+-			} else if (flash_verbose)
++			}
++			else if (flash_verbose)
+ 				putc ('.');
+ 		}
+ 	}
+-
++/*
+ 	if (flash_verbose)
+ 		puts (" done\n");
+-
++*/
+ 	return rcode;
+ }
+ 
+diff -Naur u-boot-2009.08/drivers/mtd/nand/nand_base.c u-boot-2009.08_SFC/drivers/mtd/nand/nand_base.c
+--- u-boot-2009.08/drivers/mtd/nand/nand_base.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/drivers/mtd/nand/nand_base.c	2010-06-09 08:09:01.000000000 -0500
+@@ -1926,7 +1926,7 @@
+ static int nand_write_page(struct mtd_info *mtd, struct nand_chip *chip,
+ 			   const uint8_t *buf, int page, int cached, int raw)
+ {
+-	int status;
++	
+ #if !defined(CONFIG_NAND_NXP_IPA051)
+ 	chip->cmdfunc(mtd, NAND_CMD_SEQIN, 0x00, page);
+ #endif
+diff -Naur u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c u-boot-2009.08_SFC/drivers/mtd/nand/nx_nand_ip2070.c
+--- u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/drivers/mtd/nand/nx_nand_ip2070.c	2010-06-09 08:40:59.000000000 -0500
+@@ -489,8 +489,13 @@
+ 		}
+ 		writel(page_cfg, (nc->ctrl_base + PAGE_RW_OFFSET));
+ 
++		/* Start DMAC */
++		chanid = nx_dmac_tfr(&req);
++		if(chanid < 0) {
++			printk( "nx_nand_read: NAND_READ0 DMAC config \r\n");
++			return;
++		}
+ 		/* Send CACHED READ cmd */
+-
+ 		nx_nand_cmd_addr(nc, 1, NAND_CMD_CACHEREAD, 1);
+ 	}
+ 
+@@ -715,7 +720,7 @@
+ 	DBG_PRINT(("> IP2017 nx_nand_read_page_raw enter \r\n"));
+ 
+ 	/* Copy to user buffer */
+-	invalidate_dcache_range(nc->dmabuf, (nc->dmabuf + mtd->writesize + mtd->oobsize));
++	invalidate_dcache_range((ulong)nc->dmabuf, ((ulong)nc->dmabuf + mtd->writesize + mtd->oobsize));
+ 	chip->read_buf(mtd, buf, mtd->writesize);
+ 	chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
+ 	DBG_PRINT(("< IP2017 nx_nand_read_page_raw exit \r\n"));
+@@ -895,7 +900,7 @@
+ 
+ 		/* Copy into user buffer */
+ 		nc->offset = mtd->writesize;
+-		invalidate_dcache_range(nc->dmabuf, (nc->dmabuf + mtd->writesize + mtd->oobsize));
++		invalidate_dcache_range((ulong)nc->dmabuf, ((ulong)nc->dmabuf + mtd->writesize + mtd->oobsize));
+ 		chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
+ 	}
+ 	DBG_PRINT(("< IP2017 nx_nand_read_oob exit \r\n"));
+@@ -952,7 +957,7 @@
+ 	/* Copy data into buffer */
+ 	chip->write_buf(mtd, buf, mtd->writesize);
+ 	chip->write_buf(mtd, chip->oob_poi, mtd->oobsize);
+-	flush_dcache_range(nc->dmabuf, nc->dmabuf + len);
++	flush_dcache_range((ulong)nc->dmabuf, (ulong)nc->dmabuf + len);
+ 
+ 	/* Scatter gather list for DMAC */
+ 	nx_nand_dmac_init(nc, 0, &req, stgt);
+@@ -1643,7 +1648,7 @@
+ 	}
+ 	nx_nc->dmabuf = (uint8_t *)((unsigned long)(nx_nc->dmabuf_unalgn + CACHE_LINE_SIZE - 1)
+ 						& (~CACHE_LINE_MASK));
+-	invalidate_dcache_range(nx_nc->dmabuf, (nx_nc->dmabuf + page + oob));
++	invalidate_dcache_range((ulong)nx_nc->dmabuf, ((ulong)nx_nc->dmabuf + page + oob));
+ 
+ 	chip->options |= NAND_ALLOW_CLEAR_BBT | NAND_NO_SUBPAGE_WRITE | NAND_USE_FLASH_BBT;
+ 
+diff -Naur u-boot-2009.08/drivers/mtd/nor/nor_setupflashdescr.c u-boot-2009.08_SFC/drivers/mtd/nor/nor_setupflashdescr.c
+--- u-boot-2009.08/drivers/mtd/nor/nor_setupflashdescr.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/drivers/mtd/nor/nor_setupflashdescr.c	2010-06-09 10:26:28.000000000 -0500
+@@ -236,9 +236,9 @@
+             }
+             else if ( pFlashDesc[FlashType].EnterIDMode == FLASH_ID_ENTER_AMDX8 )
+             {
+-               *((volatile u_int16 *)(BankStartAddr + (0xaaa<<1))) = 0xaaaaaaaa;
+-               *((volatile u_int16 *)(BankStartAddr + (0x555<<1))) = 0x55555555;
+-               *((volatile u_int16 *)(BankStartAddr + (0xaaa<<1))) = 0x90909090;
++               *((volatile u_int16 *)(BankStartAddr + (0xaaa<<1))) = (u_int16)0xaaaaaaaa;
++               *((volatile u_int16 *)(BankStartAddr + (0x555<<1))) = (u_int16)0x55555555;
++               *((volatile u_int16 *)(BankStartAddr + (0xaaa<<1))) = (u_int16)0x90909090;
+             }
+             else if ( pFlashDesc[FlashType].EnterIDMode == FLASH_ID_ENTER_AMDX16 )
+             {
+@@ -248,9 +248,9 @@
+             }
+             else if ( pFlashDesc[FlashType].EnterIDMode == FLASH_ID_ENTER_ATMELX16 )
+             {
+-               *((volatile u_int16 *)(BankStartAddr + (0x5555<<1))) = 0xaaaaaaaa;
+-               *((volatile u_int16 *)(BankStartAddr + (0x2aaa<<1))) = 0x55555555;
+-               *((volatile u_int16 *)(BankStartAddr + (0x5555<<1))) = 0x90909090;
++               *((volatile u_int16 *)(BankStartAddr + (0x5555<<1))) =(u_int16)0xaaaaaaaa;
++               *((volatile u_int16 *)(BankStartAddr + (0x2aaa<<1))) =(u_int16)0x55555555;
++               *((volatile u_int16 *)(BankStartAddr + (0x5555<<1))) =(u_int16)0x90909090;
+             }
+             
+             MfrCode = *((volatile u_int16 *)BankStartAddr);
+diff -Naur u-boot-2009.08/drivers/mtd/sfc/Makefile u-boot-2009.08_SFC/drivers/mtd/sfc/Makefile
+--- u-boot-2009.08/drivers/mtd/sfc/Makefile	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08_SFC/drivers/mtd/sfc/Makefile	2010-06-07 08:38:53.000000000 -0500
+@@ -0,0 +1,48 @@
++#
++# (C) Copyright 2006
++# Wolfgang Denk, DENX Software Engineering, wd@denx.de.
++#
++# See file CREDITS for list of people who contributed to this
++# project.
++#
++# This program is free software; you can redistribute it and/or
++# modify it under the terms of the GNU General Public License as
++# published by the Free Software Foundation; either version 2 of
++# the License, or (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++# MA 02111-1307 USA
++#
++
++include $(TOPDIR)/config.mk
++
++LIB	:= $(obj)libsfc.a
++
++ifdef CONFIG_CMD_SFC
++COBJS-$(CONFIG_MTD_NX_SFC) += nx_sfc.o
++endif
++
++COBJS	:= $(COBJS-y)
++SRCS	:= $(COBJS:.o=.c)
++OBJS	:= $(addprefix $(obj),$(COBJS))
++
++all:	$(LIB)
++
++$(LIB):	$(obj).depend $(OBJS)
++	$(AR) $(ARFLAGS) $@ $(OBJS)
++
++#########################################################################
++
++# defines $(obj).depend target
++include $(SRCTREE)/rules.mk
++
++sinclude $(obj).depend
++
++#########################################################################
+diff -Naur u-boot-2009.08/drivers/mtd/sfc/nx_sfc.c u-boot-2009.08_SFC/drivers/mtd/sfc/nx_sfc.c
+--- u-boot-2009.08/drivers/mtd/sfc/nx_sfc.c	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08_SFC/drivers/mtd/sfc/nx_sfc.c	2010-06-09 10:07:03.000000000 -0500
+@@ -0,0 +1,1018 @@
++/*
++ * MTD SPI driver for ST M25Pxx (and similar) serial flash chips
++ *
++ * Author: Karthik Murthy, @kartjik.murthy.com
++ *
++ * Copyright (c) 2005, Trident Micro Systems Inc.
++ *
++ * Some parts are based on lart.c by Abraham Van Der Merwe
++ * and Mike Lavender, mike@steroidmicros.com
++ * Cleaned up and generalized based on mtd_dataflash.c
++ *
++ * This code is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++
++
++#include <common.h>
++#include <malloc.h>
++#include <linux/types.h>
++#include <linux/mtd/mtd.h>
++#include <linux/mtd/partitions.h>
++#include <asm/io.h>
++#include <asm/errno.h>
++#include <asm/byteorder.h>
++#include "nx_sfc.h"
++
++#define FLASH_PAGESIZE		256
++
++/* Flash opcodes. */
++#define	OPCODE_WREN		0x06	/* Write enable */
++#define	OPCODE_RDSR		0x05	/* Read status register */
++#define	OPCODE_WRSR		0x01	/* Write status register 1 byte */
++#define	OPCODE_NORM_READ	0x03	/* Read data bytes (low frequency) */
++#define	OPCODE_FAST_READ	0x0b	/* Read data bytes (high frequency) */
++#define	OPCODE_PP		0x02	/* Page program (up to 256 bytes) */
++#define	OPCODE_BE_4K		0x20	/* Erase 4KiB block */
++#define	OPCODE_BE_32K		0x52	/* Erase 32KiB block */
++#define	OPCODE_CHIP_ERASE	0xc7	/* Erase whole flash chip */
++#define	OPCODE_SE		0xd8	/* Sector erase (usually 64KiB) */
++#define	OPCODE_RDID		0x9f	/* Read JEDEC ID */
++
++/* Status Register bits. */
++#define	SR_WIP			1	/* Write in progress */
++#define	SR_WEL			2	/* Write enable latch */
++/* meaning of other SR_* bits may differ between vendors */
++#define	SR_BP0			4	/* Block protect 0 */
++#define	SR_BP1			8	/* Block protect 1 */
++#define	SR_BP2			0x10	/* Block protect 2 */
++#define	SR_SRWD			0x80	/* SR write protect */
++
++/* Define max times to check status register before we give up. */
++#define	MAX_READY_WAIT_COUNT	100000
++#define	CMD_SIZE		4
++
++#ifdef CONFIG_M25PXX_USE_FAST_READ
++#define OPCODE_READ 	OPCODE_FAST_READ
++#define FAST_READ_DUMMY_BYTE 1
++#else
++#define OPCODE_READ 	OPCODE_NORM_READ
++#define FAST_READ_DUMMY_BYTE 0
++#endif
++
++#ifdef CONFIG_MTD_PARTITIONS
++#define	mtd_has_partitions()	(1)
++#else
++#define	mtd_has_partitions()	(0)
++#endif
++
++#if 0
++extern void nx_sfc_map_copy_to (unsigned long to, const void *from, ssize_t len);
++extern void nx_sfc_map_copy_from(void *to, unsigned long from, ssize_t len);
++extern int nx_sfc_dma_init(void);
++#endif
++
++/****************************************************************************/
++
++
++static inline struct nx_sfc_ctrl *mtd_to_nx_sfc_ctrl(struct mtd_info *mtd)
++{
++	return container_of(mtd, struct nx_sfc_ctrl, mtd);
++}
++
++struct nx_sfc_ctrl *nx_sfc  = NULL;
++struct mtd_info *sfc_info[CONFIG_SYS_MAX_SFC_DEVICE];
++static struct nx_sfc_drv sfc[CONFIG_SYS_MAX_SFC_DEVICE];
++static char sfc_name[] = "sfc0";
++ 
++/****************************************************************************/
++/* IP2070 GCS: SFC Routines                                                 */
++/****************************************************************************/
++
++ssize_t nx_sfc_prefetch_read(struct nx_sfc_ctrl *flash) 
++{
++
++     volatile unsigned long * prefetch_buf_base;
++     volatile unsigned long prefetch_buf_store;
++     u32 count = 0, i =0;
++     u32 cpy_count = 4, round_len =0;
++     u8 * prefetch_buf_ptr = (u8*)&prefetch_buf_store;
++     u8 * buf_ptr = flash->cd.buffer;
++     
++
++   /* Program the protocol delay regsister */
++      writel(SFC_PROTCOL_DELAY_READ,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++   
++   /* Program the CSR Register ------------*/
++      writel(SFC_CSR_READ, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++
++   /* Program the SPL CMD ADDR Register ------------*/
++      writel(flash->cd.offset, flash->mmio_base +0x7C);
++
++   /* Program the DATA COUNT Register in multiples of 4 bytes------------*/
++      round_len = flash->cd.length % 4;
++      if(round_len){
++	      round_len = flash->cd.length + (4 - round_len);
++	      writel(round_len,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++      }
++      else
++	      writel(flash->cd.length,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++     // writel(0x40,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++   
++   /* Write the CMD to the DEV_CMD Register */
++      writel(SFC_DEV_CMD_READ,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++      nx_sfc_wait(flash->mmio_base);
++
++   /* Copy the data from the Prefetch Buffers------------------*/
++
++      prefetch_buf_base = ((volatile unsigned long *)(0xe063203c));
++      for (i = 0; i < 16; i ++){
++         prefetch_buf_store = readl(prefetch_buf_base);
++         prefetch_buf_base ++;
++		
++         if (flash->cd.length < 4 )
++            cpy_count = flash->cd.length % 4;
++         memcpy(buf_ptr, prefetch_buf_ptr, cpy_count);
++         count += cpy_count;
++         buf_ptr += cpy_count;
++         if (count == flash->cd.length)
++            break;
++      }
++
++      return flash->cd.length;
++}
++
++ssize_t nx_sfc_prefetch_write(struct nx_sfc_ctrl *flash) 
++{
++     volatile unsigned long * prefetch_buf_base;
++     volatile unsigned long prefetch_buf_store;
++     u32 count = 0, i =0;
++     u32 cpy_count = 4;
++     u8 * prefetch_buf_ptr = (u8*)&prefetch_buf_store;
++     u8 * buf_ptr = flash->cd.buffer;
++     
++
++   /* Program the protocol delay regsister */
++      writel(SFC_PROTOCL_DELAY_WRITE,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++   
++   /* Program the CSR Register ------------*/
++      writel(SFC_CSR_WRITE, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++
++   /* Program the SPL CMD ADDR Register ------------*/
++      writel(flash->cd.offset, flash->mmio_base +0x7C);
++
++   /* Program the DATA COUNT Register ------------*/
++      writel(flash->cd.length << 12, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++   
++   /* ----------Setup the Prefetch Buffers------------------*/
++
++      prefetch_buf_base = ((volatile unsigned long *)(0xe063203c));
++      for (i = 0; i < 16; i ++){
++
++         if (flash->cd.length < 4 )
++            cpy_count = flash->cd.length % 4; 
++         memcpy(prefetch_buf_ptr, buf_ptr, cpy_count);
++         writel(prefetch_buf_store, prefetch_buf_base);
++         prefetch_buf_base ++;
++         count += cpy_count;
++         buf_ptr += cpy_count;
++         if (count == flash->cd.length)
++            break;
++      }
++      /* -------Write the CMD to the DEV_CMD Register---------- */
++      writel(SFC_DEV_CMD_WRITE,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++      nx_sfc_wait(flash->mmio_base);
++      return flash->cd.length;
++}
++
++#ifdef SFC_DMAC_ENABLE
++
++ssize_t nx_sfc_read(struct nx_sfc_ctrl *flash) 
++{
++
++   /* Program the protocol delay regsister */
++      writel(0x10008000,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++   
++   /* Program the CSR Register ------------*/
++      writel(0x0000167, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++
++   /* Program the DATA COUNT Register ------------*/
++      writel(flash->cd.length,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++   
++   /* Write the CMD to the DEV_CMD Register */
++      writel(0x00000203,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++      nx_sfc_wait(flash->mmio_base);
++
++   /* Map the data buffer to a DMA bounce buffer */
++
++   /* Setup the DMA Xfer ------------------*/
++      nx_sfc_map_copy_from(flash->cd.buffer, flash->cd.offset, flash->cd.length);
++
++   /* Kick Start the DMA xfer and wait for the completion event */
++
++   
++}
++
++ssize_t nx_sfc_write(struct nx_sfc_ctrl *flash) 
++{
++   /* Program the protocol delay regsister */
++      writel(0x10000000, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++  
++   /* Program the CSR Register ------------*/
++      writel(0x03C20001, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++  
++   /* Program the DATA COUNT Register ------------*/
++      writel(flash->cd.length << 12 ,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++  
++   /* Write the CMD to the DEV_CMD Register */
++      writel(0x00840203 ,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++      nx_sfc_wait(flash->mmio_base);
++  
++   /* Map the data buffer to a DMA bounce buffer */
++  
++   /* Setup the DMA Xfer ------------------*/
++      nx_sfc_map_copy_to(flash->cd.offset, flash->cd.buffer, flash->cd.length);
++  
++   /* Kick Start the DMA xfer and wait for the completion event */
++}
++#endif
++
++ssize_t nx_sfc_erase(struct nx_sfc_ctrl *flash) 
++{
++   /* Program the protocol delay regsister */
++    
++   
++   /* Program the CSR Register ------------*/
++   writel(SFC_CSR_ERASE,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++
++   /* Program the SPL CMD ADDR Register ------------*/
++   writel(flash->cd.offset, flash->mmio_base +0x7C);
++   
++   /* Write the CMD to the DEV_CMD Register */
++   writel(SFC_DEV_CMD_ERASE, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++   nx_sfc_wait(flash->mmio_base);
++   return flash->cd.length;
++}
++ 
++void nx_sfc_write_en(void __iomem  * sfc_regs)
++{
++    
++   //Program the CSR register, enable prefetch, tx_en, tx_hold_en
++   writel(SFC_CSR_WREN, sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++   // Do SPL CMD- "Write Enable" - 06h
++   writel(SFC_DEV_CMD_WREN,sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++   nx_sfc_wait(sfc_regs);
++}
++
++u32 nx_sfc_read_id(void __iomem * sfc_regs)
++{
++   u32 id;
++   writel(SFC_CSR_READ_ID, sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG); 
++   writel(0x4, sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++   writel(SFC_DEV_CMD_ID, sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++   nx_sfc_wait(sfc_regs);
++   id = readl(sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR0_DATA_REG);
++
++   return id;
++}
++
++u32 nx_sfc_read_sr(void __iomem * sfc_regs)
++{
++   u32 status;
++   writel(SFC_CSR_READ_STATUS, sfc_regs +IPBGCSFLSHNTWK_SFC_SFC_CSR_REG); 
++   writel(0x1,sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++   writel(SFC_DEV_CMD_READ_STATUS,sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++   nx_sfc_wait(sfc_regs);
++   status = readl(sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR0_DATA_REG);
++
++   return status;
++}
++
++void nx_sfc_write_sr(void __iomem * sfc_regs)
++{
++
++   writel(SFC_CSR_WRITE_STATUS,sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG); 
++   writel(0x1,sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++   writel(SFC_DEV_CMD_WRITE_STATUS,sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++   nx_sfc_wait(sfc_regs);
++  
++   return;
++}
++
++void nx_sfc_wait(void __iomem * sfc_regs)
++{
++   volatile u32        status;
++   
++   // Wait for SPL CMD to complete
++   do
++   {
++      // Read SFC Status Register - Wait for SPL CMD to complete
++      status = readl(sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++   }
++   while (status & 0x10000);
++}
++
++void nx_sfc_init(void __iomem * sfc_regs)
++{
++   writel(0x1,sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_REG); 
++   return;
++}
++
++/*
++ * Internal helper functions
++ */
++
++/*
++ * Read the status register, returning its value in the location
++ * Return the status register value.
++ * Returns negative if error occurred.
++ */
++ 
++static int read_sr(struct nx_sfc_ctrl *flash)
++{
++	ssize_t retval;
++	//u8 code = OPCODE_RDSR;
++	
++   retval = nx_sfc_read_sr(flash->mmio_base);
++
++	if (retval < 0) {
++		printk(KERN_ERR "error %d reading SR\n",
++				(int) retval);
++		return retval;
++	}
++  
++	return retval;
++}
++
++/*
++ * Write status register 1 byte
++ * Returns negative if error occurred.
++ */
++static int write_sr(struct nx_sfc_ctrl *flash, u8 val)
++{
++	flash->cd.command[0] = OPCODE_WRSR;
++	flash->cd.command[1] = val;
++
++   nx_sfc_write_sr(flash->mmio_base);
++   return 0;
++}
++
++/*
++ * Set write enable latch with Write Enable command.
++ * Returns negative if error occurred.
++ */
++int write_enable(struct nx_sfc_ctrl *flash)
++{
++	//u8	code = OPCODE_WREN;
++
++	nx_sfc_write_en(flash->mmio_base);
++   return 0;
++}
++
++
++/*
++ * Service routine to read status register until ready, or timeout occurs.
++ * Returns non-zero if error.
++ */
++int wait_till_ready(struct nx_sfc_ctrl *flash)
++{
++	int count;
++	int sr;
++
++	/* one chip guarantees max 5 msec wait here after page writes,
++	 * but potentially three seconds (!) after page erase.
++	 */
++	for (count = 0; count < MAX_READY_WAIT_COUNT; count++) {
++		if ((sr = read_sr(flash)) < 0)
++			break;
++		else if (!(sr & SR_WIP))
++			return 0;
++
++		/* REVISIT sometimes sleeping would be best */
++	}
++
++	return 1;
++}
++
++int wait_till_ready_wr(struct nx_sfc_ctrl *flash)
++{
++	int count;
++	int sr;
++
++	/* one chip guarantees max 5 msec wait here after page writes,
++	 * but potentially three seconds (!) after page erase.
++	 */
++	for (count = 0; count < MAX_READY_WAIT_COUNT; count++) {
++		if ((sr = read_sr(flash)) < 0)
++			break;
++		else if ((sr & SR_WEL))
++			return 0;
++
++		/* REVISIT sometimes sleeping would be best */
++	}
++
++	return 1;
++}
++/*
++ * Erase the whole flash memory
++ *
++ * Returns 0 if successful, non-zero otherwise.
++ */
++ 
++static int erase_chip(struct nx_sfc_ctrl *flash)
++{
++ 
++	MTDDEBUG(MTD_DEBUG_LEVEL3, " %s %LdKiB\n",
++			 __func__,
++			flash->mtd.size / 1024);
++ 
++	/* Wait until finished previous write command. */
++	if (wait_till_ready(flash))
++		return 1;
++
++	/* Send write enable, then erase commands. */
++	write_enable(flash);
++
++	/* Set up command buffer. */
++	flash->cd.command[0] = OPCODE_CHIP_ERASE;
++
++	nx_sfc_erase(flash);
++
++	return 0;
++}
++
++/*
++ * Erase one sector of flash memory at offset ``offset'' which is any
++ * address within the sector which should be erased.
++ *
++ * Returns 0 if successful, non-zero otherwise.
++ */
++static int erase_sector(struct nx_sfc_ctrl *flash, u32 offset)
++{
++ 
++	MTDDEBUG(MTD_DEBUG_LEVEL3, " %s %dKiB at 0x%08x\n",
++			 __func__,
++			flash->mtd.erasesize / 1024, offset);
++ 
++	/* Wait until finished previous write command. */
++	if (wait_till_ready(flash))
++		return 1;
++
++	/* Send write enable, then erase commands. */
++	write_enable(flash);
++
++	/* Set up command buffer. */
++	flash->cd.command[0] = flash->erase_opcode;
++	flash->cd.offset = offset;
++
++	nx_sfc_erase(flash);
++
++	return 0;
++}
++
++/****************************************************************************/
++
++/*
++ * MTD implementation
++ */
++
++/*
++ * Erase an address range on the flash chip.  The address range may extend
++ * one or more erase sectors.  Return an error is there is a problem erasing.
++ */
++int nx_sfc_mtd_erase(struct mtd_info *mtd, struct erase_info *instr)
++{
++	struct nx_sfc_ctrl *flash = mtd_to_nx_sfc_ctrl(mtd);
++	u32 addr,len;
++ 
++	MTDDEBUG(MTD_DEBUG_LEVEL2, " %s %s 0x%08x, len %Ld\n",
++			 __func__, "at",
++			(u32)instr->addr, instr->len);
++ 
++	/* sanity checks */
++	if (instr->addr + instr->len > flash->mtd.size)
++		return -EINVAL;
++#if 0
++	if ((instr->addr % mtd->erasesize) != 0
++			|| (instr->len % mtd->erasesize) != 0) {
++		return -EINVAL;
++	}
++#endif
++	addr = instr->addr;
++	len = instr->len;
++
++//	mutex_lock(&flash->lock);
++
++	/* whole-chip erase? */
++	if (len == flash->mtd.size && erase_chip(flash)) {
++		instr->state = MTD_ERASE_FAILED;
++//		mutex_unlock(&flash->lock);
++		return -EIO;
++
++	/* REVISIT in some cases we could speed up erasing large regions
++	 * by using OPCODE_SE instead of OPCODE_BE_4K.  We may have set up
++	 * to use "small sector erase", but that's not always optimal.
++	 */
++
++	/* "sector"-at-a-time erase */
++	} else {
++		while (len) {
++			if (erase_sector(flash, addr)) {
++				instr->state = MTD_ERASE_FAILED;
++	//			mutex_unlock(&flash->lock);
++				return -EIO;
++			}
++
++			addr += mtd->erasesize;
++			len -= mtd->erasesize;
++		}
++	}
++
++	//mutex_unlock(&flash->lock);
++
++	instr->state = MTD_ERASE_DONE;
++	//mtd_erase_callback(instr);
++
++	return 0;
++}
++
++/*
++ * Read an address range from the flash chip.  The address range
++ * may be any size provided it is within the physical boundaries.
++ */
++int nx_sfc_mtd_read(struct mtd_info *mtd, loff_t from, size_t len,
++	size_t *retlen, u_char *buf)
++{
++	struct nx_sfc_ctrl *flash = mtd_to_nx_sfc_ctrl(mtd);
++   u32 page_offset, page_size, first_page, i;
++ 
++	MTDDEBUG(MTD_DEBUG_LEVEL2, " %s %s 0x%08x, len %zd\n",
++			 __func__, "from",
++			(u32)from, len);
++ 
++	/* sanity checks */
++	if (!len)
++		return 0;
++
++	if (from + len > flash->mtd.size)
++		return -EINVAL;
++
++
++	/* NOTE:
++	 * OPCODE_FAST_READ (if available) is faster.
++	 * Should add 1 byte DUMMY_BYTE.
++	 */
++	/* Byte count starts at zero. */
++	if (retlen)
++		*retlen = 0;
++	//mutex_lock(&flash->lock);
++
++	/* Wait till previous write/erase is done. */
++	if (wait_till_ready(flash)) {
++		/* REVISIT status return?? */
++		//mutex_unlock(&flash->lock);
++		return 1;
++	}
++
++	/* FIXME switch to OPCODE_FAST_READ.  It's required for higher
++	 * clocks; and at this writing, every chip this driver handles
++	 * supports that opcode.
++	 */
++
++	/* Set up the write data buffer. */
++	flash->cd.command[0] = OPCODE_READ;
++	 page_offset = from % FLASH_PAGESIZE;
++   
++	/* the size of data remaining on the first page */
++   if(page_offset)
++	   page_size = FLASH_PAGESIZE - page_offset;
++ 
++   if (page_offset)
++      first_page = page_size;
++   else
++      first_page = 0;
++	//*retlen = actual_length - CMD_SIZE;
++
++	/* write everything in PAGESIZE chunks */
++	for (i = 0; i < len; i += page_size) {
++		page_size = len - i;
++      if (first_page){
++         if (first_page >len ){
++             first_page = len;
++         }
++         if (first_page >= 64){
++             page_size = 64;
++             first_page -= 64;
++         }
++         else{
++            page_size = first_page;
++            first_page -= page_size;
++         }
++      }
++	//	else if (page_size > FLASH_PAGESIZE)
++	//		page_size = FLASH_PAGESIZE;
++      else {
++         if (page_size > 64)
++         page_size = 64;
++      }
++      flash->cd.offset = from + i;
++      flash->cd.length = page_size;
++      flash->cd.buffer = buf + i;
++
++		wait_till_ready(flash);
++      #ifdef SFC_DMAC_ENABLE
++      if (page_size == FLASH_PAGESIZE)
++			nx_sfc_read(flash);
++      else
++      #endif            
++      nx_sfc_prefetch_read(flash);
++
++	}
++
++   if (retlen)
++		*retlen = len;
++	//mutex_unlock(&flash->lock);
++
++	return 0;
++}
++
++/*
++ * Write an address range to the flash chip.  Data must be written in
++ * FLASH_PAGESIZE chunks.  The address range may be any size provided
++ * it is within the physical boundaries.
++ */
++int nx_sfc_mtd_write(struct mtd_info *mtd, loff_t to, size_t len,
++	size_t *retlen, const u_char *buf)
++{
++	struct nx_sfc_ctrl *flash = mtd_to_nx_sfc_ctrl(mtd);
++	u32 page_offset = 0, page_size = 0, first_page = 0;
++   u32 i;
++
++	MTDDEBUG(MTD_DEBUG_LEVEL2, " %s %s 0x%08x, len %zd\n",
++			 __func__, "to",
++			(u32)to, len);
++ 
++	if (retlen)
++		*retlen = 0;
++
++	/* sanity checks */
++	if (!len)
++		return(0);
++
++	if (to + len > flash->mtd.size)
++		return -EINVAL;
++
++	//mutex_lock(&flash->lock);
++
++	/* Wait until finished previous write command. */
++	if (wait_till_ready(flash)) {
++		//mutex_unlock(&flash->lock);
++		return 1;
++	}
++
++	/* Set up the opcode in the write buffer. */
++	flash->cd.command[0] = OPCODE_PP;
++
++	/* what page do we start with? */
++	page_offset = to % FLASH_PAGESIZE;
++
++	/* do all the bytes fit onto one page? */
++       
++	/* the size of data remaining on the first page */
++   if(page_offset)
++	   first_page = FLASH_PAGESIZE - page_offset;
++
++	/* write everything in PAGESIZE chunks */
++	for (i = 0; i < len; i += page_size) {
++		
++      page_size = len - i;
++      if (first_page){
++         if (first_page >len ){
++             first_page = len;
++         }
++         if (first_page >= 64){
++             page_size = 64;
++             first_page -= 64;
++         }
++         else{
++            page_size = first_page;
++            first_page -= page_size;
++         }
++      }
++      else {
++         		//	if (page_size > FLASH_PAGESIZE)
++         		//		page_size = FLASH_PAGESIZE;
++         if (page_size > 64)
++            page_size = 64;
++      }
++      flash->cd.offset = to + i;
++      flash->cd.length= page_size;
++      flash->cd.buffer= (u8*)buf + i;
++
++
++		wait_till_ready(flash);
++      write_enable(flash);
++      wait_till_ready_wr(flash);
++      #ifdef SFC_DMAC_ENABLE
++      if (page_size == FLASH_PAGESIZE)
++			nx_sfc_write(flash);
++      else
++      #endif            
++      nx_sfc_prefetch_write(flash);
++	}
++  
++   if (retlen)
++      *retlen = len;
++	//mutex_unlock(&flash->lock);
++
++	return 0;
++}
++ 
++
++/****************************************************************************/
++
++/*
++ * SPI device driver setup and teardown
++ */
++
++struct sfc_flash_info {
++	char		*name;
++
++	/* JEDEC id zero means "no ID" (most older chips); otherwise it has
++	 * a high byte of zero plus three data bytes: the manufacturer id,
++	 * then a two byte device id.
++	 */
++	u32		jedec_id;
++	u16             ext_id;
++
++	/* The size listed here is what works with OPCODE_SE, which isn't
++	 * necessarily called a "sector" by the vendor.
++	 */
++	unsigned	sector_size;
++	u16		n_sectors;
++
++	u16		flags;
++   #define	SECT_4K		0x01		/* OPCODE_BE_4K works uniformly */
++};
++
++
++/* NOTE: double check command sets and memory organization when you add
++ * more flash chips.  This current list focusses on newer chips, which
++ * have been converging on command sets which including JEDEC ID.
++ */
++static struct sfc_flash_info serial_flash_data [] = {
++
++	/* Atmel -- some are (confusingly) marketed as "DataFlash" */
++	{ "at25fs010",  0x1f6601, 0, 32 * 1024, 4, SECT_4K, },
++	{ "at25fs040",  0x1f6604, 0, 64 * 1024, 8, SECT_4K, },
++
++	{ "at25df041a", 0x1f4401, 0, 64 * 1024, 8, SECT_4K, },
++	{ "at25df641",  0x1f4800, 0, 64 * 1024, 128, SECT_4K, },
++
++	{ "at26f004",   0x1f0400, 0, 64 * 1024, 8, SECT_4K, },
++	{ "at26df081a", 0x1f4501, 0, 64 * 1024, 16, SECT_4K, },
++	{ "at26df161a", 0x1f4601, 0, 64 * 1024, 32, SECT_4K, },
++	{ "at26df321",  0x1f4701, 0, 64 * 1024, 64, SECT_4K, },
++
++	/* Spansion -- single (large) sector size only, at least
++	 * for the chips listed here (without boot sectors).
++	 */
++	{ "s25sl004a", 0x010212, 0, 64 * 1024, 8, },
++	{ "s25sl008a", 0x010213, 0, 64 * 1024, 16, },
++	{ "s25sl016a", 0x010214, 0, 64 * 1024, 32, },
++	{ "s25sl032a", 0x010215, 0, 64 * 1024, 64, },
++	{ "s25sl064a", 0x010216, 0, 64 * 1024, 128, },
++        { "s25sl12800", 0x012018, 0x0300, 256 * 1024, 64, },
++	{ "s25sl12801", 0x012018, 0x0301, 64 * 1024, 256, },
++
++	/* SST -- large erase sizes are "overlays", "sectors" are 4K */
++	{ "sst25vf040b", 0xbf258d, 0, 64 * 1024, 8, SECT_4K, },
++	{ "sst25vf080b", 0xbf258e, 0, 64 * 1024, 16, SECT_4K, },
++	{ "sst25vf016b", 0xbf2541, 0, 64 * 1024, 32, SECT_4K, },
++	{ "sst25vf032b", 0xbf254a, 0, 64 * 1024, 64, SECT_4K, },
++
++	/* ST Microelectronics -- newer production may have feature updates */
++	{ "m25p05",  0x202010,  0, 32 * 1024, 2, },
++	{ "m25p10",  0x202011,  0, 32 * 1024, 4, },
++	{ "m25p20",  0x202012,  0, 64 * 1024, 4, },
++	{ "m25p40",  0x202013,  0, 64 * 1024, 8, },
++	{ "m25p80",         0,  0, 64 * 1024, 16, },
++	{ "m25p16",  0x202015,  0, 64 * 1024, 32, },
++	{ "m25p32",  0x202016,  0, 64 * 1024, 64, },
++	{ "m25p64",  0x202017,  0, 64 * 1024, 128, },
++	{ "m25p128", 0x202018, 0, 256 * 1024, 64, },
++
++	{ "m45pe80", 0x204014,  0, 64 * 1024, 16, },
++	{ "m45pe16", 0x204015,  0, 64 * 1024, 32, },
++
++	{ "m25pe80", 0x208014,  0, 64 * 1024, 16, },
++	{ "m25pe16", 0x208015,  0, 64 * 1024, 32, SECT_4K, },
++
++	/* Winbond -- w25x "blocks" are 64K, "sectors" are 4KiB */
++	{ "w25x10", 0xef3011, 0, 64 * 1024, 2, SECT_4K, },
++	{ "w25x20", 0xef3012, 0, 64 * 1024, 4, SECT_4K, },
++	{ "w25x40", 0xef3013, 0, 64 * 1024, 8, SECT_4K, },
++	{ "w25x80", 0xef3014, 0, 64 * 1024, 16, SECT_4K, },
++	{ "w25x16", 0xef3015, 0, 64 * 1024, 32, SECT_4K, },
++	{ "w25x32", 0xef3016, 0, 64 * 1024, 64, SECT_4K, },
++	{ "w25x64", 0xef3017, 0, 64 * 1024, 128, SECT_4K, },
++	{ "w25x128",0xef4018, 0, 64 * 1024, 256, },
++};
++
++static struct sfc_flash_info * jedec_probe(struct nx_sfc_drv *sfc)
++{
++	int			tmp;
++//	u8			code = OPCODE_RDID;
++	u8			*id;
++	u32			jedec;
++	u16                     ext_jedec;
++	struct sfc_flash_info	*info;
++
++	/* JEDEC also defines an optional "extended device information"
++	 * string for after vendor-specific data, after the three bytes
++	 * we use here.  Supporting some chips might require using it.
++	 */
++   	struct nx_sfc_ctrl *flash = sfc->nx_sfc;
++   	tmp = nx_sfc_read_id(flash->mmio_base);
++	if (tmp < 0) {
++		#if 0
++		MTDDEBUG(MTD_DEBUG_LEVEL0, "error %d reading JEDEC ID\n",
++			tmp);
++		#endif
++		return NULL;
++	}
++   	id = (u8 *) &tmp;
++ 	jedec = id[0];
++	jedec = jedec << 8;
++	jedec |= id[1];
++	jedec = jedec << 8;
++	jedec |= id[2];
++
++   	ext_jedec = 0;
++   	printk(KERN_ERR "JEDC ID = 0x%x \n", jedec);
++
++	for (tmp = 0, info = serial_flash_data; 
++			tmp < ARRAY_SIZE(serial_flash_data);
++			tmp++, info++) {
++		if (info->jedec_id == jedec) {
++			if (info->ext_id != 0 && info->ext_id != ext_jedec)
++				continue;
++			return info;
++		}
++	}
++	printk(KERN_ERR "unrecognized JEDEC id %06x\n", jedec);
++	return NULL;
++}
++
++
++/*
++ * board specific setup should have ensured the SPI clock used here
++ * matches what the READ command supports, at least until this driver
++ * understands FAST_READ (for clocks over 25 MHz).
++ */
++static int nx_sfc_probe(struct nx_sfc_drv *sfc)
++{
++	struct nx_sfc_ctrl		*flash = NULL;
++	struct sfc_flash_info	*info;
++	unsigned		i;
++//   	int err;
++   	void __iomem *mmio_regs = NULL;
++	   	
++   	/* Get MMIO registers resource */
++	/* Initialise SFC control structure */
++	/* Allocate memory SFC control for structure */
++	if(!flash) {
++			flash = kzalloc(sizeof(struct nx_sfc_ctrl), GFP_KERNEL);
++			if(!flash) {
++				printk("nx_sfc_probe: nx_sfc memory alloc failure \r\n");
++				return -ENOMEM;
++			}
++	}
++	mmio_regs = (void __iomem *) KSEG1ADDR(PNX8XXX_SFC_BASE);
++	nx_sfc_init(mmio_regs);
++	sfc->nx_sfc = flash;
++      	#ifdef SFC_DMAC_ENABLE
++      	err = nx_sfc_dma_init();
++      	if (err)
++        	return err;
++      	#endif
++
++//	mutex_init(&flash->lock);
++  
++   	flash->mtd.name = sfc_name;
++	flash->mtd.type = MTD_NORFLASH;
++//	flash->mtd.writesize = 1;
++	flash->mtd.flags = MTD_CAP_SFC;
++	flash->mtd.erase = nx_sfc_mtd_erase;
++	flash->mtd.read = nx_sfc_mtd_read;
++	flash->mtd.write = nx_sfc_mtd_write;
++	flash->mmio_base = mmio_regs;
++	flash->mtd.priv = sfc;
++
++
++	/* If we don't have 
++	 * a chip ID, try the JEDEC id commands; they'll work for most
++	 * newer chips, even if we don't recognize the particular chip.
++	 */
++      info = jedec_probe(sfc);
++      
++
++	if (!info)
++		return -ENODEV;
++   
++   	flash->mtd.size = info->sector_size * info->n_sectors;
++   	/* prefer "small sector" erase if possible */
++	if (info->flags & SECT_4K) {
++		flash->erase_opcode = OPCODE_BE_4K;
++		flash->mtd.erasesize = 4096;
++	} else {
++		flash->erase_opcode = OPCODE_SE;
++		flash->mtd.erasesize = info->sector_size;
++	}
++	flash->mtd.writesize = info->sector_size / 1024;
++//	printk(KERN_INFO "%s (%d Kbytes)\n", info->name, 	flash->mtd.size / 1024);
++
++	MTDDEBUG(MTD_DEBUG_LEVEL2,
++		"mtd .name = %s, .size = 0x%.8Lx (%LuMiB) "
++			".erasesize = 0x%.8x (%uKiB) .numeraseregions = %d\n",
++		flash->mtd.name,
++		flash->mtd.size, flash->mtd.size / (1024*1024),
++		flash->mtd.erasesize, flash->mtd.erasesize / 1024,
++		flash->mtd.numeraseregions);
++ 
++	if (flash->mtd.numeraseregions)
++		for (i = 0; i < flash->mtd.numeraseregions; i++)
++			
++			MTDDEBUG(MTD_DEBUG_LEVEL2,
++				"mtd.eraseregions[%d] = { .offset = 0x%.8Lx, "
++				".erasesize = 0x%.8x (%uKiB), "
++				".numblocks = %d }\n",
++				i, flash->mtd.eraseregions[i].offset,
++				flash->mtd.eraseregions[i].erasesize,
++				flash->mtd.eraseregions[i].erasesize / 1024,
++				flash->mtd.eraseregions[i].numblocks);
++			
++
++	/*
++	 * Atmel serial flash tend to power up
++	 * with the software protection bits set
++	 */
++
++	if (info->jedec_id >> 16 == 0x1f) {
++		write_enable(flash);
++		write_sr(flash, 0);
++	}
++	
++	return add_mtd_device(&flash->mtd) == 1 ? -ENODEV : 0;
++}
++
++#if 0
++static int  nx_sfc_remove(struct platform_device *spi)
++{
++	struct nx_sfc_mtd	*flash = dev_get_drvdata(&spi->dev);
++	int		status;
++
++	/* Clean up MTD stuff. */
++	if (mtd_has_partitions() && flash->partitioned)
++		status = del_mtd_partitions(&flash->mtd);
++	else
++		status = del_mtd_device(&flash->mtd);
++	if (status == 0)
++		kfree(flash);
++	return 0;
++}
++#endif
++
++int  sfc_flash_sect_erase(ulong flash_sect_addr, int len)
++{
++	struct nx_sfc_ctrl	*flash = sfc[0].nx_sfc;
++	return erase_sector(flash, flash_sect_addr);
++}
++
++int sfc_flash_write(char *env_buffer, ulong flash_sect_addr, int len)
++{
++	size_t * retlen;
++	struct nx_sfc_ctrl	*flash = sfc[0].nx_sfc;
++	return nx_sfc_mtd_write(&flash->mtd, (loff_t) flash_sect_addr, (size_t) len, (size_t *) &retlen, (const u_char*)env_buffer);
++}
++
++int sfc_flash_read(char *env_buffer, ulong flash_sect_addr, int len)
++{
++	size_t * retlen;
++	struct nx_sfc_ctrl	*flash = sfc[0].nx_sfc;
++	return nx_sfc_mtd_read(&flash->mtd, (loff_t) flash_sect_addr, (size_t) len, (size_t *) &retlen, (u_char*)env_buffer);
++}
++
++int  nx_sfc_mtd_init(void)
++{
++   ulong status;
++   status = nx_sfc_probe(&sfc[0]);
++   if(status == 0)
++		sfc_info[0] = &((sfc[0].nx_sfc)->mtd);
++    return status;	
++}
++
++
++
+diff -Naur u-boot-2009.08/drivers/mtd/sfc/nx_sfc.h u-boot-2009.08_SFC/drivers/mtd/sfc/nx_sfc.h
+--- u-boot-2009.08/drivers/mtd/sfc/nx_sfc.h	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08_SFC/drivers/mtd/sfc/nx_sfc.h	2010-06-09 07:37:57.000000000 -0500
+@@ -0,0 +1,452 @@
++#ifndef NX_SFC_FLASH_H
++#define NX_SFC_FLASH_H
++	#define		PNX8XXX_SFC_BASE		(PNX84XX_GCS_BASE + PNX84XX_GCS_SPI_OFSET )
++   #define IPBGCSFLSHNTWK_BASE 0x0
++   #define IPBGCSFLSHNTWK_SFC_SFC_VERSION_ID_REG  (0x00)
++	#define IPBGCSFLSHNTWK_SFC_SFC_VERSION_ID_VERSION_R (0x07fffffff << 0)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_REG  (0x04)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_SPI_RST_RW (0x01 << 31)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_DMA_REQ_INT_MASK_RW (0x01 << 30)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_DMA_REQ_EN_RW (0x01 << 29)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_ACC_ERR_CLR_RW (0x01 << 28)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_TMR_INT_MASK_RW (0x01 << 27)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_TMR_INT_EN_RW (0x01 << 26)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_TX_INT_MASK_RW (0x01 << 25)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_TX_INT_EN_RW (0x01 << 24)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_TX_HOLD_EN_RW (0x01 << 23)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_PRE_FETCH_TX_EN_RW (0x01 << 22)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_TX_START_BITS_RW (0x01 << 20)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_TX_TRANS_EDGE_RW (0x01 << 18)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_TX_EN_RW (0x01 << 17)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_LOOP_BACK_RW (0x01 << 16)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_DMA_THRD_RW (0x0f << 11)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_RX_INT_MASK_RW (0x01 << 10)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_RX_INT_EN_RW (0x01 << 9)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_RX_HOLD_EN_RW (0x01 << 8)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_PRE_FETCH_RX_EN_RW (0x01 << 6)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_RX_DATA_WIDTH_RW (0x01 << 4)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_RX_CAP_EDGE_RW (0x01 << 2)
++
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_RX_EN_RW (0x01 << 1)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_RX_EN_SHIFT 1
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_RX_EN_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_RX_EN_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_SPI_EN_RW (0x01 << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_SPI_EN_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_SPI_EN_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_CSR_SPI_EN_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_REG  (0x08)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SCK_RW (0x01 << 31)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SCK_SHIFT 31
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SCK_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SCK_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_WP_RW (0x01 << 30)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_WP_SHIFT 30
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_WP_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_WP_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_HOLD_RW (0x01 << 29)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_HOLD_SHIFT 29
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_HOLD_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_HOLD_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_CS_RW (0x01 << 28)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_CS_SHIFT 28
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_CS_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_CS_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SI_RW (0x01 << 27)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SI_SHIFT 27
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SI_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SI_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SO_RW (0x01 << 24)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SO_SHIFT 24
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SO_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_SO_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SCK_RW (0x01 << 23)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SCK_SHIFT 23
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SCK_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SCK_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_WP_RW (0x01 << 22)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_WP_SHIFT 22
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_WP_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_WP_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_HOLD_RW (0x01 << 21)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_HOLD_SHIFT 21
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_HOLD_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_HOLD_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_CS_RW (0x01 << 20)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_CS_SHIFT 20
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_CS_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_CS_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SI_RW (0x01 << 19)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SI_SHIFT 19
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SI_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SI_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SO_RW (0x01 << 18)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SO_SHIFT 18
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SO_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SFT_EN_SO_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_ADDR_TX_MULTI_RW (0x01 << 12)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_ADDR_TX_MULTI_SHIFT 12
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_ADDR_TX_MULTI_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_ADDR_TX_MULTI_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_TX_MULTI_RW (0x01 << 10)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_TX_MULTI_SHIFT 10
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_TX_MULTI_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_TX_MULTI_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_RX_MULTI_RW (0x01 << 8)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_RX_MULTI_SHIFT 8
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_RX_MULTI_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_RX_MULTI_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SI_PIN_MUX_RW (0x01 << 6)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SI_PIN_MUX_SHIFT 6
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SI_PIN_MUX_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SI_PIN_MUX_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SO_PIN_MUX_RW (0x01 << 4)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SO_PIN_MUX_SHIFT 4
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SO_PIN_MUX_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_SO_PIN_MUX_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_WP_PIN_MUX_RW (0x01 << 2)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_WP_PIN_MUX_SHIFT 2
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_WP_PIN_MUX_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_WP_PIN_MUX_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_HOLD_PIN_MUX_RW (0x03 << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_HOLD_PIN_MUX_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_HOLD_PIN_MUX_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_HOLD_PIN_MUX_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_HOLD_PIN_MUX_VAL2 0x02
++	#define IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_HOLD_PIN_MUX_VAL3 0x03
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_REG  (0x0c)
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_CLK_ON_RW (0x01 << 17)
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_CLK_ON_SHIFT 17
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_CLK_ON_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_CLK_ON_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_SCK_IDL_RW (0x01 << 16)
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_SCK_IDL_SHIFT 16
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_SCK_IDL_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_SCK_IDL_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_CLOCK_DIV_RW (0x0ffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_CLOCK_DIV_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_TM_WP_CS_REG  (0x10)
++	#define IPBGCSFLSHNTWK_SFC_SFC_TM_WP_CS_THWP_RW (0x07f << 24)
++	#define IPBGCSFLSHNTWK_SFC_SFC_TM_WP_CS_THWP_SHIFT 24
++	#define IPBGCSFLSHNTWK_SFC_SFC_TM_WP_CS_TSWP_RW (0x07f << 16)
++	#define IPBGCSFLSHNTWK_SFC_SFC_TM_WP_CS_TSWP_SHIFT 16
++	#define IPBGCSFLSHNTWK_SFC_SFC_TM_WP_CS_THCS_RW (0x07f << 8)
++	#define IPBGCSFLSHNTWK_SFC_SFC_TM_WP_CS_THCS_SHIFT 8
++	#define IPBGCSFLSHNTWK_SFC_SFC_TM_WP_CS_TSCS_RW (0x0ff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_TM_WP_CS_TSCS_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG  (0x14)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_ADDR_BIT_RW (0x01 << 28)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_ADDR_BIT_SHIFT 28
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_ADDR_BIT_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_ADDR_BIT_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_FRAME_DELAY_RW (0x03 << 15)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_FRAME_DELAY_SHIFT 15
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_FRAME_DELAY_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_FRAME_DELAY_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_FRAME_DELAY_VAL2 0x02
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_FRAME_DELAY_VAL3 0x03
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_IO_ADDR_TURN_RW (0x01f << 6)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_IO_ADDR_TURN_SHIFT 6
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_IO_DATA_TURN_RW (0x03f << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_IO_DATA_TURN_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG  (0x18)
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_CMD_RW (0x07f << 24)
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_CMD_SHIFT 24
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_ADD_REQ_RW (0x01 << 23)
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_ADD_REQ_SHIFT 23
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_ADD_REQ_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_ADD_REQ_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_CMD_DATA_DST_RW (0x01 << 19)
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_CMD_DATA_DST_SHIFT 19
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_CMD_DATA_DST_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_CMD_DATA_DST_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_CMD_DATA_SCR_RW (0x01 << 18)
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_CMD_DATA_SCR_SHIFT 18
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_CMD_DATA_SCR_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_CMD_DATA_SCR_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_RW_CTRL_CMD_RW (0x01 << 17)
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_RW_CTRL_CMD_SHIFT 17
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_RW_CTRL_CMD_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_RW_CTRL_CMD_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_RW_CTRL_CMD_EN_RW (0x01 << 16)
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_RW_CTRL_CMD_EN_SHIFT 16
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_RW_CTRL_CMD_EN_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_SP_RW_CTRL_CMD_EN_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_WR_CMD_MEM_RW (0x07f << 8)
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_WR_CMD_MEM_SHIFT 8
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_RD_CMD_MEM_RW (0x0ff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_RD_CMD_MEM_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR0_DATA_REG  (0x1c)
++	#define IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR0_DATA_RD_WR_DATA0_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR0_DATA_RD_WR_DATA0_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR1_DATA_REG  (0x20)
++	#define IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR1_DATA_RD_WR_DATA1_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR1_DATA_RD_WR_DATA1_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_REG  (0x24)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_TMR_EN_RW (0x01 << 31)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_TMR_EN_SHIFT 31
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_TMR_EN_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_TMR_EN_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_START_SP_RW (0x01 << 30)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_START_SP_SHIFT 30
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_START_SP_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_START_SP_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_ACC_ERR_EN_RW (0x01 << 29)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_ACC_ERR_EN_SHIFT 29
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_ACC_ERR_EN_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_ACC_ERR_EN_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_TMR_VAL_RW (0x01fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CMD_TMR_TMR_VAL_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG  (0x28)
++	#define IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_TX_COUNT_R (0x07ff << 12)
++	#define IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_TX_COUNT_SHIFT 12
++	#define IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_RX_COUNT_R (0x0fff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_RX_COUNT_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_REG_REG  (0x2c)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_RW (0x0f << 27)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_SHIFT 27
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL2 0x02
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL3 0x03
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL4 0x04
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL5 0x05
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL6 0x06
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL7 0x07
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL8 0x08
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL9 0x09
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL10 0x0a
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL11 0x0b
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL12 0x0c
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL13 0x0d
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL14 0x0e
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_BOOT_STRAP_VAL15 0x0f
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_CS_RW (0x01 << 26)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_CS_SHIFT 26
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_CS_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_CS_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SCK_RW (0x01 << 25)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SCK_SHIFT 25
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SCK_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SCK_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SI_RW (0x01 << 24)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SI_SHIFT 24
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SI_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SI_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_WP_RW (0x01 << 23)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_WP_SHIFT 23
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_WP_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_WP_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_HOLD_RW (0x01 << 22)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_HOLD_SHIFT 22
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_HOLD_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_HOLD_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SO_RW (0x01 << 21)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SO_SHIFT 21
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SO_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_CUR_SO_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_SP_CMD_DONE_RW (0x01 << 20)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_SP_CMD_DONE_SHIFT 20
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_SP_CMD_DONE_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_SP_CMD_DONE_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_ACC_ERR_RW (0x01 << 19)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_ACC_ERR_SHIFT 19
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_ACC_ERR_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_ACC_ERR_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_TMR_INT_RW (0x01 << 18)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_TMR_INT_SHIFT 18
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_TMR_INT_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_TMR_INT_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_TX_INT_RW (0x01 << 17)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_TX_INT_SHIFT 17
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_TX_INT_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_TX_INT_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_RX_INT_RW (0x01 << 16)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_RX_INT_SHIFT 16
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_RX_INT_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_RX_INT_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_DMA_REQ_RW (0x01 << 15)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_DMA_REQ_SHIFT 15
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_DMA_REQ_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_DMA_REQ_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_RW (0x0f << 10)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_SHIFT 10
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL2 0x02
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL3 0x03
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL4 0x04
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL5 0x05
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL6 0x06
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL7 0x07
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL8 0x08
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL9 0x09
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL10 0x0a
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL11 0x0b
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL12 0x0c
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL13 0x0d
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL14 0x0e
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_VALID_BUFF_ENTRY_VAL15 0x0f
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_DEBUG_SIGNALS_RW (0x03f << 3)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_DEBUG_SIGNALS_SHIFT 3
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_RD_CURR_DONE_RW (0x01 << 2)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_RD_CURR_DONE_SHIFT 2
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_RD_CURR_DONE_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_RD_CURR_DONE_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_WR_CURR_DONE_RW (0x01 << 1)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_WR_CURR_DONE_SHIFT 1
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_WR_CURR_DONE_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_WR_CURR_DONE_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_XFER_DONE_RW (0x01 << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_XFER_DONE_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_XFER_DONE_VAL0 0x00
++	#define IPBGCSFLSHNTWK_SFC_SFC_STATUS_XFER_DONE_VAL1 0x01
++	#define IPBGCSFLSHNTWK_SFC_SFC_CURR_HSX_ADDRESS_REG  (0x30)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CURR_HSX_ADDRESS_HSX_ADDR_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CURR_HSX_ADDRESS_HSX_ADDR_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_CURR_READ_DATA_REG  (0x34)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CURR_READ_DATA_HSX_RD_DATA_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CURR_READ_DATA_HSX_RD_DATA_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_CURR_WRITE_DATA_REG  (0x38)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CURR_WRITE_DATA_HSX_RD_DATA_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_CURR_WRITE_DATA_HSX_RD_DATA_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_0_REG  (0x3c)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_0_BUFF_0_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_0_BUFF_0_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_1_REG  (0x40)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_1_BUFF_1_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_1_BUFF_1_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_2_REG  (0x44)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_2_BUFF_2_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_2_BUFF_2_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_3_REG  (0x48)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_3_BUFF_3_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_3_BUFF_3_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_4_REG  (0x4c)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_4_BUFF_4_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_4_BUFF_4_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_5_REG  (0x50)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_5_BUFF_5_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_5_BUFF_5_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_6_REG  (0x54)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_6_BUFF_6_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_6_BUFF_6_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_7_REG  (0x58)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_7_BUFF_7_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_7_BUFF_7_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_8_REG  (0x5c)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_8_BUFF_8_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_8_BUFF_8_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_9_REG  (0x60)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_9_BUFF_9_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_9_BUFF_9_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_10_REG  (0x64)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_10_BUFF_10_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_10_BUFF_10_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_11_REG  (0x68)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_11_BUFF_11_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_11_BUFF_11_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_12_REG  (0x6c)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_12_BUFF_12_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_12_BUFF_12_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_13_REG  (0x70)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_13_BUFF_13_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_13_BUFF_13_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_14_REG  (0x74)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_14_BUFF_14_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_14_BUFF_14_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_15_REG  (0x78)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_15_BUFF_15_RW (0x07fffffff << 0)
++	#define IPBGCSFLSHNTWK_SFC_SFC_PRE_FETCH_BUFF_15_BUFF_15_SHIFT 0
++	#define IPBGCSFLSHNTWK_SFC_MODULE_ID_REG  (0xfc)
++
++#define SFC_PROTCOL_DELAY_READ   0x10008000
++#define SFC_PROTOCL_DELAY_WRITE  0x10038000
++#define SFC_CSR_READ          0x0000027
++#define SFC_CSR_WRITE         0x00420001
++#define SFC_CSR_ERASE         0x20001
++#define SFC_CSR_WREN          0x67
++#define SFC_CSR_READ_ID       0x27
++#define SFC_CSR_READ_STATUS   0x7
++#define SFC_CSR_WRITE_STATUS  0x20001
++#define SFC_DEV_CMD_READ      0x03850203 
++#define SFC_DEV_CMD_WRITE     0x02810203
++#define SFC_DEV_CMD_ERASE     0xD8810203
++#define SFC_DEV_CMD_WREN      0x060D0203
++#define SFC_DEV_CMD_ID        0x9F0D0203
++#define SFC_DEV_CMD_READ_STATUS    0x050D0203
++#define SFC_DEV_CMD_WRITE_STATUS    0x070D0203
++struct mtd_partition;
++
++/**
++ * struct flash_platform_data: board-specific flash data
++ * @name: optional flash device name (eg, as used with mtdparts=)
++ * @parts: optional array of mtd_partitions for static partitioning
++ * @nr_parts: number of mtd_partitions for static partitoning
++ * @type: optional flash device type (e.g. m25p80 vs m25p64), for use
++ *	with chips that can't be queried for JEDEC or other IDs
++ *
++ * Board init code (in arch/.../mach-xxx/board-yyy.c files) can
++ * provide information about SPI flash parts (such as DataFlash) to
++ * help set up the device and its appropriate default partitioning.
++ *
++ * Note that for DataFlash, sizes for pages, blocks, and sectors are
++ * rarely powers of two; and partitions should be sector-aligned.
++ */
++ 
++struct cmd_data {
++   u8    command[2];
++   u32 offset;
++   u32 length;
++   u8 *buffer;
++};
++
++struct nx_sfc_ctrl {
++	//struct mutex			lock;
++	struct mtd_info		mtd;
++	unsigned				partitioned:1;
++	u8					erase_opcode;
++	struct cmd_data 		cd;
++       void __iomem              *mmio_base;
++};
++
++struct nx_sfc_drv{
++	char * name;
++	struct nx_sfc_ctrl * nx_sfc;	
++//	struct nx_sfc_dev	* sfc_flash;
++	struct sfc_flash_info * info;
++	/* we'll likely add more ... use JEDEC IDs, etc */
++};
++
++#if 0
++struct nx_sfc_device
++{
++   dmabuf_phy;
++};
++#endif
++void nx_sfc_wait(void __iomem * sfc_regs);
++int  nx_sfc_mtd_init(void);
++#endif
++
++
+diff -Naur u-boot-2009.08/drivers/mtd/ubi/ubiblock.c u-boot-2009.08_SFC/drivers/mtd/ubi/ubiblock.c
+--- u-boot-2009.08/drivers/mtd/ubi/ubiblock.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/drivers/mtd/ubi/ubiblock.c	2010-06-09 10:02:00.000000000 -0500
+@@ -28,9 +28,7 @@
+ 		ubiblock_vol = ubiblock_ubi->volumes[0];
+ 
+ 		init_part(&ubi_dev);
+-
+ 	}
+-
+ 	return &ubi_dev;
+ }	
+ 
+@@ -39,7 +37,7 @@
+ {
+ 	int err = 0, lnum, offs, total_read, len;
+ 
+-	printk (KERN_ALERT "ubiblock_read start: %d, blkcnt: %d\n", start, blkcnt);
++	printk (KERN_ALERT "ubiblock_read start: %lu, blkcnt: %lu\n", start, blkcnt);
+ 
+ 	start = start * 512;
+ 	len = blkcnt * ubi_dev.blksz;
+diff -Naur u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08_SFC/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/include/configs/vpe_apollo.h	2010-06-09 11:25:25.000000000 -0500
+@@ -163,6 +163,7 @@
+     #define CONFIG_CMD_MII      /* MII support          */
+     #define CONFIG_CMD_MISC     /* Misc functions like sleep etc*/
+     #define CONFIG_CMD_MTDPARTS  /* MTD functions       */
++    #define CONFIG_CMD_SFC     /* SFC support         */
+     #define CONFIG_CMD_NAND     /* NAND support         */
+     #define CONFIG_CMD_NOR      /* NOR support          */
+     #define CONFIG_CMD_GCS      /* Select Flash */
+@@ -216,6 +217,7 @@
+ #define CONFIG_ENV_ADDR         SSBOOT_ENV_FLASH_OFFSET
+ #define CONFIG_ENV_OFFSET      SSBOOT_ENV_FLASH_OFFSET
+ #define CONFIG_ENV_IS_IN_NAND
++#define CONFIG_ENV_IS_IN_SFC
+ 
+ #if defined(CFG_ONENAND)
+ #undef  CONFIG_ENV_IS_NOWHERE
+@@ -243,13 +245,18 @@
+ #endif
+ 
+ #define CONFIG_EXTRA_ENV_SETTINGS                   \
+-    "mtdparts=mtdparts=nx_2017:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
+-    "mtdids=nand0=nx_2017\0" \
++    "mtdparts=mtdparts=nx_2016:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
++    "mtdids=nor0=nx_2016\0" \
++    "nandparts=mtdparts=nx_2017:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
++    "nandids=nand0=nx_2017\0" \
++    "sfcparts=mtdparts=nx_sfc:1536k@0k(boot),5m@1536k(kernel),8m@7m(root),-(extra)\0" \
++    "sfcids=sfc0=nx_sfc\0" \
+     "Image=tftp 0x00008000 Image; go 0x00008000\0"          \
+     "autoload=n\0"      \
+     "uboot=tftp 0x00008000 u-boot.bin; go 0x00008000\0"     \
+     "norboot=nor read 0x180000 0x500000; go 0x8000\0"    \
+     "nandboot=nand read 0x180000 0x500000; go 0x8000\0"    \
++    "sfcboot=sfc read 0x180000 0x500000; go 0x8000\0"    \
+     "bootcmd=run norboot;\0"
+ 
+ #define CONFIG_BOOTARGS "noinitrd " \
+@@ -346,7 +353,8 @@
+  * NAND flash configuration
+  */
+ 
+-#define CONFIG_SYS_FLASH_BASE       0xc0000000
++#define CONFIG_SYS_FLASH_BASE       0xC0000000
++#define CONFIG_SYS_SFC_FLASH_BASE 0xD0000000
+ #define CONFIG_SYS_MONITOR_BASE     0x04000000
+ 
+ #undef  CFG_NAND_LEGACY
+@@ -359,16 +367,22 @@
+ #define CONFIG_MTD_NX_NAND_HWECC
+ #endif
+ 
+-#define CONFIG_SYS_MAX_NAND_DEVICE  4       /* Max number of NAND devices       */
++#if defined(CONFIG_CMD_NAND)
++#define CONFIG_MTD_NX_SFC
++#endif
++
++#define CONFIG_SYS_MAX_SFC_DEVICE  1         /* Max number of SFC devices       */
++#define CONFIG_SYS_MAX_NAND_DEVICE  4      /* Max number of NAND devices       */
+ #define CONFIG_SYS_NAND_MAX_CHIPS   1       /* TH nuber of chips in a device?)  */
+ //#define CONFIG_SYS_MAX_FLASH_SECT   (520)
+-#define CONFIG_SYS_MAX_FLASH_BANKS 4
++#define CONFIG_SYS_MAX_FLASH_BANKS 1
+ #define CFG_NAND_QUIET          1
+ 
+ /* Note: NAND_BASE refers to the xio profiles, in board_nand_init the correct base
+    values are retreived from the xio profiles
+ */
+-#define CONFIG_SYS_NAND_BASE            0x814, 0x818, 0x81C, 0x834, 0x838
++#define CONFIG_SYS_NAND_BASE            0x814, 0x818, 0x81C, 0x834
++//#define CONFIG_SYS_NAND_BASE            0x814, 0x818, 0x81C, 0x834, 0x838
+ #define CONFIG_MTD_NAND_VERIFY_WRITE
+ #define NAND_MAX_FLOORS         1
+ #define NAND_MAX_CHIPS          1
+diff -Naur u-boot-2009.08/include/jffs2/load_kernel.h u-boot-2009.08_SFC/include/jffs2/load_kernel.h
+--- u-boot-2009.08/include/jffs2/load_kernel.h	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08_SFC/include/jffs2/load_kernel.h	2010-06-08 18:21:56.000000000 -0500
+@@ -31,9 +31,15 @@
+ #define MTD_DEV_TYPE_NOR	0x0001
+ #define MTD_DEV_TYPE_NAND	0x0002
+ #define MTD_DEV_TYPE_ONENAND	0x0004
++#define MTD_DEV_TYPE_SFC	0x0008
+ 
+ #define MTD_DEV_TYPE(type) ((type == MTD_DEV_TYPE_NAND) ? "nand" :	\
+-			(type == MTD_DEV_TYPE_ONENAND) ? "onenand" : "nor")
++			(type == MTD_DEV_TYPE_NOR) ? "nor" : 	\
++			(type == MTD_DEV_TYPE_ONENAND) ? "onenand" : "sfc" )
++
++/*#define MTD_DEV_TYPE(type) ((type == MTD_DEV_TYPE_NAND) ? "nand" :	\
++			(type == MTD_DEV_TYPE_ONENAND) ? "onenand" : "nor" )
++			*/
+ 
+ struct mtd_device {
+ 	struct list_head link;
+diff -Naur u-boot-2009.08/include/linux/mtd/mtd-abi.h u-boot-2009.08_SFC/include/linux/mtd/mtd-abi.h
+--- u-boot-2009.08/include/linux/mtd/mtd-abi.h	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/include/linux/mtd/mtd-abi.h	2010-06-08 18:24:36.000000000 -0500
+@@ -41,6 +41,7 @@
+ #define MTD_CAP_RAM		(MTD_WRITEABLE | MTD_BIT_WRITEABLE | MTD_NO_ERASE)
+ #define MTD_CAP_NORFLASH	(MTD_WRITEABLE | MTD_BIT_WRITEABLE)
+ #define MTD_CAP_NANDFLASH	(MTD_WRITEABLE)
++#define MTD_CAP_SFC	(MTD_WRITEABLE)
+ 
+ /* ECC byte placement */
+ #define MTD_NANDECC_OFF		0	/* Switch off ECC (Not recommended) */
+diff -Naur u-boot-2009.08/include/linux/nx_dmac_ip1902.h u-boot-2009.08_SFC/include/linux/nx_dmac_ip1902.h
+--- u-boot-2009.08/include/linux/nx_dmac_ip1902.h	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/include/linux/nx_dmac_ip1902.h	2010-06-09 08:31:28.000000000 -0500
+@@ -139,5 +139,13 @@
+ * DMAC Transfer complete function
+ */
+ extern int nx_dmac_tfr_comp(int chanid);
++extern int nx_dmac_init(void);
++
++/**
++* DMAC timer functions
++*/
++
++extern int did_timeout(void);
++extern void set_timeout(unsigned long usec);
+ 
+ 
+diff -Naur u-boot-2009.08/lib_arm/board.c u-boot-2009.08_SFC/lib_arm/board.c
+--- u-boot-2009.08/lib_arm/board.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/lib_arm/board.c	2010-06-09 11:21:10.000000000 -0500
+@@ -95,6 +95,7 @@
+ 
+ #ifdef CONFIG_CMD_GCS
+ extern int gcs_init(void);
++extern int gcs_flash_sel(const char * altflash);
+ #endif
+ 
+ 
+diff -Naur u-boot-2009.08/lib_arm/bootm.c u-boot-2009.08_SFC/lib_arm/bootm.c
+--- u-boot-2009.08/lib_arm/bootm.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/lib_arm/bootm.c	2010-06-09 09:55:54.000000000 -0500
+@@ -28,6 +28,7 @@
+ #include <asm/byteorder.h>
+ #include <net.h>
+ 
++extern void  patch_ataglist( void );
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+ #if defined (CONFIG_SETUP_MEMORY_TAGS) || \
+@@ -37,18 +38,18 @@
+     defined (CONFIG_REVISION_TAG) || \
+     defined (CONFIG_VFD) || \
+     defined (CONFIG_LCD)
+-static void setup_start_tag (bd_t *bd);
++//static void setup_start_tag (bd_t *bd);
+ 
+ # ifdef CONFIG_SETUP_MEMORY_TAGS
+-static void setup_memory_tags (bd_t *bd);
++//static void setup_memory_tags (bd_t *bd);
+ # endif
+-static void setup_commandline_tag (bd_t *bd, char *commandline);
++//static void setup_commandline_tag (bd_t *bd, char *commandline);
+ 
+ # ifdef CONFIG_INITRD_TAG
+ static void setup_initrd_tag (bd_t *bd, ulong initrd_start,
+ 			      ulong initrd_end);
+ # endif
+-static void setup_end_tag (bd_t *bd);
++//static void setup_end_tag (bd_t *bd);
+ 
+ # if defined (CONFIG_VFD) || defined (CONFIG_LCD)
+ static void setup_videolfb_tag (gd_t *gd);
+@@ -65,7 +66,7 @@
+ 	void	(*theKernel)(int zero, int arch, uint params);
+ 
+ #ifdef CONFIG_CMDLINE_TAG
+-	char *commandline = getenv ("bootargs");
++//	char *commandline = getenv ("bootargs");
+ #endif
+ 
+ 	if ((flag != 0) && (flag != BOOTM_STATE_OS_GO))
+@@ -144,7 +145,23 @@
+ 	return 1;
+ }
+ 
++#ifdef CONFIG_INITRD_TAG
++static void setup_initrd_tag (bd_t *bd, ulong initrd_start, ulong initrd_end)
++{
++	/* an ATAG_INITRD node tells the kernel where the compressed
++	 * ramdisk can be found. ATAG_RDIMG is a better name, actually.
++	 */
++	params->hdr.tag = ATAG_INITRD2;
++	params->hdr.size = tag_size (tag_initrd);
++
++	params->u.initrd.start = initrd_start;
++	params->u.initrd.size = initrd_end - initrd_start;
++
++	params = tag_next (params);
++}
++#endif /* CONFIG_INITRD_TAG */
+ 
++#if 0
+ #if defined (CONFIG_SETUP_MEMORY_TAGS) || \
+     defined (CONFIG_CMDLINE_TAG) || \
+     defined (CONFIG_INITRD_TAG) || \
+@@ -282,12 +299,15 @@
+ }
+ #endif  /* CONFIG_REVISION_TAG */
+ 
+-
++/*
+ static void setup_end_tag (bd_t *bd)
+ {
+ 	params->hdr.tag = ATAG_NONE;
+ 	params->hdr.size = 0;
+ }
++*/
++#endif
++#endif /* CONFIG_SETUP_MEMORY_TAGS || CONFIG_CMDLINE_TAG || CONFIG_INITRD_TAG */
+ 
+ void  patch_ataglist( void )
+ {
+@@ -364,4 +384,4 @@
+    
+ }
+ 
+-#endif /* CONFIG_SETUP_MEMORY_TAGS || CONFIG_CMDLINE_TAG || CONFIG_INITRD_TAG */
++
+diff -Naur u-boot-2009.08/lib_arm/flash.c u-boot-2009.08_SFC/lib_arm/flash.c
+--- u-boot-2009.08/lib_arm/flash.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/lib_arm/flash.c	2010-06-09 11:21:22.000000000 -0500
+@@ -21,51 +21,61 @@
+ #include "../drivers/mtd/nor/nor.h"
+ #include <environment.h>
+ 
+-
++/* Glopbals*/
+ env_t *env_ptr;
+ env_t *flash_addr;
+ char * env_name_spec;
+-extern char * env_name_spec_nor;
+-extern char * env_name_spec_nand;
+ gcs_env gEnv;
+ nor_info_t nor_info;
+ nor_erase_info_t nor_erase_info;
+-
+ gcs_global_info gFlashInfo ;
+ unsigned char buffer[0x20000];
++
++/* External variables */
++extern char * env_name_spec_nor;
++extern char * env_name_spec_nand;
++extern char * env_name_spec_sfc;
+ extern ulong		NetBootFileXferSize;
+ 
++/* External functions */
+ extern int env_init_nor(void);
+ extern int env_init_nand(void);
++extern int env_init_sfc(void);
+ extern int saveenv_nor(void);
+ extern int saveenv_nand(void);
++extern int saveenv_sfc(void);
+ extern void env_relocate_spec_nor(void);
+ extern void env_relocate_spec_nand(void);
++extern void env_relocate_spec_sfc(void);
++extern int nx_sfc_mtd_init(void);
++extern void nx_gcs_init_mode (void);
++extern void nand_init(void);
+ 
+-   
++/* portotypes */
++retcode_t check_uart_boot_sel(void);
+ 
++   
+ /********************************************************************/
+ /*  find_boot_device                                                    */
+ /*                                                                      */
+-/*  PARAMETERS:                                                         */
+-/*      eBootDev          OUT; flash device as shown by config straps   */
+-/*      eFlashtype        OUT; type of Flash device-- NAND, NOR or SFC  */
++/*  PARAMETERS:  NONE                                                       */
+ /*                                                                      */
+ /*  DESCRIPTION:                                                        */
+ /*      checks the config straps  and fuse bits to indicate boot device */
+ /*                                                                      */
+ /*  RETURNS:                                                            */
+-/*                  RETCODE_BOOTDEV_FLASH                               */
++/*                                               */
+ /*                  RETCODE_BOOTDEV_UART                                */
+ /*                  RETCODE_BOOTDEV_INVALID                             */
+ /********************************************************************/
+ 
+-retcode_t find_boot_device(devicetype_t *eBootDev, flashtype_t *eFlashtype)
++retcode_t check_uart_boot_sel(void)
+ {
+-   retcode_t ret = RETCODE_BOOTDEV_FLASH;  /* default booting device is a Flash */
++   retcode_t ret = RETCODE_BOOTDEV_INVALID;  /* default booting device is a Flash */
+    u_int32 lconfigstrapReg = INP32(RGU_CNFG_TRAPS_REG);
+    
+    gFlashInfo.configstrap = lconfigstrapReg;
++   
+    /* check config straps to see if UART boot over-ride is enabled  */
+    if (!(lconfigstrapReg & RGU_CNFG_TRAPS_BOOT_UART_SEL) )
+    {
+@@ -73,7 +83,33 @@
+        return RETCODE_BOOTDEV_UART;
+ 
+    }
++   return ret;
+    
++}
++
++/********************************************************************/
++/*  find_boot_device                                                    */
++/*                                                                      */
++/*  PARAMETERS:                                                         */
++/*      eBootDev          OUT; flash device as shown by config straps   */
++/*      eFlashtype        OUT; type of Flash device-- NAND, NOR or SFC  */
++/*                                                                      */
++/*  DESCRIPTION:                                                        */
++/*      checks the config straps  and fuse bits to indicate boot device */
++/*                                                                      */
++/*  RETURNS:                                                            */
++/*                  RETCODE_BOOTDEV_FLASH                               */
++/*                  RETCODE_BOOTDEV_UART                                */
++/*                  RETCODE_BOOTDEV_INVALID                             */
++/********************************************************************/
++
++retcode_t find_boot_device(devicetype_t *eBootDev, flashtype_t *eFlashtype)
++{
++   retcode_t ret = RETCODE_BOOTDEV_FLASH;  /* default booting device is a Flash */
++   u_int32 lconfigstrapReg = INP32(RGU_CNFG_TRAPS_REG);
++   
++   gFlashInfo.configstrap = lconfigstrapReg;
++
+    /* if the UART boot over-ride is NOT set 
+        check config straps and return the Flash type and the actual device type */
+    *eBootDev = (lconfigstrapReg & RGU_CNFG_TRAPS_BOOT_DEV_SEL)>> 1;
+@@ -114,12 +150,12 @@
+ 
+ int env_init(void)
+ {
+-   gEnv.init();
++   return gEnv.init();
+ }
+ 
+ int saveenv(void)
+ {
+-   gEnv.save();
++   return gEnv.save();
+ }
+ 
+ void env_relocate_spec(void)
+@@ -163,9 +199,7 @@
+        /* Initialize the GCS in ISA/PCI Mode */
+        
+        nx_gcs_init_mode();
+-
+-   /* Find the Boot Flash Type- NOR/NAND/SPI and the Device Type- 8b/16b/ADM */
+-	ret = find_boot_device(&eBootDev, &eFlashtype);
++  	ret =  check_uart_boot_sel();
+ 	if (RETCODE_BOOTDEV_UART == ret)
+ 	{
+ 		  /* Throw error trace */	  
+@@ -181,7 +215,9 @@
+ 		 nx_nor_init(CFG_NOR_FLASH_TYPE,FLASH_TYPE_NOR);
+ 		 #endif
+ 	}
+-	else if (RETCODE_BOOTDEV_FLASH == ret)
++	 /* Find the Boot Flash Type- NOR/NAND/SPI and the Device Type- 8b/16b/ADM */
++	ret = find_boot_device(&eBootDev, &eFlashtype);
++	if (RETCODE_BOOTDEV_FLASH == ret)
+ 	{
+ 	  	gFlashInfo.flashBootDev = eBootDev;
+ 	   	gFlashInfo.flashtype = eFlashtype;
+@@ -200,6 +236,7 @@
+       		}
+ 	       else if (FLASH_TYPE_NAND == eFlashtype){ 
+ 			puts("Boot Device: NAND Flash\r\n");
++			//nand_init();
+ 			env_ptr = (env_t *)((ulong)0x0);
+ 			env_name_spec = env_name_spec_nand;
+ 			gEnv.init = env_init_nand;
+@@ -208,6 +245,13 @@
+       		}
+ 	       else if (FLASH_TYPE_SFC == eFlashtype){
+ 	         	puts("Boot Device: SPI Flash\r\n");
++			nx_sfc_mtd_init();
++			env_ptr = (env_t *)((ulong)CONFIG_ENV_ADDR | CONFIG_SYS_SFC_FLASH_BASE);
++			flash_addr = (env_t *)((ulong)CONFIG_ENV_ADDR);
++			env_name_spec = env_name_spec_sfc;
++			gEnv.init = env_init_sfc;
++			gEnv.save = saveenv_sfc;
++			gEnv.relocate_spec = env_relocate_spec_sfc;
+ 	         	/* Add ENV Support for SFC Flash */
+ 	}
+ 	else
+diff -Naur u-boot-2009.08/lib_arm/ip2070gcs.c u-boot-2009.08_SFC/lib_arm/ip2070gcs.c
+--- u-boot-2009.08/lib_arm/ip2070gcs.c	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/lib_arm/ip2070gcs.c	2010-06-09 07:48:21.000000000 -0500
+@@ -36,7 +36,7 @@
+ #include "libfuncs.h"
+ #include "../drivers/mtd/nor/nor.h"
+ 
+-
++void nx_gcs_init_mode (void);
+ 
+ /********************************************************************/
+ /*  nx_gcs_init                                                       */
+diff -Naur u-boot-2009.08/Makefile u-boot-2009.08_SFC/Makefile
+--- u-boot-2009.08/Makefile	2010-06-09 11:36:29.000000000 -0500
++++ u-boot-2009.08_SFC/Makefile	2010-06-08 12:33:21.000000000 -0500
+@@ -218,6 +218,7 @@
+ LIBS += drivers/mtd/onenand/libonenand.a
+ LIBS += drivers/mtd/ubi/libubi.a
+ LIBS += drivers/mtd/spi/libspi_flash.a
++LIBS += drivers/mtd/sfc/libsfc.a
+ LIBS += drivers/net/libnet.a
+ LIBS += drivers/net/phy/libphy.a
+ LIBS += drivers/net/sk98lin/libsk98lin.a

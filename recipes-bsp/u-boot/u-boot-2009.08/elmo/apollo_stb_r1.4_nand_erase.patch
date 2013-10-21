@@ -1,0 +1,42 @@
+--- u-boot-2009.08/drivers/mtd/nand/nand_bbt.c	2011-07-25 17:44:02.000000000 +0800
++++ u-boot-2009.08-new/drivers/mtd/nand/nand_bbt.c	2011-07-26 14:03:19.000000000 +0800
+@@ -341,14 +341,16 @@
+ {
+ 	struct mtd_oob_ops ops;
+ 	int j, ret;
++  u_char *datbuf;
+ 
++  datbuf = malloc(mtd->writesize + mtd->oobsize);
++	memset(&ops, 0, sizeof(ops));
+ 	ops.ooblen = mtd->oobsize;
+ 	ops.oobbuf = buf;
+-	ops.ooboffs = 0;
+-	ops.datbuf = NULL;
+-	ops.mode = MTD_OOB_PLACE;
+ 
+-	mtd->flags |= MTD_USE_DEV_OOB_LAYOUT;
++	ops.datbuf = datbuf;
++	ops.len = mtd->writesize;
++	ops.mode = MTD_OOB_RAW;
+ 
+ 	for (j = 0; j < len; j++) {
+ 		/*
+@@ -360,14 +362,15 @@
+ 		if (ret)
+ 			return ret;
+ 
+-		if (check_short_pattern(buf, bd))
++		if (check_short_pattern(datbuf + mtd->writesize, bd))
+ 			return 1;
+ 
+ 		offs += mtd->writesize;
+ 	}
+ 	
+-	mtd->flags &= ~MTD_USE_DEV_OOB_LAYOUT;
+-
++  if(datbuf) free(datbuf); 
++  mtd->flags &= ~MTD_USE_DEV_OOB_LAYOUT;
++  
+ 	return 0;
+ }
+ 

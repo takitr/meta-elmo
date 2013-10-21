@@ -1,0 +1,1172 @@
+diff -Naur u-boot-2009.08/common/cmd_flash.c u-boot-2009.08_mtdparts/common/cmd_flash.c
+--- u-boot-2009.08/common/cmd_flash.c	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08_mtdparts/common/cmd_flash.c	2010-06-03 21:04:14.000000000 -0500
+@@ -31,7 +31,8 @@
+ #include <dataflash.h>
+ #endif
+ 
+-#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++//#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++#if defined(CONFIG_CMD_MTDPARTS)
+ #include <jffs2/jffs2.h>
+ 
+ /* parition handling routines */
+@@ -325,7 +326,8 @@
+ 	flash_info_t *info;
+ 	ulong bank, addr_first, addr_last;
+ 	int n, sect_first, sect_last;
+-#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++//#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++#if defined(CONFIG_CMD_MTDPARTS)
+ 	struct mtd_device *dev;
+ 	struct part_info *part;
+ 	u8 dev_type, dev_num, pnum;
+@@ -357,7 +359,8 @@
+ 		return rcode;
+ 	}
+ 
+-#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++//#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++#if defined(CONFIG_CMD_MTDPARTS)
+ 	/* erase <part-id> - erase partition */
+ 	if ((argc == 2) && (mtd_id_parse(argv[1], NULL, &dev_type, &dev_num) == 0)) {
+ 		mtdparts_init();
+@@ -381,6 +384,31 @@
+ 			return 1;
+ 		}
+ 	}
++	else
++	{
++		if (argc > 1)  {
++			mtdparts_init();
++			if (find_dev_and_part(argv[1], &dev, &pnum, &part) == 0) {
++				if (dev->id->type == MTD_DEV_TYPE_NOR) {
++					bank = dev->id->num;
++					info = &flash_info[bank];
++					addr_first = part->offset + info->start[0];
++					addr_last = addr_first + part->size - 1;
++
++					printf ("Erase Flash Parition %s, "
++							"bank %ld, 0x%08lx - 0x%08lx ",
++							argv[1], bank, addr_first,
++							addr_last);
++
++					rcode = flash_sect_erase(addr_first, addr_last);
++					return rcode;
++				}
++
++				printf("cannot erase, not a NOR device\n");
++				return 1;
++			}
++		}
++	}
+ #endif
+ 
+ 	if (argc != 3) {
+@@ -471,7 +499,8 @@
+ #if !defined(CONFIG_SYS_NO_FLASH) || defined(CONFIG_HAS_DATAFLASH)
+ 	ulong addr_first, addr_last;
+ #endif
+-#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++//#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++#if defined(CONFIG_CMD_MTDPARTS)
+ 	struct mtd_device *dev;
+ 	struct part_info *part;
+ 	u8 dev_type, dev_num, pnum;
+@@ -534,7 +563,7 @@
+ #endif	/* CONFIG_SYS_FLASH_PROTECTION */
+ 			}
+ #if defined(CONFIG_SYS_FLASH_PROTECTION)
+-			if (!rcode) puts (" done\n");
++			if (!rcode) puts ("done\n");
+ #endif	/* CONFIG_SYS_FLASH_PROTECTION */
+ 		}
+ 		return rcode;
+@@ -559,13 +588,14 @@
+ 		}
+ 
+ #if defined(CONFIG_SYS_FLASH_PROTECTION)
+-		if (!rcode) puts (" done\n");
++		if (!rcode) puts ("done\n");
+ #endif	/* CONFIG_SYS_FLASH_PROTECTION */
+ 
+ 		return rcode;
+ 	}
+ 
+-#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++//#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++#if defined(CONFIG_CMD_MTDPARTS)
+ 	/* protect on/off <part-id> */
+ 	if ((argc == 3) && (mtd_id_parse(argv[2], NULL, &dev_type, &dev_num) == 0)) {
+ 		mtdparts_init();
+@@ -590,6 +620,32 @@
+ 			return 1;
+ 		}
+ 	}
++	else
++	{
++		if (argc > 1)  {
++			mtdparts_init();
++			if (find_dev_and_part(argv[2], &dev, &pnum, &part) == 0) {
++				if (dev->id->type == MTD_DEV_TYPE_NOR) {
++					bank = dev->id->num;
++					info = &flash_info[bank];
++					addr_first = part->offset + info->start[0];
++					addr_last = addr_first + part->size - 1;
++
++					printf ("%sProtect Flash Parition %s, "
++							"bank %ld, 0x%08lx - 0x%08lx\n",
++							p ? "" : "Un", argv[1],
++							bank, addr_first, addr_last);
++
++					rcode = flash_sect_protect (p, addr_first, addr_last);
++					return rcode;
++				}
++
++				printf("cannot %sprotect, not a NOR device\n",
++						p ? "" : "un");
++				return 1;
++			}
++		}
++	}
+ #endif
+ 
+ 	if (argc != 4) {
+@@ -676,7 +732,7 @@
+ #if defined(CONFIG_SYS_FLASH_PROTECTION)
+ 					if (flash_real_protect(info, i, p))
+ 						rcode = 1;
+-					putc ('.');
++					/*putc ('.');*/
+ #else
+ 					info->protect[i] = p;
+ #endif	/* CONFIG_SYS_FLASH_PROTECTION */
+@@ -684,7 +740,7 @@
+ 			}
+ 		}
+ #if defined(CONFIG_SYS_FLASH_PROTECTION)
+-		puts (" done\n");
++/*		puts ("done\n");*/
+ #endif	/* CONFIG_SYS_FLASH_PROTECTION */
+ 
+ 		printf ("%sProtected %d sectors\n",
+@@ -700,7 +756,8 @@
+ 
+ 
+ /**************************************************/
+-#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++//#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++#if defined(CONFIG_CMD_MTDPARTS)
+ # define TMP_ERASE	"erase <part-id>\n    - erase partition\n"
+ # define TMP_PROT_ON	"protect on <part-id>\n    - protect partition\n"
+ # define TMP_PROT_OFF	"protect off <part-id>\n    - make partition writable\n"
+diff -Naur u-boot-2009.08/common/cmd_gcs.c u-boot-2009.08_mtdparts/common/cmd_gcs.c
+--- u-boot-2009.08/common/cmd_gcs.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/common/cmd_gcs.c	2010-06-03 19:38:43.000000000 -0500
+@@ -114,8 +114,8 @@
+       config_strap |= (CFG_NOR_FLASH_TYPE << 1);
+       /* Configuring NOR Flash device on CS2 */
+       writel(config_strap, 0xE06E6030); /* Configure IOA26, IOA21 and IOA22 */
+-	   nx_gcs_init(CFG_NOR_FLASH_TYPE, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
+-      nx_nor_init();
++      nx_gcs_init(CFG_NOR_FLASH_TYPE, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
++      flash_init();
+    }
+    else if (strcmp(altflash, "NAND")  == 0){
+          if (gFlashInfo.flashtype == FLASH_TYPE_NAND){
+diff -Naur u-boot-2009.08/common/cmd_nand.c u-boot-2009.08_mtdparts/common/cmd_nand.c
+--- u-boot-2009.08/common/cmd_nand.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/common/cmd_nand.c	2010-06-03 18:00:23.000000000 -0500
+@@ -31,6 +31,7 @@
+ //#include "ip1902dmac.h"
+ 
+ 
++extern ulong	NetBootFileXferSize;
+ 
+ #if defined(CONFIG_CMD_MTDPARTS)
+ 
+@@ -509,25 +510,27 @@
+ 	if (strncmp(cmd, "read", 4) == 0 || strncmp(cmd, "write", 5) == 0) {
+ 		int read;
+ 
+-		if (argc < 4)
++		if (argc < 3)
+ 			goto usage;
+-
+-		addr = (ulong)simple_strtoul(argv[2], NULL, 16);
+-
++		
++		s = getenv ("loadaddr");
++		addr= (int)simple_strtol(s, NULL, 10);
+ 		read = strncmp(cmd, "read", 4) == 0; /* 1 = read, 0 = write */
+ 		printf("\nNAND %s: ", read ? "read" : "write");
+-		if (arg_off_size(argc - 3, argv + 3, nand, &off, &size) != 0)
++		if (arg_off_size(argc - 2, argv + 2, nand, &off, &size) != 0)
+ 			return 1;
+-
+ 		s = strchr(cmd, '.');
+ 		if (!s || !strcmp(s, ".jffs2") ||
+ 		    !strcmp(s, ".e") || !strcmp(s, ".i")) {
+ 			if (read)
+ 				ret = nand_read_skip_bad(nand, off, &size,
+ 							 (u_char *)addr);
+-			else
+-				ret = nand_write_skip_bad(nand, off, &size,
++			else{
++				  if(NetBootFileXferSize)
++				  	size = NetBootFileXferSize;
++					ret = nand_write_skip_bad(nand, off, &size,
+ 							  (u_char *)addr);
++				}
+ 		} else if (!strcmp(s, ".oob")) {
+ 			/* out-of-band data */
+ 			mtd_oob_ops_t ops = {
+diff -Naur u-boot-2009.08/common/cmd_nor.c u-boot-2009.08_mtdparts/common/cmd_nor.c
+--- u-boot-2009.08/common/cmd_nor.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/common/cmd_nor.c	2010-06-03 21:25:22.000000000 -0500
+@@ -10,6 +10,9 @@
+  * New NOR support - Makarand Pawagi
+  *
+  */
++ #if defined(CONFIG_CMD_MTDPARTS)
++#include <jffs2/jffs2.h>
++#endif
+ #include <common.h>
+ #include <linux/mtd/mtd.h>
+ 
+@@ -17,15 +20,66 @@
+ #include <watchdog.h>
+ #include <malloc.h>
+ #include <asm/byteorder.h>
+-#include <nor.h>
++#include "stbcfg.h"
++
+ 
+-extern void nor_write_partition(char * partition);
++extern ulong		NetBootFileXferSize;
++extern unsigned char buffer[];
++extern flash_info_t flash_info[];	/* info for FLASH chips */
++extern int nx_nor_read (void * sect_addr,  int size,  void *buffer );
++
++static inline int str2long(char *p, ulong *num)
++{
++	char *endptr;
++
++	*num = simple_strtoul(p, &endptr, 16);
++	return (*p != '\0' && *endptr == '\0') ? 1 : 0;
++}
++
++int write_clean_marker(ulong addr_last, flash_info_t *info , struct part_info *part)
++{
++	 const char cleanmarker[] = {  
++            0x85, 0x19, 0x03, 0x20, 
++            0x0C, 0x00, 0x00, 0x00,
++            0xB1, 0xB0, 0x1E, 0xE4
++       };
++	int i,rc=0;
++	int align = 0;
++	
++	int blksize = part->sector_size;
++	align = (addr_last/blksize) * blksize;
++	addr_last = (addr_last % blksize) ? align + blksize : align ;
++	ulong part_end =  part->offset + info->start[0] + part->size;
++	int nblks = (part_end - addr_last) /blksize;
++
++	for ( i=0; i < nblks; i++){
++								
++		 rc = flash_write ((char *)cleanmarker, addr_last, sizeof(cleanmarker));
++		 if (rc != 0) {
++			flash_perror (rc);
++			return (1);
++		 }
++		 addr_last +=blksize;
++	}
++}
+ 
+ int do_nor(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
+ {
+-	ulong addr, off;
++	ulong addr, sect_addr, off;
+ 	size_t size;
+-	char *cmd;
++	char *cmd, *s;
++	int j = 0;
++
++#ifndef CONFIG_SYS_NO_FLASH
++	flash_info_t *info;
++	ulong bank, addr_first, addr_last,addr_sect_last;
++	//#if defined(CONFIG_CMD_JFFS2) && defined(CONFIG_CMD_MTDPARTS)
++#if defined(CONFIG_CMD_MTDPARTS)
++	struct mtd_device *dev;
++	struct part_info *part;
++	u8 pnum;
++#endif
++#endif
+ 
+ 	/* at least two arguments please */
+ 	if (argc < 2)
+@@ -38,99 +92,170 @@
+ 
+ 		printf("\nNOR Read.. ");
+ 
+-		if (argc < 4)
++		if (argc < 3)
+ 			goto usage1;
+-
+-		addr = (ulong)simple_strtoul(argv[2], NULL, 16);
+-		off = (ulong)simple_strtoul(argv[3], NULL, 16);
+-		size = (ulong)simple_strtoul(argv[4], NULL, 16);
++		#if defined(CONFIG_CMD_MTDPARTS)
++		if (argc <= 4)  {
++				mtdparts_init();
++				if (find_dev_and_part(argv[2], &dev, &pnum, &part) == 0) {
++					if (dev->id->type == MTD_DEV_TYPE_NOR) {
++						bank = dev->id->num;
++						info = &flash_info[bank];
++						addr_first = part->offset + info->start[0];
++						if (argc == 4) {
++							if (!(str2long(argv[3], (ulong *)size))) {
++								printf("'%s' is not a number\n", argv[1]);
++								return -1;
++							}
++							if (size > part->size)
++								size = part->size;
++						} 
++						else size =  part->size;
++						s = getenv ("loadaddr");
++						addr= (int)simple_strtol(s, NULL, 10);
++						printf ("## RAM Addr         %x ...\n", (unsigned int)addr);
++						printf ("## NOR Flash Offset %x ...\n", (unsigned int)addr_first);
++						printf ("## size       %x ...\n", (unsigned int)size);
++						nx_nor_read((void *)(addr_first &0xFFFFFFF),  (int)size,  (void *)addr );
++						return 0;
++					 }
++				}
++		}
++		#endif				
++		if (argc < 4)
++			   goto usage1;
++		s = getenv ("loadaddr");
++		addr= (int)simple_strtol(s, NULL, 10);
++		off = (ulong)simple_strtoul(argv[2], NULL, 16);
++		size = (ulong)simple_strtoul(argv[3], NULL, 16);
+ 
+ 		printf ("## RAM Addr         %x ...\n", (unsigned int)addr);
+ 		printf ("## NOR Flash Offset %x ...\n", (unsigned int)off);
+-		printf ("## Image size       %x ...\n", (unsigned int)size);
++		printf ("## size       %x ...\n", (unsigned int)size);
+ 	
+ 		puts("U-Boot -- Copying from NOR flash\n");
+-
+-		nor_read(&nor_info, (loff_t)off, (size_t *)(&size), (u_char *)addr) ;
+-
++		nx_nor_read((void *)off, (int)size, (void *)addr);
+ 		puts("U-Boot -- Copying from NOR flash.....Done\n");
+ 		
+ 	} 
+-   else if(strncmp(cmd, "write", 4) == 0) {
+-
+-      if (argc < 3)
+-		   goto usage1;
+-
+-	if (strcmp(argv[2], "kernel") == 0) {
+-                   printf("\nNOR Write Kernel..\n ");
+-
+-		   nor_write_partition(argv[2]) ;
+-
+-		   puts("\nU-Boot -- Writing NOR flash.....Done\n");
+-
+-      }
+-      else if (strcmp(argv[2], "rootfs") == 0) {
+-                   printf("\nNOR Write rootfs.. ");
+-
+-		   nor_write_partition(argv[2]) ;
+-
+-		   puts("\nU-Boot -- Writing NOR flash.....Done\n");
+-
+-      }
+-      else if (strcmp(argv[2], "appfs") == 0) {
+-                   printf("\nNOR Write appfs.. ");
+-
+-                   nor_write_partition(argv[2]) ;
+-
+-                   puts("\nU-Boot -- Writing NOR flash.....Done\n");
+-
+-      }
+-      else {
+-   		if (argc < 4)
+-   			goto usage1;
+-
+-   		addr = (ulong)simple_strtoul(argv[2], NULL, 16);
+-   		off = (ulong)simple_strtoul(argv[3], NULL, 16);
+-   		size = (ulong)simple_strtoul(argv[4], NULL, 16);
+-
+-   		printf ("## RAM Addr         %x ...\n", (unsigned int)addr);
+-   		printf ("## NOR Flash Offset %x ...\n", (unsigned int)off);
+-   		printf ("## Image size       %x ...\n", (unsigned int)size);
+-   	
+-   		puts("U-Boot -- Writing NOR flash\n");
+-
+-   		nor_write(&nor_info, (loff_t)off, (size_t *)(&size), (u_char *)addr) ;
+-
+-   		puts("U-Boot -- Writing NOR flash.....Done\n");
+-      }
+-		
+-	} 
+-   else if(strncmp(cmd, "erase", 4) == 0) {
+-
+-		printf("\nNOR Erase.. ");
++  	else if(strncmp(cmd, "write", 4) == 0) {
+ 
++	      if (argc < 3)
++			   goto usage1;
++#if defined(CONFIG_CMD_MTDPARTS)
++		if (argc <= 4)  {
++				mtdparts_init();
++				if (find_dev_and_part(argv[2], &dev, &pnum, &part) == 0) {
++					if (dev->id->type == MTD_DEV_TYPE_NOR) {
++						bank = dev->id->num;
++						info = &flash_info[bank];
++						addr_first = part->offset + info->start[0];
++						if (argc == 4) {
++							if (!(str2long(argv[3], (ulong *)size))) {
++								printf("'%s' is not a number\n", argv[1]);
++								return -1;
++							}
++							if (size > part->size)
++								size = part->size;
++						} 
++						else if (NetBootFileXferSize)
++							size = NetBootFileXferSize;
++						else 
++							size =  part->size;
++						
++						addr_last = addr_first + size - 1;
++						addr_sect_last = addr_first + part->size - 1;
++
++						printf ("Erase Flash Parition %s, "
++						"bank %ld, 0x%08lx - 0x%08lx \n",
++						argv[2], bank, addr_first,
++						addr_last);
++						sect_addr = addr_first;
++						while ( sect_addr<addr_sect_last ){
++							 nx_nor_read((void *)(sect_addr&0x0FFFFFFF),  (int)part->sector_size,  (void *)buffer );
++							 for (j=0; j<  part->sector_size; j++){
++		  				   		 if (buffer[j] != 0xFF)
++		  					        {
++								//if((flash_sect_erase(addr_first, addr_sect_last))){
++									if((flash_sect_erase(sect_addr, sect_addr+part->sector_size -1))){
++										puts("ERROR: Erasing NOR flash.....\n");
++										return 1;
++									}
++		  							break;
++		  					         }
++							 }
++							 sect_addr+=part->sector_size;
++						}
++						printf ("Write Flash Parition %s, "
++								"bank %ld, 0x%08lx - 0x%08lx\n ",
++								argv[2], bank, addr_first,
++								addr_last);
++				   		{
++							int rc;
++							
++							s = getenv ("loadaddr");
++							addr= (int)simple_strtol(s, NULL, 10);
++							rc = flash_write ((char *)addr, addr_first, size);
++							if (rc != 0) {
++								flash_perror (rc);
++								return (1);
++							}
++							if (strcmp(part->name, "root") == 0){
++								write_clean_marker(addr_last, info, part);
++							}
++							puts("U-Boot -- Writing NOR flash.....Done\n");
++							return 0;
++						}
++					}
++
++					printf("cannot write, not a NOR device\n");
++					return 1;
++				}
++		 }
++ #endif
+ 		if (argc < 4)
+-			goto usage1;
+-
+-		off = (ulong)simple_strtoul(argv[2], NULL, 16);
+-		size = (ulong)simple_strtoul(argv[3], NULL, 16);
+-	
+-		printf ("## NOR Flash Offset %x ...\n", (unsigned int)off);
+-		printf ("## Image size       %x ...\n", size);
+-	
+-		puts("U-Boot -- Erasing NOR flash\n");
+-
+-		nor_erase_info.addr = off;
+-		nor_erase_info.len = size;
+-		nor_erase(&nor_info, &nor_erase_info) ;
+-    
+-		puts("U-Boot -- Erasing NOR flash.....Done\n");
++			   goto usage1;
++			
++	       else {
++			s = getenv ("loadaddr");
++			addr= (int)simple_strtol(s, NULL, 10);
++	   		off = (ulong)simple_strtoul(argv[2], NULL, 16);
++	   		size = (ulong)simple_strtoul(argv[3], NULL, 16);
++
++	   		printf ("## RAM Addr         %x ...\n", (unsigned int)addr);
++	   		printf ("## NOR Flash Offset %x ...\n", (unsigned int)(off|CONFIG_SYS_FLASH_BASE));
++	   		printf ("## size       %x ...\n", (unsigned int)size);
++	   	
++	   		puts("U-Boot -- Writing NOR flash\n");
++
++	   		{
++				int rc;
++				rc = flash_write ((char *)addr, (off|CONFIG_SYS_FLASH_BASE), size);
++				if (rc != 0) {
++					flash_perror (rc);
++					return (1);
++				}
++				puts("U-Boot -- Writing NOR flash.....Done\n");
++				return 0;
++			}
++	   		
++	       }
+ 		
+ 	} 
+-   else {
+-		printf("Unknown NOR command suffix '%s'.\n", cmd);
+-		return 1;
+-	}
++       else if(strncmp(cmd, "erase", 4) == 0) {
++    
++	    do_flerase (cmdtp, flag, argc, argv+1);
++    		
++    	} 
++	else if(strncmp(cmd, "info", 4) == 0) {
++    
++	    do_flinfo (cmdtp, flag, argc-1, argv+1);
++    		
++    	} 
++       else {
++    		printf("Unknown NOR command suffix '%s'.\n", cmd);
++    		return 1;
++    	}
+ #else
+ 		printf("NOR sub-system Not Supported.\n");
+ #endif
+@@ -143,14 +268,14 @@
+ 
+ U_BOOT_CMD(nor, CONFIG_SYS_MAXARGS, 1, do_nor,
+ 	"NOR sub-system",
+-	"info - read/write from NOR Flash\n"
++	"info -NOR Flash Device Information\n"
+ 	"cmd usage - \n"	
+-	"nor read addr off size\n"	
+-	"nor write addr off size\n"
++	"nor read off size\n"	
++	"nor write off size\n"
+ 	"nor erase off size\n"
+-	"nor write kernel\n"
+-	"nor write rootfs\n"
+-	"nor write appfs\n"
++	"nor write kernel <size - optional>\n"
++	"nor write rootfs <size - optional>\n"
++	"nor write appfs <size - optional>\n"
+ 	"addr - RAM address where Image is copied\n"			
+ 	"off  - Image offset in Flash\n"			
+ 	"size - Size of Image to be copied\n"				
+diff -Naur u-boot-2009.08/common/env_flash.c u-boot-2009.08_mtdparts/common/env_flash.c
+--- u-boot-2009.08/common/env_flash.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/common/env_flash.c	2010-06-03 21:29:56.000000000 -0500
+@@ -69,7 +69,8 @@
+ extern env_t *env_ptr ; //= (env_t *)((ulong)CONFIG_ENV_ADDR | CONFIG_SYS_FLASH_BASE);
+ //env_t *env_ptr = (env_t *)CONFIG_ENV_ADDR
+ #ifdef CMD_SAVEENV
+-static env_t *flash_addr = (env_t *)(CONFIG_ENV_ADDR);
++extern env_t *flash_addr; 
++//static env_t *flash_addr = (env_t *)(CONFIG_ENV_ADDR);
+ #endif
+ 
+ #endif /* ENV_IS_EMBEDDED */
+@@ -277,6 +278,7 @@
+ 	uchar *env_buffer = (uchar *)env_ptr;
+ #endif	/* CONFIG_ENV_SECT_SIZE */
+ 	int rcode = 0;
++      int rc = 1;
+ 
+ #if defined(CONFIG_ENV_SECT_SIZE) && (CONFIG_ENV_SECT_SIZE > CONFIG_ENV_SIZE)
+ 
+@@ -312,37 +314,23 @@
+ 	/* otherwise we will get stack problems on loading 128 KB environment */
+ 	end_addr = flash_sect_addr + len - 1;
+ #endif
+-#if 0
+ 	debug ("Protect off %08lX ... %08lX\n",
+ 		(ulong)flash_sect_addr, end_addr);
+ 
+ 	if (flash_sect_protect (0, flash_sect_addr, end_addr))
+ 		return 1;
+-#endif
+-	puts ("Erasing NOR Flash...\r\n");
+-#if 0
+ 	if (flash_sect_erase (flash_sect_addr, end_addr))
+ 		return 1;
+-#endif
+-   nor_erase_info.addr = flash_sect_addr;
+-   nor_erase_info.len = end_addr - flash_sect_addr;
+-   nor_erase(&nor_info, &nor_erase_info) ;
+-
+-	puts ("Writing to NOR Flash...\n");
+-   nor_write(&nor_info, (loff_t)flash_sect_addr, (size_t *)(&len), (u_char *)env_buffer) ;
+-  
+-#if 0
+-   rc = flash_write((char *)env_buffer, flash_sect_addr, len); 
++   	rc = flash_write((char *)env_buffer, flash_sect_addr, len); 
+ 	if (rc != 0) {
+ 		flash_perror (rc);
+ 		rcode = 1;
+ 	} else {
+-		puts ("done\n");
++		puts ("Env Written to Flash\n");
+ 	}
+ 
+ 	/* try to re-protect */
+ 	(void) flash_sect_protect (1, flash_sect_addr, end_addr);
+-#endif
+ 	return rcode;
+ }
+ 
+diff -Naur u-boot-2009.08/common/Makefile u-boot-2009.08_mtdparts/common/Makefile
+--- u-boot-2009.08/common/Makefile	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/common/Makefile	2010-05-25 16:52:51.000000000 -0500
+@@ -117,7 +117,7 @@
+ COBJS-$(CONFIG_MP) += cmd_mp.o
+ COBJS-$(CONFIG_CMD_MTDPARTS) += cmd_mtdparts.o
+ COBJS-y += cmd_nand.o
+-COBJS-y += cmd_nor.o
++COBJS-$(CONFIG_CMD_NOR) += cmd_nor.o
+ COBJS-y += cmd_gcs.o
+ COBJS-$(CONFIG_CMD_NET) += cmd_net.o
+ COBJS-$(CONFIG_CMD_ONENAND) += cmd_onenand.o
+diff -Naur u-boot-2009.08/drivers/mtd/cfi_flash.c u-boot-2009.08_mtdparts/drivers/mtd/cfi_flash.c
+--- u-boot-2009.08/drivers/mtd/cfi_flash.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/drivers/mtd/cfi_flash.c	2010-05-25 19:01:26.000000000 -0500
+@@ -33,11 +33,12 @@
+ 
+ /* The DEBUG define must be before common to enable debugging */
+ /* #define DEBUG	*/
+-#define DEBUG 10
++//#define DEBUG 10
+ #include <common.h>
+ #include <asm/processor.h>
+ #include <asm/io.h>
+ #include <asm/byteorder.h>
++#include "stbcfg.h"
+ 
+ /*
+  * This file implements a Common Flash Interface (CFI) driver for
+diff -Naur u-boot-2009.08/drivers/mtd/nand/nand_base.c u-boot-2009.08_mtdparts/drivers/mtd/nand/nand_base.c
+--- u-boot-2009.08/drivers/mtd/nand/nand_base.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/drivers/mtd/nand/nand_base.c	2010-06-03 19:34:28.000000000 -0500
+@@ -2048,17 +2048,17 @@
+ 	ops->retlen = 0;
+ 	if (!writelen)
+ 		return 0;
+-
+ 	/* reject writes, which are not page aligned */
+-	if (NOTALIGNED(to) || NOTALIGNED(ops->len)) {
++	/* Allow write lengths not alligned to page length */
++	/* Write Function handles the last partial page by padding*/
++	/* it to the Page Size with FFs*/
++	if (NOTALIGNED(to)) {
+ 		printk(KERN_NOTICE "nand_write: "
+ 		       "Attempt to write not page aligned data\n");
+ 		return -EINVAL;
+ 	}
+-
+ 	column = to & (mtd->writesize - 1);
+-	subpage = column || (writelen & (mtd->writesize - 1));
+-
++	subpage = column;
+ 	if (subpage && oob)
+ 		return -EINVAL;
+ 
+diff -Naur u-boot-2009.08/drivers/mtd/nand/nand.c u-boot-2009.08_mtdparts/drivers/mtd/nand/nand.c
+--- u-boot-2009.08/drivers/mtd/nand/nand.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/drivers/mtd/nand/nand.c	2010-06-03 19:50:19.000000000 -0500
+@@ -37,7 +37,7 @@
+ static struct nand_chip nand_chip[CONFIG_SYS_MAX_NAND_DEVICE];
+ static ulong base_address[CONFIG_SYS_MAX_NAND_DEVICE] = CONFIG_SYS_NAND_BASE_LIST;
+ 
+-static const char default_nand_name[] = "nand";
++static const char default_nand_name[] = "nx_nand";
+ static __attribute__((unused)) char dev_name[CONFIG_SYS_MAX_NAND_DEVICE][8];
+ 
+ extern int board_nand_init(struct nand_chip *nand);
+@@ -95,6 +95,7 @@
+ 	 */
+ 	board_nand_select_device(nand_info[nand_curr_device].priv, nand_curr_device);
+ #endif
++	
+ }
+ 
+ #endif
+diff -Naur u-boot-2009.08/drivers/mtd/nand/nand_util.c u-boot-2009.08_mtdparts/drivers/mtd/nand/nand_util.c
+--- u-boot-2009.08/drivers/mtd/nand/nand_util.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/drivers/mtd/nand/nand_util.c	2010-06-03 19:32:59.000000000 -0500
+@@ -485,9 +485,10 @@
+ 	size_t len_incl_bad;
+ 	u_char *p_buffer = buffer;
+ 
+-	/* Reject writes, which are not page aligned */
+-	if ((offset & (nand->writesize - 1)) != 0 ||
+-	    (*length & (nand->writesize - 1)) != 0) {
++	/* Allow write lengths not alligned to page length */
++	/* Write Function handles the last partial page by padding*/
++	/* it to the Page Size with FFs*/
++	if ((offset & (nand->writesize - 1)) != 0) {
+ 		printf ("Attempt to write non page aligned data\n");
+ 		return -EINVAL;
+ 	}
+diff -Naur u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c u-boot-2009.08_mtdparts/drivers/mtd/nand/nx_nand_ip2070.c
+--- u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/drivers/mtd/nand/nx_nand_ip2070.c	2010-06-03 19:20:27.000000000 -0500
+@@ -333,7 +333,7 @@
+ 
+ 	if(nc->lb_chip) {
+ 		/* LPF */
+-		if (chip->chipsize > (1 << 28)) {
++		if (chip->chipsize >= (1 << 28)) {
+ 			addr = (nc->cur_page >> 16) & NX_NAND_SP_ADDR_MASK;
+ 			nx_nand_cmd_addr(nc, 0, addr, 0);
+ 		}
+@@ -450,7 +450,7 @@
+ 			/* LPF */
+ 			addr = (nc->cur_page >> 8) & NX_NAND_SP_ADDR_MASK;
+ 			nx_nand_cmd_addr(nc, 0, addr, 0);
+-			if (chip->chipsize > (1 << 28)) {
++			if (chip->chipsize >= (1 << 28)) {
+ 				addr = (nc->cur_page >> 16) & NX_NAND_SP_ADDR_MASK;
+ 				nx_nand_cmd_addr(nc, 0, addr, 0);
+ 			}
+@@ -837,7 +837,7 @@
+ 
+ 				if(nc->lb_chip) {
+ 					/* if > 2Gb, extra address cycle */
+-					if (chip->chipsize > (1 << 28)) {
++					if (chip->chipsize >= (1 << 28)) {
+ 						addr = (nc->cur_page >> 16) & NX_NAND_SP_ADDR_MASK;
+ 						nx_nand_cmd_addr(nc, 0, addr, 0);
+ 						DBG_PRINT(("addr3 0x%x \r\n", addr));
+@@ -1005,7 +1005,7 @@
+ 
+ 	if(nc->lb_chip) {
+ 		/* if > 2Gb, extra address cycle */
+-		if (chip->chipsize > (1 << 28)) {
++		if (chip->chipsize >= (1 << 28)) {
+ 			addr = (nc->cur_page >> 16) & NX_NAND_SP_ADDR_MASK;
+ 			nx_nand_cmd_addr(nc, 0, addr, 0);
+ 		}
+@@ -1141,7 +1141,7 @@
+ 
+ 				if(nc->lb_chip) {
+ 					/* if > 2Gb, extra address cycle */
+-					if (chip->chipsize > (1 << 28)) {
++					if (chip->chipsize >= (1 << 28)) {
+ 						addr = (nc->cur_page >> 8) & NX_NAND_SP_ADDR_MASK;
+ 						nx_nand_cmd_addr(nc, 0, addr, 0);
+ 
+diff -Naur u-boot-2009.08/drivers/mtd/nor/nor.c u-boot-2009.08_mtdparts/drivers/mtd/nor/nor.c
+--- u-boot-2009.08/drivers/mtd/nor/nor.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/drivers/mtd/nor/nor.c	2010-05-26 12:52:31.000000000 -0500
+@@ -496,7 +496,7 @@
+     int result_count;
+    
+     /* Set the current bank according to the addr. */
+-    FindCurrentBank(addr);
++  //  FindCurrentBank(addr);
+ 
+     result_count = read_flash(addr, count, buffer);
+ 
+diff -Naur u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08_mtdparts/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/include/configs/vpe_apollo.h	2010-06-03 19:59:22.000000000 -0500
+@@ -133,9 +133,10 @@
+ 
+ #define CONFIG_CMD_DIAG
+ /* #define  CONFIG_CMD_ONENAND  */
+-
++//#define CONFIG_CMD_UBIFS    /*UBIFS Support */   
++#define CONFIG_SYS_USE_UBI
+ #ifdef CONFIG_SYS_USE_UBI
+-#define CONFIG_CMD_JFFS2
++//#define CONFIG_CMD_JFFS2
+ #define CONFIG_CMD_UBI
+ #define CONFIG_RBTREE
+ #define CONFIG_MTD_PARTITIONS
+@@ -213,7 +214,7 @@
+ #define CONFIG_CMD_SAVEENV
+ #define CONFIG_ENV_IS_IN_FLASH
+ #define CONFIG_ENV_ADDR         SSBOOT_ENV_FLASH_OFFSET
+-#define CONFIG_ENV_OFFSET       SSBOOT_ENV_FLASH_OFFSET
++#define CONFIG_ENV_OFFSET      SSBOOT_ENV_FLASH_OFFSET
+ #define CONFIG_ENV_IS_IN_NAND
+ 
+ #if defined(CFG_ONENAND)
+@@ -224,7 +225,7 @@
+ 
+ #define CONFIG_ENV_SIZE     0x00020000  /* Size of Environment Sector   */
+ 
+-//#define CONFIG_ENV_SECT_SIZE  0x20000
++#define CONFIG_ENV_SECT_SIZE  0x20000
+ 
+ /*
+ #define CONFIG_BOOTP_MASK   CONFIG_BOOTP_DEFAULT
+@@ -241,20 +242,26 @@
+ #define CONFIG_SYS_UBI ""
+ #endif
+ 
+-#define CONFIG_BOOTARGS "noinitrd " \
+-    "console=ttyS1,115200n8 "\
+-    "mtdparts=nx_2016:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra) " \
+-    "root=/dev/mtdblock2 rw " \
+-    "rootfstype=jffs2"
+-
+ #define CONFIG_EXTRA_ENV_SETTINGS                   \
++    "mtdparts=mtdparts=nx_2017:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
++    "mtdids=nand0=nx_2017\0" \
+     "Image=tftp 0x00008000 Image; go 0x00008000\0"          \
+     "autoload=n\0"      \
+     "uboot=tftp 0x00008000 u-boot.bin; go 0x00008000\0"     \
+-    "norboot=nor read 0x8000 0x180000 0x500000; go 0x8000\0"    \
+-    "nandboot=nand read 0x8000 0x180000 0x500000; go 0x8000\0"    \
++    "norboot=nor read 0x180000 0x500000; go 0x8000\0"    \
++    "nandboot=nand read 0x180000 0x500000; go 0x8000\0"    \
+     "bootcmd=run norboot;\0"
+ 
++#define CONFIG_BOOTARGS "noinitrd " \
++    "console=ttyS1,115200n8 "\
++    "${mtdparts} " \
++    "root=/dev/mtdblock2 rw " \
++    "rootfstype=jffs2"
++
++  #define MTDIDS_DEFAULT		"nor0=nx_2016"
++
++  #define MTDPARTS_DEFAULT  "mtdparts=nx_2016:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)"
++
+ /*
+  * Miscellaneous configurable options
+  */
+@@ -321,11 +328,13 @@
+ /*-----------------------------------------------------------------------
+  * NOR flash configuration
+  */
+-#define CONFIG_SYS_NO_CFI     /* disable nor flash support */
++//#define CONFIG_SYS_NO_CFI     /* disable nor flash support */
+ #ifndef CONFIG_SYS_NO_CFI
+ #define CONFIG_SYS_FLASH_CFI
+ #define CONFIG_FLASH_CFI_DRIVER
+ #define CONFIG_FLASH_CFI_MTD
++#define CONFIG_SYS_FLASH_USE_BUFFER_WRITE
++#define CONFIG_SYS_MAX_FLASH_SECT 1024
+ #else
+ #define CONFIG_SYS_NO_FLASH   /* disable  flash support */
+ #undef CONFIG_SYS_FLASH_CFI
+@@ -352,7 +361,7 @@
+ 
+ #define CONFIG_SYS_MAX_NAND_DEVICE  4       /* Max number of NAND devices       */
+ #define CONFIG_SYS_NAND_MAX_CHIPS   1       /* TH nuber of chips in a device?)  */
+-#define CONFIG_SYS_MAX_FLASH_SECT   (520)
++//#define CONFIG_SYS_MAX_FLASH_SECT   (520)
+ #define CONFIG_SYS_MAX_FLASH_BANKS 4
+ #define CFG_NAND_QUIET          1
+ 
+diff -Naur u-boot-2009.08/lib_arm/board.c u-boot-2009.08_mtdparts/lib_arm/board.c
+--- u-boot-2009.08/lib_arm/board.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/lib_arm/board.c	2010-06-03 19:49:21.000000000 -0500
+@@ -48,7 +48,7 @@
+ #include <net.h>
+ #include <serial.h>
+ #include <nand.h>
+-#include <nor.h>
++//#include <nor.h>
+ #include <onenand_uboot.h>
+ #include <mmc.h>
+ 
+@@ -93,6 +93,11 @@
+ #include <i2c.h>
+ #endif
+ 
++#ifdef CONFIG_CMD_GCS
++extern int gcs_init(void);
++#endif
++
++
+ /*
+  * Begin and End of memory area for malloc(), and current "brk"
+  */
+@@ -221,13 +226,6 @@
+ 	return (0);
+ }
+ 
+-#ifndef CONFIG_SYS_NO_FLASH
+-static void display_flash_config (ulong size)
+-{
+-	puts ("Flash: ");
+-	print_size (size, "\n");
+-}
+-#endif /* CONFIG_SYS_NO_FLASH */
+ 
+ #if defined(CONFIG_HARD_I2C) || defined(CONFIG_SOFT_I2C)
+ static int init_func_i2c (void)
+@@ -358,10 +356,6 @@
+ 	mem_malloc_init (_armboot_start - CONFIG_SYS_MALLOC_LEN);
+ #endif
+ 
+-#ifndef CONFIG_SYS_NO_FLASH
+-	/* configure available FLASH banks */
+-	display_flash_config (flash_init ());
+-#endif /* CONFIG_SYS_NO_FLASH */
+ 
+ #ifdef CONFIG_VFD
+ #	ifndef PAGE_SIZE
+@@ -397,12 +391,6 @@
+ 	nand_init();		/* go init the NAND */
+ #endif
+ 
+-#if defined(CONFIG_CMD_NOR)
+-   //nx_nor_init();
+-   nor_mtd_init();/* go init the NOR */
+-#endif
+-
+-
+ #if defined(CONFIG_CMD_ONENAND)
+ 	onenand_init();
+ #endif
+diff -Naur u-boot-2009.08/lib_arm/flash.c u-boot-2009.08_mtdparts/lib_arm/flash.c
+--- u-boot-2009.08/lib_arm/flash.c	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/lib_arm/flash.c	2010-06-03 19:46:27.000000000 -0500
+@@ -21,19 +21,18 @@
+ #include "../drivers/mtd/nor/nor.h"
+ #include <environment.h>
+ 
+-void nor_erase_region(u_int32 addr, u_int32 len);
+-void nor_write_region(u_int32 uFlashAddr, u_int32 uLength, u_int32 uDdrAddr, u_int32 uErasesize, bool clean_marker);
+ 
+ env_t *env_ptr;
++env_t *flash_addr;
+ char * env_name_spec;
+ extern char * env_name_spec_nor;
+ extern char * env_name_spec_nand;
+-gcs_env *gEnv;
++gcs_env gEnv;
+ nor_info_t nor_info;
+ nor_erase_info_t nor_erase_info;
+ 
+ gcs_global_info gFlashInfo ;
+-u_int8 buffer[0x20000];
++unsigned char buffer[0x20000];
+ extern ulong		NetBootFileXferSize;
+ 
+ extern int env_init_nor(void);
+@@ -115,19 +114,27 @@
+ 
+ int env_init(void)
+ {
+-   gEnv->init();
++   gEnv.init();
+ }
+ 
+ int saveenv(void)
+ {
+-   gEnv->save();
++   gEnv.save();
+ }
+ 
+ void env_relocate_spec(void)
+ {
+-   gEnv->relocate_spec();
++   gEnv.relocate_spec();
+ }
+ 
++#ifndef CONFIG_SYS_NO_FLASH
++static void display_flash_config (ulong size)
++{
++	puts ("Flash: ");
++	print_size (size, "\n");
++}
++#endif /* CONFIG_SYS_NO_FLASH */
++
+ #define LOCK_CMD_REG  0xE06EA510
+ #define LOCK_STAT_REG 0xE06EA514
+ #define GRESET0_REG   0xe06e6010
+@@ -140,84 +147,88 @@
+ 	devicetype_t  eBootDev;
+ 	flashtype_t  eFlashtype;
+ 	retcode_t ret;
+-   u32 rst_val;
++  	u32 rst_val;
+ //   u32 config_strap;
+ 
+-   /* Reset GCS */
+-   writel(0xf8, LOCK_CMD_REG);
+-   writel(0x2b, LOCK_CMD_REG);
+-   writel(0x1, LOCK_STAT_REG);
+- 
+-   rst_val = readl((unsigned long *)(GRESET0_REG));
+-   rst_val |= GCS_MASK;
+-   writel(rst_val, (unsigned long *)(GRESET0_REG));
+-   rst_val &= ~GCS_MASK;
+-   writel(rst_val, (unsigned long *)(GRESET0_REG));
+-   /* Initialize the GCS in ISA/PCI Mode */
+-   
+-   nx_gcs_init_mode();
++       /* Reset GCS */
++       writel(0xf8, LOCK_CMD_REG);
++       writel(0x2b, LOCK_CMD_REG);
++       writel(0x1, LOCK_STAT_REG);
++     
++       rst_val = readl((unsigned long *)(GRESET0_REG));
++       rst_val |= GCS_MASK;
++       writel(rst_val, (unsigned long *)(GRESET0_REG));
++       rst_val &= ~GCS_MASK;
++       writel(rst_val, (unsigned long *)(GRESET0_REG));
++       /* Initialize the GCS in ISA/PCI Mode */
++       
++       nx_gcs_init_mode();
+ 
+    /* Find the Boot Flash Type- NOR/NAND/SPI and the Device Type- 8b/16b/ADM */
+ 	ret = find_boot_device(&eBootDev, &eFlashtype);
+ 	if (RETCODE_BOOTDEV_UART == ret)
+ 	{
+-	  /* Throw error trace */	  
+-	  puts("UART Boot not Supported .....\r\n") ;
+-     #if 0
+-     puts("Boot Device: UART\r\n");	
+-     gFlashInfo.altflashtype1 = FLASH_TYPE_NOR;
+-     config_strap = gFlashInfo.configstrap & (~RGU_CNFG_TRAPS_BOOT_DEV_SEL);
+-     config_strap |= (CFG_NOR_FLASH_TYPE << 1);
+-     /* Configuring NOR Flash device on CS2 */
+-     writel(config_strap, 0xE06E6030); /* Configure IOA26, IOA21 and IOA22 */
+-     nx_gcs_init(CFG_NOR_FLASH_TYPE, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS0);	/* InitGCS */
+-     nx_nor_init(CFG_NOR_FLASH_TYPE,FLASH_TYPE_NOR);
+-     #endif
++		  /* Throw error trace */	  
++		  puts("UART Boot not Supported .....\r\n") ;
++		 #if 0
++		 puts("Boot Device: UART\r\n");	
++		 gFlashInfo.altflashtype1 = FLASH_TYPE_NOR;
++		 config_strap = gFlashInfo.configstrap & (~RGU_CNFG_TRAPS_BOOT_DEV_SEL);
++		 config_strap |= (CFG_NOR_FLASH_TYPE << 1);
++		 /* Configuring NOR Flash device on CS2 */
++		 writel(config_strap, 0xE06E6030); /* Configure IOA26, IOA21 and IOA22 */
++		 nx_gcs_init(CFG_NOR_FLASH_TYPE, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS0);	/* InitGCS */
++		 nx_nor_init(CFG_NOR_FLASH_TYPE,FLASH_TYPE_NOR);
++		 #endif
+ 	}
+ 	else if (RETCODE_BOOTDEV_FLASH == ret)
+ 	{
+ 	  	gFlashInfo.flashBootDev = eBootDev;
+-   	gFlashInfo.flashtype = eFlashtype;
+-      /* Configure the Boot Device- Chipselect0, BaseAddr, etc..*/
+-      nx_gcs_init(eBootDev, eFlashtype, (int)GCS_IOCSROUTE_CS0);	/* InitGCS */
+-      /* Set up the Environment on the Boot Flash device on board */
+-	   if (FLASH_TYPE_NOR == eFlashtype){
+-		   puts("Boot Device: NOR Flash\r\n");
+-         nx_nor_init();
+-         env_ptr = (env_t *)((ulong)CONFIG_ENV_ADDR | CONFIG_SYS_FLASH_BASE);
+-         env_name_spec = env_name_spec_nor;
+-         gEnv->init = env_init_nor;
+-         gEnv->save = saveenv_nor;
+-         gEnv->relocate_spec = env_relocate_spec_nor;
+-      }
+-      else if (FLASH_TYPE_NAND == eFlashtype){ 
+-         puts("Boot Device: NAND Flash\r\n");
+-         env_ptr = (env_t *)((ulong)0x0);
+-         env_name_spec = env_name_spec_nand;
+-         gEnv->init = env_init_nand;
+-         gEnv->save = saveenv_nand;
+-         gEnv->relocate_spec = env_relocate_spec_nand;
+-      }
+-      else if (FLASH_TYPE_SFC == eFlashtype){
+-         puts("Boot Device: SPI Flash\r\n");
+-         /* Add ENV Support for SFC Flash */
+-      }
+-      else
+-      {
+-         /* Throw error trace */	  
+-	      puts("UnKnown Flash Device.....GCS Init Failed\r\n") ;	  
+-      }
+-		
++	   	gFlashInfo.flashtype = eFlashtype;
++	      /* Configure the Boot Device- Chipselect0, BaseAddr, etc..*/
++      		nx_gcs_init(eBootDev, eFlashtype, (int)GCS_IOCSROUTE_CS0);	/* InitGCS */
++      		/* Set up the Environment on the Boot Flash device on board */
++      	   	if (FLASH_TYPE_NOR == eFlashtype){
++      			puts("Boot Device: NOR Flash\r\n");
++			display_flash_config (flash_init ());
++                     env_ptr = (env_t *)((ulong)CONFIG_ENV_ADDR | CONFIG_SYS_FLASH_BASE);
++   		       flash_addr = (env_t *)((ulong)CONFIG_ENV_ADDR | CONFIG_SYS_FLASH_BASE);
++                     env_name_spec = env_name_spec_nor;
++                     gEnv.init = env_init_nor;
++                     gEnv.save = saveenv_nor;
++                     gEnv.relocate_spec = env_relocate_spec_nor;
++      		}
++	       else if (FLASH_TYPE_NAND == eFlashtype){ 
++			puts("Boot Device: NAND Flash\r\n");
++			env_ptr = (env_t *)((ulong)0x0);
++			env_name_spec = env_name_spec_nand;
++			gEnv.init = env_init_nand;
++			gEnv.save = saveenv_nand;
++			gEnv.relocate_spec = env_relocate_spec_nand;
++      		}
++	       else if (FLASH_TYPE_SFC == eFlashtype){
++	         	puts("Boot Device: SPI Flash\r\n");
++	         	/* Add ENV Support for SFC Flash */
+ 	}
++	else
++       {
++             /* Throw error trace */	  
++	      puts("UnKnown Flash Device.....GCS Init Failed\r\n") ;	  
++       }
++
++   }
+    else
+    {
+-    /* Throw error trace */	  
++   	  /* Throw error trace */	  
+ 	  puts("Invalid Boot Device .....GCS Init Failed\r\n") ;	  
+    }
+ 
+ 	return 0;
+ }
+ 
++
++
++#if 0
+ /* MTD Mapping Functions for NOR Flash */
+ int mtd_nor_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen, u_char *buf)
+ {
+@@ -399,5 +410,5 @@
+    }
+ 
+ }
+-
++#endif
+ 
+diff -Naur u-boot-2009.08/lib_arm/ip2070gcs.h u-boot-2009.08_mtdparts/lib_arm/ip2070gcs.h
+--- u-boot-2009.08/lib_arm/ip2070gcs.h	2010-06-03 21:46:03.000000000 -0500
++++ u-boot-2009.08_mtdparts/lib_arm/ip2070gcs.h	2010-06-03 19:39:06.000000000 -0500
+@@ -89,8 +89,8 @@
+ typedef struct _gcs_global_info {
+ 	devicetype_t  flashBootDev;
+ 	flashtype_t   flashtype;
+-   flashtype_t   altflashtype1;
+-   u_int32       configstrap;
++       flashtype_t   altflashtype1;
++       u_int32       configstrap;
+ } gcs_global_info ;
+ 
+ typedef struct _gcs_env {

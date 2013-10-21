@@ -1,0 +1,2828 @@
+diff --git a/board/nxp/vpe_apollo/vpe_apollo.c b/board/nxp/vpe_apollo/vpe_apollo.c
+index 5680b0b..f4e2254 100755
+--- a/board/nxp/vpe_apollo/vpe_apollo.c
++++ b/board/nxp/vpe_apollo/vpe_apollo.c
+@@ -30,11 +30,20 @@
+ #include <asm/mach-types.h>
+ #include "vpe_apollo.h"
+ #include "ns16550.h"
++//#define UPDATE_MODE
++//#define SUPPORT_WATCHDOG
++
++#ifndef UPDATE_MODE
+ #include "splash_logo.h"
+ #include "apollo_logo.h"
++#endif
+ 
+ #include <common.h>
+ #include <command.h>
++#include <linux/mtd/mtd.h>
++#include <nand.h>
++#include <jffs2/jffs2.h>
++
+ 
+ #include "ldr_common.h"
+ 
+@@ -63,40 +72,1543 @@
+ #define TRUE 1
+ #define FALSE 0
+ 
+-#if (BOARD_VER == 0x4)
+-#define HWPIN_LOW 3
+-#define HWPIN_HIGH 4
+-#else
+-#define HWPIN_LOW 0
+-#define HWPIN_HIGH 0
+-#endif
++#if (BOARD_VER == 0x4)
++#define HWPIN_LOW 3
++#define HWPIN_HIGH 4
++#else
++#define HWPIN_LOW 0
++#define HWPIN_HIGH 0
++#endif
++
++/*GPIO Defines */
++#define GPIO_LEFT   0x80
++#define GPIO_RIGHT  0x00
++#define GPIO_NONE   0xFF
++#define GPIO_PRIMARY_FUNCTION_MODE 0x1
++#define GPIO_FUNCTION_MODE 0x2
++#define GPIO_OUTPUT_DRAIN_MODE 0x3
++#define MAX_GPIOS 199
++#define GPIO_LEFT_DATA_REG(n)  GPIO_DATA_REG0_REG(1) + (n*0x4)
++#define GPIO_RIGHT_DATA_REG(n) GPIO_DATA_REG0_REG(2) + (n*0x4)
++#define GPIO_LEFT_MODE_CTRL_REG(n)   GPIO_MODE_CTRL0_REG(1) + (n*0x4)
++#define GPIO_RIGHT_MODE_CTRL_REG(n)  GPIO_MODE_CTRL0_REG(2) + (n*0x4)
++
++enum{
++	VIDEO_OUT_PREVIOUS_MODE = -1,
++	VIDEO_OUT_DEFAULT = 0,
++	VIDEO_OUT_NTSC = 1,
++	VIDEO_OUT_PAL = 2,
++	READ_CMD_WAKEUP_FROM_RCU = 0xC1,
++	READ_CMD_WAKEUP_FROM_FRONT = 0xC2,
++	READ_CMD_WAKEUP_FROM_TIMER = 0xC3,
++	READ_CMD_WAKEUP_FROM_AC = 0xC4,
++};
++
++u32 * gIncHD,* gIncSD;   
++u32 gWithOfPic;
++u32 gHightOfPic;
++u32 gHightOfSdPic;
++u32 gFormat;
++u32 temp0;
++u32 temp1;
++u32 temp2;
++u32 temp3;
++u32 temp4;
++
++
++static u32 osg_palette[256]={
++        0x00000000, //   0   0   0 
++        0x00FFFFFF, // 255 255 255 
++        0x0000B3FA, // 250 179   0 
++        0x003D8291, // 145 130  61 
++        0x00DCAF7C, // 124 175 220 
++        0x003B967D, // 125 150  59 
++        0x0000D2C8, // 200 210   0 
++};
++void test_osd_clean(void);
++void test_osd_drawHLine(void);
++void test_osd_drawVLine(void);
++void test_osd_drawRect(void);
++void test_osd_fillRect(void);
++void test_osd_showlogo(u32 i);
++
++void appollo_config_HDMI(u32 resolution);
++
++int do_showLogo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++    switch(argc)
++    {
++        case 2:
++            test_osd_showlogo((u32)((*argv[1])-'0'));
++            break;
++        default:
++            cmd_usage(cmdtp);
++            return 1;
++    }
++
++    return 0;
++}
++
++U_BOOT_CMD(
++	showlogo,	3,	1,	do_showLogo,
++	"Show boot logo in u_boot",
++	"[resolution]"
++);
++
++int do_cleanLogo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++    switch(argc)
++    {
++        case 1:
++            test_osd_clean();
++			APOLLO_PRINTF(" clean logo\n\r ");
++            break;
++        default:
++            cmd_usage(cmdtp);
++            return 1;
++    }
++
++    return 0;
++}
++
++U_BOOT_CMD(
++	cleanlogo,	2,	1,	do_cleanLogo,
++	"cleanlogo logo in u_boot",
++	"[resolution]"
++);
++
++int do_drawhLine (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++    switch(argc)
++    {
++        case 1:
++			test_osd_drawHLine();
++			APOLLO_PRINTF(" draw line\n\r ");
++            break;
++        default:
++            cmd_usage(cmdtp);
++            return 1;
++    }
++
++    return 0;
++}
++
++U_BOOT_CMD(
++	drawhline,	2,	1,	do_drawhLine,
++	"draw line in u_boot",
++	"[resolution]"
++);
++
++int do_drawvLine (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++    switch(argc)
++    {
++        case 1:
++			test_osd_drawVLine();
++			APOLLO_PRINTF(" draw line\n\r ");
++            break;
++        default:
++            cmd_usage(cmdtp);
++            return 1;
++    }
++
++    return 0;
++}
++
++U_BOOT_CMD(
++	drawvline,	2,	1,	do_drawvLine,
++	"draw line in u_boot",
++	"[resolution]"
++);
++
++int do_drawrect (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++    switch(argc)
++    {
++        case 1:
++			test_osd_drawRect();
++			APOLLO_PRINTF(" draw line\n\r ");
++            break;
++        default:
++            cmd_usage(cmdtp);
++            return 1;
++    }
++
++    return 0;
++}
++
++U_BOOT_CMD(
++	drawrect,	2,	1,	do_drawrect,
++	"draw line in u_boot",
++	"[resolution]"
++);
++
++int do_fillrect (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++    switch(argc)
++    {
++        case 1:
++			test_osd_fillRect();
++			APOLLO_PRINTF(" draw line\n\r ");
++            break;
++        default:
++            cmd_usage(cmdtp);
++            return 1;
++    }
++
++    return 0;
++}
++
++U_BOOT_CMD(
++	fillrect,	2,	1,	do_fillrect,
++	"fill rect in u_boot",
++	"[resolution]"
++);
++
++void appollo_config_HDMI(u32 resolution)
++{
++    APOLLO_PRINTF("appollo_config_HDMI, resolution = %d \n", resolution);
++    switch (resolution)
++       {
++       case 0: // 576i
++             APOLLO_PRINTF("appollo_config_HDMI, resolution = 576i \n");
++             
++             /* HDMI programming */
++             writel( 0x0000003f, (APOLLO_HDMI_TX_BASE + 0x038));
++             writel( 0x00012761, (APOLLO_HDMI_TX_BASE + 0x044));
++             writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4d8));
++             writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             udelay(500);
++             writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x0000000f, (APOLLO_HDMI_TX_BASE + 0x038));
++             writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             udelay(500);
++             writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x013f0100, (APOLLO_HDMI_TX_BASE + 0x038));
++             writel( 0x00180000, (APOLLO_HDMI_TX_BASE + 0x4d8));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             writel( 0x42001510, (APOLLO_HDMI_TX_BASE + 0x000));
++             writel( 0x42001410, (APOLLO_HDMI_TX_BASE + 0x000));
++             writel( 0x31000009, (APOLLO_HDMI_TX_BASE + 0x400));
++             writel( 0x00000016, (APOLLO_HDMI_TX_BASE + 0x404));
++             writel( 0x00000005, (APOLLO_HDMI_TX_BASE + 0x078));
++             writel( 0x000d0282, (APOLLO_HDMI_TX_BASE + 0x140));
++             writel( 0x00580001, (APOLLO_HDMI_TX_BASE + 0x144)); /* CRC = 0x01 */
++             writel( 0x00000115, (APOLLO_HDMI_TX_BASE + 0x148)); /* pix_rpt = 1, format = 21 */
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x14c));
++
++             writel( 0x000a0184, (APOLLO_HDMI_TX_BASE + 0x180));
++             writel( 0x00000170, (APOLLO_HDMI_TX_BASE + 0x184));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x188));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x18c));
++             //writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x300));
++             writel( 0x00000020, (APOLLO_HDMI_TX_BASE + 0x300));
++             writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x304));
++             writel( 0x33007530, (APOLLO_HDMI_TX_BASE + 0x308));
++             writel( 0x00001880, (APOLLO_HDMI_TX_BASE + 0x30c));
++             writel( 0x00001443, (APOLLO_HDMI_TX_BASE + 0x310));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x314));
++
++             writel( 0x00010000, (APOLLO_HDMI_TX_BASE + 0x0e0));
++             writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x0e8)); 
++             writel( 0x40c2c191, (APOLLO_HDMI_TX_BASE + 0x0ec));
++
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x0d4)); /*no external syncs*/
++			 
++             writel( 0x0000000a, (APOLLO_HDMI_TX_BASE + 0x0a8));/* format 10 for 576i50 */
++             writel( 0x04020201, (APOLLO_HDMI_TX_BASE + 0x0e4));/*repeat pixels x2 (override automatic 2x setting from format 4)*/
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x0d8));
++             writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x0e8));
++             break;
++       
++          case 1: // 576p
++          default:  
++              APOLLO_PRINTF("appollo_config_HDMI, resolution = 576p \n");
++             
++             /* HDMI programming */
++             writel( 0x0000003f, (APOLLO_HDMI_TX_BASE + 0x038));
++             writel( 0x00012761, (APOLLO_HDMI_TX_BASE + 0x044));
++             writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4d8));
++             writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             udelay(500);
++             writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x0000000f, (APOLLO_HDMI_TX_BASE + 0x038));
++             writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             udelay(500);
++             writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x013f0100, (APOLLO_HDMI_TX_BASE + 0x038));
++             writel( 0x00180000, (APOLLO_HDMI_TX_BASE + 0x4d8));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             writel( 0x42001510, (APOLLO_HDMI_TX_BASE + 0x000));
++             writel( 0x42001410, (APOLLO_HDMI_TX_BASE + 0x000));
++             writel( 0x31000009, (APOLLO_HDMI_TX_BASE + 0x400));
++             writel( 0x00000016, (APOLLO_HDMI_TX_BASE + 0x404));
++             writel( 0x00000005, (APOLLO_HDMI_TX_BASE + 0x078));
++             writel( 0x000d0282, (APOLLO_HDMI_TX_BASE + 0x140));
++             writel( 0x00580006, (APOLLO_HDMI_TX_BASE + 0x144)); /* CRC = 0x07 */
++             writel( 0x00000011, (APOLLO_HDMI_TX_BASE + 0x148)); /* pix_rpt = 0, format = 17 */
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x14c));
++             writel( 0x000a0184, (APOLLO_HDMI_TX_BASE + 0x180));
++             writel( 0x00000170, (APOLLO_HDMI_TX_BASE + 0x184));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x188));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x18c));
++             //writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x300));
++             writel( 0x00000020, (APOLLO_HDMI_TX_BASE + 0x300));
++             writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x304));
++             writel( 0x33007530, (APOLLO_HDMI_TX_BASE + 0x308));
++             writel( 0x00001880, (APOLLO_HDMI_TX_BASE + 0x30c));
++             writel( 0x00001443, (APOLLO_HDMI_TX_BASE + 0x310));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x314));
++
++             writel( 0x00010000, (APOLLO_HDMI_TX_BASE + 0x0e0));
++             writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x0e8)); 
++             writel( 0x40c2c191, (APOLLO_HDMI_TX_BASE + 0x0ec));
++             
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x0d4));
++             writel( 0x00000007, (APOLLO_HDMI_TX_BASE + 0x0a8));/* format 7 for 576p50 */
++             writel( 0x04020200, (APOLLO_HDMI_TX_BASE + 0x0e4));
++             writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x0e8));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x0d8));
++             break;
++          case 2: // 720p
++              APOLLO_PRINTF("appollo_config_HDMI, resolution = 720p \n");
++          
++             writel( 0x80000002, (APOLLO_CGU_BASE + 0x110));     /* PLL_HDMI_CON0_CTL - use HDMI register I/F rather than direct I/F */
++             writel( 0x00000020, (APOLLO_CGU_BASE + 0x11c));     /* PLL_HDMI_CON3_CTL - use MPG0 PLL for Fmt PLL Source */
++             
++             /* HDMI programming */
++             writel( 0x00000201, (APOLLO_HDMI_TX_BASE + 0x030));
++             writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4d8));
++             writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x0000000f, (APOLLO_HDMI_TX_BASE + 0x038));
++             writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038));
++             writel( 0x00180000, (APOLLO_HDMI_TX_BASE + 0x4d8));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             writel( 0x42001510, (APOLLO_HDMI_TX_BASE + 0x000));
++             writel( 0x42001410, (APOLLO_HDMI_TX_BASE + 0x000));
++             writel( 0x31000009, (APOLLO_HDMI_TX_BASE + 0x400));
++             writel( 0x00000016, (APOLLO_HDMI_TX_BASE + 0x404));
++             writel( 0x000d0282, (APOLLO_HDMI_TX_BASE + 0x140));
++             writel( 0x00a800b4, (APOLLO_HDMI_TX_BASE + 0x144)); /* CRC = 0xb4 */
++             writel( 0x00000013, (APOLLO_HDMI_TX_BASE + 0x148)); /* pix_rpt = 2, format = 29 */
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x14c));
++             //writel( 0x000a0184, (APOLLO_HDMI_TX_BASE + 0x180));
++             //writel( 0x00000757, (APOLLO_HDMI_TX_BASE + 0x184));
++             //writel( 0x00000013, (APOLLO_HDMI_TX_BASE + 0x188));
++             //writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x18c));
++             //writel( 0x00000304, (APOLLO_HDMI_TX_BASE + 0x300));
++
++             writel( 0x000a0184, (APOLLO_HDMI_TX_BASE + 0x180));
++             writel( 0x00000170, (APOLLO_HDMI_TX_BASE + 0x184));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x188));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x18c));
++             //writel( 0x00000001, (APOLLO_HDMI_TX_BASE + 0x300));
++             writel( 0x00000020, (APOLLO_HDMI_TX_BASE + 0x300));
++
++             writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x304));
++             writel( 0x3301220a, (APOLLO_HDMI_TX_BASE + 0x308));
++             writel( 0x00001800, (APOLLO_HDMI_TX_BASE + 0x30c));
++             writel( 0x00001443, (APOLLO_HDMI_TX_BASE + 0x310));
++             writel( 0x00020000, (APOLLO_HDMI_TX_BASE + 0x314));
++
++             writel( 0x00010000, (APOLLO_HDMI_TX_BASE + 0x0e0));
++             writel( 0x00003000, (APOLLO_HDMI_TX_BASE + 0x0d4));
++             
++             writel( 0x00000008, (APOLLO_HDMI_TX_BASE + 0x0a8)); /* format 8 for 720p50 */
++             writel( 0x00020071, (APOLLO_HDMI_TX_BASE + 0x0ac)); /* ext h sets hctr to 0x1bb, ext v sets vctr to 8 */
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x0d8));
++             break;
++          case 3: // 1080i
++              APOLLO_PRINTF("appollo_config_HDMI, resolution = 1080i \n");
++             writel( 0x80000002, (APOLLO_CGU_BASE + 0x110));     /* PLL_HDMI_CON0_CTL - use HDMI register I/F rather than direct I/F */
++             writel( 0x00000020, (APOLLO_CGU_BASE + 0x11c));     /* PLL_HDMI_CON3_CTL - use MPG0 PLL for Fmt PLL Source */
++             
++             /* HDMI programming */
++             writel( 0x00000201, (APOLLO_HDMI_TX_BASE + 0x030)); /* SER_PLL_SETTINGS - 720p, 1080i */
++             writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4d8));
++             writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x0000000f, (APOLLO_HDMI_TX_BASE + 0x038));
++             writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4e8));
++             writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038));
++             writel( 0x00180000, (APOLLO_HDMI_TX_BASE + 0x4d8));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++             writel( 0x42001510, (APOLLO_HDMI_TX_BASE + 0x000));
++             writel( 0x42001410, (APOLLO_HDMI_TX_BASE + 0x000));
++             writel( 0x31000009, (APOLLO_HDMI_TX_BASE + 0x400));
++             writel( 0x00000016, (APOLLO_HDMI_TX_BASE + 0x404));
++             writel( 0x000d0282, (APOLLO_HDMI_TX_BASE + 0x140));
++             writel( 0x00a800b3, (APOLLO_HDMI_TX_BASE + 0x144)); /* CRC = 0xb3 */
++             writel( 0x00000014, (APOLLO_HDMI_TX_BASE + 0x148)); /* pix_rpt = 2, format = 29 */
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x14c));
++             writel( 0x000a0184, (APOLLO_HDMI_TX_BASE + 0x180));
++             writel( 0x00000170, (APOLLO_HDMI_TX_BASE + 0x184));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x188));
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x18c));
++             writel( 0x00000020, (APOLLO_HDMI_TX_BASE + 0x300));
++
++             writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x304));
++             writel( 0x3301220a, (APOLLO_HDMI_TX_BASE + 0x308));
++             writel( 0x00001800, (APOLLO_HDMI_TX_BASE + 0x30c));
++             writel( 0x00001443, (APOLLO_HDMI_TX_BASE + 0x310));
++             writel( 0x00020000, (APOLLO_HDMI_TX_BASE + 0x314));
++
++             writel( 0x00010000, (APOLLO_HDMI_TX_BASE + 0x0e0));
++             writel( 0x00003000, (APOLLO_HDMI_TX_BASE + 0x0d4));
++             
++             writel( 0x00000009, (APOLLO_HDMI_TX_BASE + 0x0a8)); /* format 9 for 1080i50 */
++             writel( 0x00020071, (APOLLO_HDMI_TX_BASE + 0x0ac)); /* ext h sets hctr to 0x213, ext v sets vctr to 8 */
++             writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x0d8));
++             break;
++		    case 4:
++				APOLLO_PRINTF("appollo_config_HDMI, resolution = 480p \n");
++			 writel( 0x0000003f, (APOLLO_HDMI_TX_BASE + 0x038));
++			 writel( 0x00012761, (APOLLO_HDMI_TX_BASE + 0x044));
++			 writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4d8));
++			 writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4e8));
++			 writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++			 writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4e8));
++			 writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++			 writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4e8));
++			 writel( 0x00040100, (APOLLO_HDMI_TX_BASE + 0x038));
++			 writel( 0x00180000, (APOLLO_HDMI_TX_BASE + 0x4d8));
++			 writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x4dc));
++			 writel( 0x42000510, (APOLLO_HDMI_TX_BASE + 0x000));
++			 writel( 0x42000410, (APOLLO_HDMI_TX_BASE + 0x000));
++			 writel( 0x31000009, (APOLLO_HDMI_TX_BASE + 0x400));
++			 writel( 0x00000016, (APOLLO_HDMI_TX_BASE + 0x404));
++			 writel( 0x000a0184, (APOLLO_HDMI_TX_BASE + 0x180));
++			 writel( 0x00000170, (APOLLO_HDMI_TX_BASE + 0x184));
++			 writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x188));
++			 writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x18c));
++			 writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x300));
++			 writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x304));
++			 writel( 0x10006978, (APOLLO_HDMI_TX_BASE + 0x308));
++			 writel( 0x00001800, (APOLLO_HDMI_TX_BASE + 0x30c));
++			 writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x314));
++			 writel( 0x00000001, (APOLLO_HDMI_TX_BASE + 0x0a8)); /* format 1 for 480p59 */
++			 writel( 0x00080013, (APOLLO_HDMI_TX_BASE + 0x0ac)); /* ext h sets hctr to 0x13, ext v sets vctr to 8 */
++			 writel( 0x00003000, (APOLLO_HDMI_TX_BASE + 0x0d4));
++			 writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x0d8));
++			 writel( 0x00010800, (APOLLO_HDMI_TX_BASE + 0x0e0));
++			 writel( 0x04020200, (APOLLO_HDMI_TX_BASE + 0x0e4));
++			 writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x0e8));
++			 writel( 0x91c1c240, (APOLLO_HDMI_TX_BASE + 0x0ec));
++			 break;
++          }   
++    //Set audio intput to none
++    writel(0x0000001c, (APOLLO_HDMI_TX_BASE + 0x07c));
++}
++
++void appollo_config_CPIPE(u32 resolution)
++{
++    
++    switch (resolution)
++       {
++         case 0: // 576i
++         /*HD CPIPE Sync Timing Generator settings */
++         writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8000)); /* Interlaced */
++         writel( 0x00000033, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
++         writel( 0x035f0137, (APOLLO_CPIPE_BASE + 0x8044)); /* 864 wide, 312 tall */
++         writel( 0x035a0089, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x35d to 0x8c */
++         writel( 0x0003001a, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x26f to 0x2e */
++         writel( 0x0007000e, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync from 7 to 14 */
++         writel( 0x00020003, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync from 2 to 3 */
++         writel( 0x01ae0001, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at 0x1 horiz cnt*/
++         writel( 0x01ae0001, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at 0x1 */
++         writel( 0x0003001b, (APOLLO_CPIPE_BASE + 0x8060));
++         writel( 0x00020003, (APOLLO_CPIPE_BASE + 0x8064));
++         writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
++         writel( 0x00060044, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
++         writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
++         writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x809c));
++         writel( 0x01b60006, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 14 horiz count */
++         writel( 0x01b60006, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
++         writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
++         writel( 0x070f0302, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
++
++         writel( 0x808a0034, (APOLLO_CPIPE_BASE + 0x8c10)); /*Start display at line 0x19, pixel 0x8a interlaced*/
++         writel( 0x80900008, (APOLLO_CPIPE_BASE + 0x8c54)); /*Wiat till line 8 to start fetch of video data*/
++         writel( 0x00001680, (APOLLO_CPIPE_BASE + 0x8c6c)); /*Stride =2 lines*/
++         writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8c00)); /*disable layer*/
++         writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8c00)); /*re-enable layer*/
++
++         /*HDMI register settings*/
++         writel( 0x0002000f, (APOLLO_HDMI_TX_BASE + 0x0ac)); /*ext h sets hctr to 0x13, ext v sets vctr to 8*/
++         writel( 0x00003000, (APOLLO_HDMI_TX_BASE + 0x0d4)); /*ext vsync and hsync*/
++         break;
++          case 1: // 576p
++          default:  
++            /*HD CPIPE Sync Timing Generator settings */
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8000)); /* progressive */
++            writel( 0x00000331, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
++            writel( 0x035f0270, (APOLLO_CPIPE_BASE + 0x8044)); /* 864 wide, 625 tall */
++            writel( 0x035d008c, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x35d to 0x8c */
++            writel( 0x026d002c, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x26f to 0x2e */
++            writel( 0x000c0020, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync from 1 to 16 */
++            writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync from 5 to 7 */
++            writel( 0x00000011, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at 0x11 horiz cnt*/
++            writel( 0x00000011, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at 0x11 */
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8060));
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8064));
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
++            writel( 0x00090048, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
++            writel( 0x00010005, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x809c));
++            writel( 0x00000009, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 14 horiz count */
++            writel( 0x00000009, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
++            writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
++            writel( 0x070f0302, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
++
++            writel( 0x008d002c, (APOLLO_CPIPE_BASE + 0x8c10)); /*Start display at line 0x2e, pixel 0x7d progressive*/
++            writel( 0x80900008, (APOLLO_CPIPE_BASE + 0x8c54)); /*Wiat till line 8 to start fetch of video data*/
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8c00)); /*disable layer*/
++            writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8c00)); /*re-enable layer*/
++
++            /*HDMI register settings*/
++            writel( 0x0002000f, (APOLLO_HDMI_TX_BASE + 0x0ac)); /*ext h sets hctr to 0x13, ext v sets vctr to 8*/
++            writel( 0x00003000, (APOLLO_HDMI_TX_BASE + 0x0d4)); /*ext vsync and hsync*/
++            break;
++          case 2: // 720p
++            /*HD CPIPE Sync Timing Generator settings */
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8000)); /* progressive */
++            writel( 0x00000331, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
++            writel( 0x07bb02ed, (APOLLO_CPIPE_BASE + 0x8044)); /* 1980 wide, 750 tall */
++            writel( 0x063c013b, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x63d to 0x13c */
++            writel( 0x02ea0019, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x2ea to 0x19 */
++            writel( 0x00110020, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync from 17 to 32 */
++            writel( 0x00020004, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync from 2 to 4 */
++            writel( 0x00000011, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at 0x11 horiz cnt*/
++            writel( 0x00000011, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at 0x11 */
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8060));
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8064));
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
++            writel( 0x0038005f, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
++            writel( 0x00010005, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x809c));
++            writel( 0x00000038, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 0x29 horiz count */
++            writel( 0x00000038, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
++            writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
++            writel( 0x040f0302, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
++
++            writel( 0x013c0019, (APOLLO_CPIPE_BASE + 0x8c10)); /*Start display at line 25, pixel 0x153 progressive*/
++            writel( 0x80900008, (APOLLO_CPIPE_BASE + 0x8c54)); /*Wiat till line 8 to start fetch of video data*/
++            //writel( 0x00001680, (APOLLO_CPIPE_BASE + 0x8c6c)); /*Stride =2 lines*/
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8c00)); /*disable layer*/
++            writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8c00)); /*re-enable layer*/
++
++            /*HDMI register settings*/
++            writel( 0x00000008, (APOLLO_HDMI_TX_BASE + 0x0a8)); /* format 8 for 720p50 */
++            writel( 0x000201bb, (APOLLO_HDMI_TX_BASE + 0x0ac)); /*ext h sets hctr to 0x1bb, ext v sets vctr to 2*/
++            writel( 0x00003000, (APOLLO_HDMI_TX_BASE + 0x0d4)); /*ext vsync and hsync*/
++            break;
++          case 3: // 1080i
++            /*HD CPIPE Sync Timing Generator settings */
++            writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8000)); /* Interlaced */
++            writel( 0x00000033, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
++            writel( 0x0a4f0232, (APOLLO_CPIPE_BASE + 0x8044)); /* 2640 wide, 563 tall */
++            writel( 0x087c00fb, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x87d to 0xfc */
++            writel( 0x02310014, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x231 to 0x14, odd field */
++            writel( 0x00110020, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync from 17 to 32 */
++            writel( 0x0008000c, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync from 8 to 0xc on odd field */
++            writel( 0x045d0011, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at 0x11 horiz cnt*/
++            writel( 0x045d0011, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at 0x11 */
++            writel( 0x02310014, (APOLLO_CPIPE_BASE + 0x8060));
++            writel( 0x0008000c, (APOLLO_CPIPE_BASE + 0x8064));
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
++            writel( 0x003c0067, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
++            writel( 0x00010005, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
++            writel( 0x00010005, (APOLLO_CPIPE_BASE + 0x809c));
++            writel( 0x0564003c, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 0x29 horiz count */
++            writel( 0x0564003c, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
++            writel( 0x02060002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
++            writel( 0x0c0f0302, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
++
++            /*HDMI register settings*/
++            writel( 0x00000009, (APOLLO_HDMI_TX_BASE + 0x0a8)); /* format 9 for 1080i50 */
++            writel( 0x00020213, (APOLLO_HDMI_TX_BASE + 0x0ac)); /*ext h sets hctr to 0x213, ext v sets vctr to 2*/
++            writel( 0x00003000, (APOLLO_HDMI_TX_BASE + 0x0d4)); /*ext vsync and hsync*/
++
++            writel( 0x80fc0028, (APOLLO_CPIPE_BASE + 0x8c10)); /*Start display at line 0x14, pixel 0xfd interlaced*/
++            writel( 0x80900008, (APOLLO_CPIPE_BASE + 0x8c54)); /*Wiat till line 8 to start fetch of video data*/
++            writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8c00)); /*disable layer*/
++            writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8c00)); /*re-enable layer*/
++
++            break;
++			case 4:
++			/* CPIPE Sync Timing Generator settings */
++			writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8000)); /* progressive */
++			writel( 0x00000f33, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
++			writel( 0x0359020c, (APOLLO_CPIPE_BASE + 0x8044)); /* 858 wide, 525 tall */
++			writel( 0x03580087, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x34a to 0x79 */
++			writel( 0x02090028, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x20a to 0x29 */
++			writel( 0x000c0021, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync */
++			writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync (not used) */
++			writel( 0x00000012, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at (APOLLO_CPIPE_BASE + 0x horiz */
++			writel( 0x00000012, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at (APOLLO_CPIPE_BASE + 0x */
++			writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8060));
++			writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8064));
++			writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
++			writel( 0x000e004b, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
++			writel( 0x0005000a, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
++			writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x809c));
++			writel( 0x0000000e, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 14 horiz count */
++			writel( 0x0000000e, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
++			writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
++			writel( 0x070f0002, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
++
++			
++			writel( 0x00000001, (APOLLO_HDMI_TX_BASE + 0x0a8)); /* format 1 for 480p59 */
++			writel( 0x00080013, (APOLLO_HDMI_TX_BASE + 0x0ac)); /* ext h sets hctr to 0x13, ext v sets vctr to 8 */
++			writel( 0x00003000, (APOLLO_HDMI_TX_BASE + 0x0d4));
++			writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x0d8));
++			break;
++       }
++       
++}
++
++
++void CSBL_OSD_Init(u32 resolution, char *image_buffer, u32 dwBufLength)
++{
++
++   int i, line_pixel, line;
++   u32  aXRES = 720, aYRES = 576, width_height = 0x024002d0, pix_dim = 0x02d00238;
++   u32  start_x_y_pos = 0x00880028, enable_crop = 0x02;
++   u32	*pVRAMhd_base = 0x21000000;
++   u32  *pVRAMsd_base = 0x22700000;
++   u32  *pIncHD,* pIncSD;   
++   unsigned char pixel_data[3];
++
++   u32 logoHeight = logo_height, logoWidth = logo_width;
++
++   char *logoBuf = image_buffer;
++   char *logo_data = logoBuf;
++
++   APOLLO_PRINTF("pVRAMhd_base = 0x%x, pVRAMsd_base = 0x%x\n", (u32)pVRAMhd_base, (u32)pVRAMsd_base);
++   switch (resolution)
++   {
++       case 0: // 576i
++       	 aXRES = 720;
++         aYRES = 576;   
++         width_height = 0x012002d0;   
++         start_x_y_pos = 0x00940017;
++         enable_crop = 0x02;
++         pix_dim = 0x02d00120;
++         //pVRAMhd_base = ioremap_nocache(uVRAMHD_start, (XRES * YRES * 4));
++         /* HD DENC programming (HD-576i raster) */
++         writel( 0x00000001, (APOLLO_DENC_BASE + 0x120)); /* DENC csc sel  - YCbCr out */
++         writel( 0x00000101, (APOLLO_DENC_BASE + 0x104)); /* DENC raster   -  enable bits en_cbar, eactive & 576i */
++         writel( 0x00000360, (APOLLO_DENC_BASE + 0x108)); /* DENC Htotal */
++         writel( 0x02d0007a, (APOLLO_DENC_BASE + 0x10c)); /* DENC HActive */
++         writel( 0x00f00013, (APOLLO_DENC_BASE + 0x110)); /* DENC Vertical timing */
++         writel( 0x0000003f, (APOLLO_DENC_BASE + 0x00c)); /* DENC enable dacs - enable all the 6 DACs */
++         writel( 0x00080907, (APOLLO_DENC_BASE + 0x010)); /* DENC  {CBA} dac selection - {rpr, bpb, gy} */
++         writel( 0x00050603, (APOLLO_DENC_BASE + 0x014)); /* DENC  {FED} dac selection - all cvbs for initial validation */
++         writel( 0x00000000, (APOLLO_DENC_BASE + 0x180)); /* DENC Sync Control- don't invert Odd/even signal */
++       	break;              
++      case 1: // PAL
++      default:	
++      	 aXRES = 720,aYRES = 576;
++	     gHightOfPic = 576;
++      	 width_height = 0x024002d0;
++         start_x_y_pos = 0x00880028;
++         enable_crop = 0x02;
++         pix_dim = 0x02d00238;
++         //pVRAMhd_base = ioremap_nocache(uVRAMHD_start, (XRES * YRES * 4));
++         /* HD DENC programming (HD-576p raster) */
++         writel( 0x00000001, (APOLLO_DENC_BASE + 0x120)); /* DENC csc sel  - YCbCr out */
++         writel( 0x00000105, (APOLLO_DENC_BASE + 0x104)); /* DENC raster   -  eactive & 576p */
++         writel( 0x00000360, (APOLLO_DENC_BASE + 0x108)); /* DENC Htotal */
++         writel( 0x02d00084, (APOLLO_DENC_BASE + 0x10c)); /* DENC HActive */
++         writel( 0x0240002c, (APOLLO_DENC_BASE + 0x110)); /* DENC Vertical timing */
++         writel( 0x0000003f, (APOLLO_DENC_BASE + 0x00c)); /* DENC enable dacs - enable all the 6 DACs */
++         writel( 0x00000201, (APOLLO_DENC_BASE + 0x010)); /* DENC  {CBA} dac selection - {rpr, bpb, gy} */
++         writel( 0x00050603, (APOLLO_DENC_BASE + 0x014)); /* DENC  {FED} dac selection - all cvbs for initial validation */
++         writel( 0x00000000, (APOLLO_DENC_BASE + 0x180)); /* DENC Sync Control- don't invert Odd/even signal */
++
++         break;
++      case 2: // 720p
++      	 aXRES = 1280,aYRES = 720;
++ 		 gHightOfPic = 720;
++      	 width_height = 0x02d00500;
++         start_x_y_pos = 0x01480028;
++         enable_crop = 0x00;
++         pix_dim = 0x02d00500;
++      	 //pVRAMhd_base = ioremap_nocache(uVRAMHD_start, (XRES * YRES * 4));
++         /* HD DENC programming (HD-720p raster) */
++         writel( 0x00000001, (APOLLO_DENC_BASE + 0x120)); /* DENC csc sel  - YCbCr out */
++         writel( 0x00000117, (APOLLO_DENC_BASE + 0x104)); /* DENC raster   -  eactive & 720p */
++         writel( 0x000007bc, (APOLLO_DENC_BASE + 0x108)); /* DENC Htotal */
++         writel( 0x05000104, (APOLLO_DENC_BASE + 0x10c)); /* DENC HActive */
++         writel( 0x02d00019, (APOLLO_DENC_BASE + 0x110)); /* DENC Vertical timing */
++         writel( 0x0000003f, (APOLLO_DENC_BASE + 0x00c)); /* DENC enable dacs - enable all the 6 DACs */
++         writel( 0x00000201, (APOLLO_DENC_BASE + 0x010)); /* DENC  {CBA} dac selection - {rpr, bpb, gy} */
++         writel( 0x00050603, (APOLLO_DENC_BASE + 0x014)); /* DENC  {FED} dac selection - all cvbs for initial validation */
++         writel( 0x00000000, (APOLLO_DENC_BASE + 0x180)); /* DENC Sync Control- don't invert Odd/even signal */
++         break; 
++      case 3: // 1080i
++      	 aXRES = 1920,aYRES = 1080;
++ 		 gHightOfPic = 1080;
++      	 width_height = 0x021c0780;
++         start_x_y_pos = 0x00fc0028;
++         enable_crop = 0x02;
++         pix_dim = 0x0780021c;
++      	 //pVRAMhd_base = ioremap_nocache(uVRAMHD_start, (XRES * YRES * 4));
++         /* HD DENC programming (HD-1080i raster) */
++         writel( 0x00000001, (APOLLO_DENC_BASE + 0x120)); /* DENC csc sel  - YCbCr out */
++         writel( 0x0000011b, (APOLLO_DENC_BASE + 0x104)); /* DENC raster   -  eactive & 1080i */
++         writel( 0x00000a50, (APOLLO_DENC_BASE + 0x108)); /* DENC Htotal */
++         writel( 0x078000ec, (APOLLO_DENC_BASE + 0x10c)); /* DENC HActive */
++         writel( 0x021c0014, (APOLLO_DENC_BASE + 0x110)); /* DENC Vertical timing */
++         writel( 0x0000003f, (APOLLO_DENC_BASE + 0x00c)); /* DENC enable dacs - enable all the 6 DACs */
++         writel( 0x00000201, (APOLLO_DENC_BASE + 0x010)); /* DENC  {CBA} dac selection - {rpr, bpb, gy} */
++         writel( 0x00050603, (APOLLO_DENC_BASE + 0x014)); /* DENC  {FED} dac selection - all cvbs for initial validation */
++         writel( 0x00000000, (APOLLO_DENC_BASE + 0x180)); /* DENC Sync Control- don't invert Odd/even signal */
++		 
++         break; 
++	  case 4://NTSC
++		 aXRES = 720,aYRES = 480;	
++		 gHightOfPic = 480;
++    	 width_height = 0x01e002d0;
++		 start_x_y_pos = 0x00880028;
++		 enable_crop = 0x02;
++		 pix_dim = 0x02d001e0;
++ 
++		 /* HD DENC programming (HD-480p raster) */
++		 writel( 0x00000001, (APOLLO_DENC_BASE + 0x120)); /* DENC csc sel  - YCbCr out */
++		 writel( 0x00000104, (APOLLO_DENC_BASE + 0x104)); /* DENC raster   -  eactive & 480p */
++		 writel( 0x0000035a, (APOLLO_DENC_BASE + 0x108)); /* DENC Htotal */
++		 writel( 0x02d0007a, (APOLLO_DENC_BASE + 0x10c)); /* DENC HActive */
++		 writel( 0x01e00024, (APOLLO_DENC_BASE + 0x110)); /* DENC Vertical timing */
++		 writel( 0x0000003f, (APOLLO_DENC_BASE + 0x00c)); /* DENC enable dacs - enable all the 6 DACs */
++		 writel( 0x00000201, (APOLLO_DENC_BASE + 0x010)); /* DENC  {CBA} dac selection - {rpr, bpb, gy} */
++		 writel( 0x00050603, (APOLLO_DENC_BASE + 0x014)); /* DENC  {FED} dac selection - all cvbs for initial validation */
++		 writel( 0x00000000, (APOLLO_DENC_BASE + 0x180)); /* DENC Sync Control- don't invert Odd/even signal */
++ 
++		 break;
++   }
++
++	if(resolution == 4)
++	{
++		/*480i*/
++		writel( 0x00000110, (APOLLO_DENC_BASE + 0x304)); /* DENC raster   - enable bits eactive & 480i(NTSC) */
++		writel( 0x000006b4, (APOLLO_DENC_BASE + 0x308)); /* DENC Htotal */
++		writel( 0x05a00104, (APOLLO_DENC_BASE + 0x30c)); /* DENC HActive (orig - 0x0590010c) */
++		writel( 0x00f00013, (APOLLO_DENC_BASE + 0x310)); /* DENC Vertical timing */
++		writel( 0x007e9054, (APOLLO_DENC_BASE + 0x318)); /* DENC analog timing */
++		writel( 0x0085e574, (APOLLO_DENC_BASE + 0x324)); /* DENC amplitude */
++		writel( 0x009b86bd, (APOLLO_DENC_BASE + 0x328)); /* DENC YUV MULT */
++		writel( 0x80a4f000, (APOLLO_DENC_BASE + 0x32c)); /* DENC YALT Luma control reg */
++		writel( 0x21f07c1f, (APOLLO_DENC_BASE + 0x330)); /* DENC secam reg */
++		writel( 0x029d3000, (APOLLO_DENC_BASE + 0x380)); /* DENC Sync Control- don't invert Odd/even signal */
++	}
++	else
++	{
++		/*SD DENC programming (SD - 576i) */
++		writel( 0x00000161, (APOLLO_DENC_BASE + 0x304)); /* DENC raster   - enable bits eactive & 576i(PAL) */
++		writel( 0x000006c0, (APOLLO_DENC_BASE + 0x308)); /* DENC Htotal */
++		writel( 0x0578012a, (APOLLO_DENC_BASE + 0x30c)); /* DENC HActive (orig - 0x0590010c) */
++		writel( 0x011d0016, (APOLLO_DENC_BASE + 0x310)); /* DENC Vertical timing */
++		writel( 0x007e9854, (APOLLO_DENC_BASE + 0x318)); /* DENC analog timing */
++		writel( 0x00886580, (APOLLO_DENC_BASE + 0x324)); /*DENC YUV alt amplitude for the HD interface*/
++		writel( 0x0085f05e, (APOLLO_DENC_BASE + 0x324)); /* DENC amplitude */
++		writel( 0x00a493cf, (APOLLO_DENC_BASE + 0x328)); /* DENC YUV MULT */
++		writel( 0x80a4f000, (APOLLO_DENC_BASE + 0x32c)); /* DENC YALT Luma control reg */
++		writel( 0x2a098acb, (APOLLO_DENC_BASE + 0x330)); /* DENC secam reg */
++		writel( 0x00000001, (APOLLO_DENC_BASE + 0x37c));/* DENC Alternate ypbpr path through SD DENC for higher BW on color diff */
++		writel( 0x029d3000, (APOLLO_DENC_BASE + 0x380)); /* DENC Sync Control- don't invert Odd/even signal */
++	}
++	
++	 gWithOfPic = aXRES;	
++   /* Disable SD DENC to supply syncs to HD CPIPE: */
++   writel( 0x00000000, (APOLLO_DENC_BASE + 0x008));
++   writel( 0x00000000, (APOLLO_DENC_BASE + 0x394)); /* Macrovision OFF */
++   writel( 0x00000000, (APOLLO_DENC_BASE + 0x194)); /* Macrovision OFF */
++
++   /* DAC0 Programming (Component DACs) */
++   writel( 0x0011c00e, (APOLLO_GBL_REG_BASE + 0x8fc)); /*VDAC0_CTRL0 */
++   writel( 0x52201712, (APOLLO_GBL_REG_BASE + 0x900)); /*VDAC0_CTRL1 */
++   writel( 0x00000ff0, (APOLLO_GBL_REG_BASE + 0x904)); /*VDAC0_CTRL2 */
++   writel( 0x00000124, (APOLLO_GBL_REG_BASE + 0x908)); /*VDAC0_CTRL3 source from MPEG0 PLL */
++   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x90c)); /*VDAC0_CTRL4 71-->70-->71 */
++   writel( 0x3f000070, (APOLLO_GBL_REG_BASE + 0x90c)); /*VDAC0_CTRL4 71-->70-->71 */
++   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x90c)); /*VDAC0_CTRL4 71-->70-->71 */
++   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x910)); /*VDAC0_TEST_CTRL */
++   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x914)); /*VDAC0_DTO_INCR0 */
++   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x918)); /*VDAC0_DTO_INCR1 */
++
++   /* DAC1 Programming (SD - 480i) */
++   writel( 0x0011c00e, (APOLLO_GBL_REG_BASE + 0x920)); /*VDAC1_CTRL0 */
++   writel( 0x52201712, (APOLLO_GBL_REG_BASE + 0x924)); /*VDAC1_CTRL1 */
++   writel( 0x00000ff0, (APOLLO_GBL_REG_BASE + 0x928)); /*VDAC1_CTRL2 */
++   writel( 0x00000124, (APOLLO_GBL_REG_BASE + 0x92c)); /*VDAC1_CTRL3 source from MPEG0 PLL */
++   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x930)); /*VDAC1_CTRL4 71-->70-->71 */
++   writel( 0x3f000070, (APOLLO_GBL_REG_BASE + 0x930)); /*VDAC1_CTRL4 71-->70-->71 */
++   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x930)); /*VDAC1_CTRL4 71-->70-->71 */
++   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x934)); /*VDAC1_TEST_CTRL */
++   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x938)); /*VDAC1_DTO_INCR0 */
++   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x93c)); /*VDAC1_DTO_INCR1 */
++
++   /******  Set up the DAC and CPIPE clocks */
++   writel( 0x00000002, (APOLLO_CGU_BASE + 0x658)); /* vdac0_sel -- 74.25MHz mpg0 pll */
++   writel( 0x00000002, (APOLLO_CGU_BASE + 0x65c)); /* vdac1_sel -- 74.25MHz */
++   writel( 0x00000002, (APOLLO_CGU_BASE + 0x660)); /* vdac2_sel -- 74.25MHz */
++
++/* vdacs 3,4 and 5 are always Mpeg0 PLL, 74.25 MHz */
++   writel( 0x00000002, (APOLLO_CGU_BASE + 0x664)); /* vdac3_sel -- 74.25MHz mpg0 pll */
++   writel( 0x00000002, (APOLLO_CGU_BASE + 0x668)); /* vdac4_sel -- 74.25MHz */
++   writel( 0x00000002, (APOLLO_CGU_BASE + 0x66c)); /* vdac5_sel -- 74.25MHz */
++   
++   switch (resolution)
++   {
++      case 0: // 576i
++   	     writel( 0x00000006, (APOLLO_CGU_BASE + 0x640)); /* VCGEN_G1SEL -- 13.5MHz, MPG0 PLL */
++   	     writel( 0x00000005, (APOLLO_CGU_BASE + 0x644)); /* VCGEN_G2SEL -- 27MHz, MPG0 PLL */
++   	     break;
++   	  case 1: // 576p
++   	  default:
++   	  	 writel( 0x00000005, (APOLLO_CGU_BASE + 0x640)); /* VCGEN_G1SEL -- 27MHz, MPG0 PLL */
++         writel( 0x00000004, (APOLLO_CGU_BASE + 0x644)); /* VCGEN_G2SEL -- 54MHz, MPG0 PLL */
++         break;
++   	  case 2: // 720p
++   	  case 3: // 1080i
++   	  	 writel( 0x00000003, (APOLLO_CGU_BASE + 0x640)); /* VCGEN_G1SEL -- 74.25MHz, MPG0 PLL */
++         writel( 0x00000002, (APOLLO_CGU_BASE + 0x644)); /* VCGEN_G2SEL -- 148.5MHz, MPG0 PLL */
++         break;
++	  case 4:	  	
++		writel( 0x00000005, (APOLLO_CGU_BASE + 0x640)); /* VCGEN_G1SEL -- 27MHz, MPG0 PLL */
++		writel( 0x00000004, (APOLLO_CGU_BASE + 0x644)); /* VCGEN_G2SEL -- 54MHz, MPG0 PLL */
++	  	break;
++   }
++   writel( 0x00000006, (APOLLO_CGU_BASE + 0x648)); /* VCGEN_G3SEL -- 27MHz, MPG0 PLL */
++   writel( 0x00000005, (APOLLO_CGU_BASE + 0x64c)); /* VCGEN_G4SEL -- 13.5MHz, MPG0 PLL */
++   writel( 0x00000006, (APOLLO_CGU_BASE + 0x650)); /* VCGEN_G5SEL -- 27MHz, MPG0 PLL */
++   writel( 0x00000000, (APOLLO_CGU_BASE + 0x654)); /* VCGEN_G6SEL -- 27MHz, MPG0 PLL */
++
++   #if 1
++   switch (resolution)
++   {
++   	  case 1: // 576p
++   	  default:	
++   	  	/*HD CPIPE Sync Timing Generator settings */
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8000)); /* progressive */
++        writel( 0x00000331, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
++        writel( 0x035f0270, (APOLLO_CPIPE_BASE + 0x8044)); /* 864 wide, 625 tall */
++        writel( 0x035d008c, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x35d to 0x8c */
++        writel( 0x026d002c, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x26f to 0x2e */
++        writel( 0x00110020, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync from 1 to 16 */
++        writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync from 5 to 7 */
++        writel( 0x00000011, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at 0x11 horiz cnt*/
++        writel( 0x00000011, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at 0x11 */
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8060));
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8064));
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
++        writel( 0x00090048, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
++        writel( 0x00010005, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x809c));
++        writel( 0x00000009, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 14 horiz count */
++        writel( 0x00000009, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
++        writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
++        writel( 0x070f0302, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
++   	  	break;
++   	  case 2: // 720p
++   	  	/*HD CPIPE Sync Timing Generator settings */
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8000)); /* progressive */
++        writel( 0x00000331, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
++        writel( 0x07bb02ed, (APOLLO_CPIPE_BASE + 0x8044)); /* 1980 wide, 750 tall */
++        writel( 0x063c013b, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x63d to 0x13c */
++        writel( 0x02ea0019, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x2ea to 0x19 */
++        writel( 0x00110020, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync from 17 to 32 */
++        writel( 0x00020004, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync from 2 to 4 */
++        writel( 0x00000011, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at 0x11 horiz cnt*/
++        writel( 0x00000011, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at 0x11 */
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8060));
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8064));
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
++        writel( 0x0038005f, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
++        writel( 0x00010005, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x809c));
++        writel( 0x00000038, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 0x29 horiz count */
++        writel( 0x00000038, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
++        writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
++        writel( 0x040f0002, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
++   	  	break;
++   	  case 3: // 1080i
++   	  	/*HD CPIPE Sync Timing Generator settings */
++        writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8000)); /* Interlaced */
++        writel( 0x00000033, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
++        writel( 0x0a4f0232, (APOLLO_CPIPE_BASE + 0x8044)); /* 2640 wide, 563 tall */
++        writel( 0x087c00fb, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x87d to 0xfc */
++        writel( 0x02310014, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x231 to 0x14, odd field */
++        writel( 0x00110020, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync from 17 to 32 */
++        writel( 0x0008000c, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync from 8 to 0xc on odd field */
++        writel( 0x045d0011, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at 0x11 horiz cnt*/
++        writel( 0x045d0011, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at 0x11 */
++        writel( 0x02310014, (APOLLO_CPIPE_BASE + 0x8060));
++        writel( 0x0008000c, (APOLLO_CPIPE_BASE + 0x8064));
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
++        writel( 0x003c0067, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
++        writel( 0x00010005, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
++        writel( 0x00010005, (APOLLO_CPIPE_BASE + 0x809c));
++        writel( 0x0564003c, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 0x29 horiz count */
++        writel( 0x0564003c, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
++        writel( 0x02060002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
++        writel( 0x0c0f0002, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
++   	  	break;
++   	  case 0: // 576i
++      	/*HD CPIPE Sync Timing Generator settings */
++        writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8000)); /* Interlaced */
++        writel( 0x00000033, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
++        writel( 0x035f0137, (APOLLO_CPIPE_BASE + 0x8044)); /* 864 wide, 312 tall */
++        writel( 0x035a0089, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x35d to 0x8c */
++        writel( 0x0003001a, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x26f to 0x2e */
++        writel( 0x0007000e, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync from 7 to 14 */
++        writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync from 5 to 7 */
++        writel( 0x01ae0001, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at 0x11 horiz cnt*/
++        writel( 0x01ae0001, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at 0x11 */
++        writel( 0x0003001b, (APOLLO_CPIPE_BASE + 0x8060));
++        writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x8064));
++        writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
++        writel( 0x00060044, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
++        writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
++        writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x809c));
++        writel( 0x01b60006, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 14 horiz count */
++        writel( 0x01b60006, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
++        writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
++        writel( 0x070f0302, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
++      	break;
++	   case 4:	   	
++		/* CPIPE Sync Timing Generator settings */
++		writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8000)); /* progressive */
++		writel( 0x00000f33, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
++		writel( 0x0359020c, (APOLLO_CPIPE_BASE + 0x8044)); /* 858 wide, 525 tall */
++		writel( 0x03580087, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x34a to 0x79 */
++		writel( 0x02090028, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x20a to 0x29 */
++		writel( 0x000c0021, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync */
++		writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync (not used) */
++		writel( 0x00000012, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at (APOLLO_CPIPE_BASE + 0x horiz */
++		writel( 0x00000012, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at (APOLLO_CPIPE_BASE + 0x */
++		writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8060));
++		writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8064));
++		writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
++		writel( 0x000e004b, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
++		writel( 0x0005000a, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
++		writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x809c));
++		writel( 0x0000000e, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 14 horiz count */
++		writel( 0x0000000e, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
++		writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
++		writel( 0x070f0002, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
++	   	break;
++   }
++
++   if(resolution == 4)
++   {   
++	   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x4000)); /* interlaced */
++	   writel( 0x00000033, (APOLLO_CPIPE_BASE + 0x4040)); /* enable STG + f input only */
++	   writel( 0x03590106, (APOLLO_CPIPE_BASE + 0x4044)); /* 858 wide, 263 tall */
++	   writel( 0x03590088, (APOLLO_CPIPE_BASE + 0x4048)); /* h blank */
++	   writel( 0x01040013, (APOLLO_CPIPE_BASE + 0x404c)); /* v blank odd */
++	   writel( 0x00070010, (APOLLO_CPIPE_BASE + 0x4050)); /* hsync from 7 to 16 */
++	   writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x4054)); /* vsync from 5 to 7 odd (not used) */
++	   writel( 0x01ae0001, (APOLLO_CPIPE_BASE + 0x4058)); /* vsync starts at 1 horiz */
++	   writel( 0x01ae0001, (APOLLO_CPIPE_BASE + 0x405c)); /* vsync ends at 1 */
++	   writel( 0x01040013, (APOLLO_CPIPE_BASE + 0x4060)); /* v blank even */
++	   writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x4064)); /* vsync from 5 to 7 even (not used) */
++	   writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x4068)); /* ext f sets h and v to 0 */
++	   writel( 0x02060002, (APOLLO_CPIPE_BASE + 0x54e0)); /* !hsync, blank to SD DENC */
++   }
++   else
++   {
++	   /* SD CPIPE Sync Timing Generator settings for 576i(PAL)*/
++	   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x4000)); /* interlaced */
++	   writel( 0x00000033, (APOLLO_CPIPE_BASE + 0x4040)); /* enable STG + f input only */
++	   writel( 0x035f0138, (APOLLO_CPIPE_BASE + 0x4044)); /* 864 wide, 313 tall */
++	   writel( 0x035a0089, (APOLLO_CPIPE_BASE + 0x4048)); /* h blank */
++	   writel( 0x01360017, (APOLLO_CPIPE_BASE + 0x404c)); /* v blank odd */
++	   writel( 0x0007000e, (APOLLO_CPIPE_BASE + 0x4050)); /* hsync from 7 to 14 */
++	   writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x4054)); /* vsync from 5 to 7 odd (not used) */
++	   writel( 0x01ae0001, (APOLLO_CPIPE_BASE + 0x4058)); /* vsync starts at 1 horiz */
++	   writel( 0x01ae0001, (APOLLO_CPIPE_BASE + 0x405c)); /* vsync ends at 1 */
++	   writel( 0x01370016, (APOLLO_CPIPE_BASE + 0x4060)); /* v blank even */
++	   writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x4064)); /* vsync from 5 to 7 even (not used) */
++	   writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x4068)); /* ext f sets h and v to 0 */
++	   writel( 0x02060002, (APOLLO_CPIPE_BASE + 0x54e0)); /* !hsync, blank to SD DENC */
++   	}
++   /* Bypass SD Out CSC */
++   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x5690)); /* Bypass DS Out CSC */
++   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x5400)); /* cause above to take effect on next shadow reload cycle */
++   
++  #endif
++    
++   /* Bypass DENC CSC */
++   writel( 0x00000000, (APOLLO_DENC_BASE + 0x120)); /* Bypass DENC CSC */
++
++   switch (resolution)
++   {
++   	  case 1: // 576p
++   	  default:	
++   	  	 /* Set up the formatting PLL - programmed thru the HDMI I/F - and the serializer PLL */
++         writel( 0x00000003, (APOLLO_CGU_BASE + 0x2fc));     /* Enable TMDS clock for HDMI */
++         writel( 0x00000020, (APOLLO_CGU_BASE + 0x11c));     /* PLL_HDMI_CON3_CTL - use MPG0 PLL for Fmt PLL Source */
++         writel( 0x80000002, (APOLLO_CGU_BASE + 0x110));     /* PLL_HDMI_CON0_CTL - use HDMI register I/F rather than direct I/F */
++         writel( 0x0102040a, (APOLLO_HDMI_TX_BASE + 0x034)); /* FMT_PLL_SETTINGS - 480i, 480p */
++         writel( 0x00000203, (APOLLO_HDMI_TX_BASE + 0x030)); /* SER_PLL_SETTINGS - 480i, 480p (27 MHz) */
++         writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL - apply the pll settings */
++         writel( 0x00000130, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
++         writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
++         
++         break;
++   	  case 2: // 720p
++   	  	 /* Set up the formatting PLL - programmed thru the HDMI I/F - and the serializer PLL */
++         writel( 0x00000003, (APOLLO_CGU_BASE + 0x2fc));     /* Enable TMDS clock for HDMI */
++         writel( 0x00000020, (APOLLO_CGU_BASE + 0x11c));     /* PLL_HDMI_CON3_CTL - use MPG0 PLL for Fmt PLL Source */
++         writel( 0x80000002, (APOLLO_CGU_BASE + 0x110));     /* PLL_HDMI_CON0_CTL - use HDMI register I/F rather than direct I/F */
++         writel( 0x0102030a, (APOLLO_HDMI_TX_BASE + 0x034)); /* FMT_PLL_SETTINGS - 720p, 1080i, 1080p */
++         writel( 0x00000201, (APOLLO_HDMI_TX_BASE + 0x030)); /* SER_PLL_SETTINGS - 720p, 1080i */
++         writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL - apply the pll settings */
++         writel( 0x00000130, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
++         writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
++         
++   	  	 break;
++   	  case 3: // 1080i
++   	  	 /* Set up the formatting PLL - programmed thru the HDMI I/F - and the serializer PLL */
++         writel( 0x00000003, (APOLLO_CGU_BASE + 0x2fc));     /* Enable TMDS clock for HDMI */
++         writel( 0x00000020, (APOLLO_CGU_BASE + 0x11c));     /* PLL_HDMI_CON3_CTL - use MPG0 PLL for Fmt PLL Source */
++         writel( 0x80000002, (APOLLO_CGU_BASE + 0x110));     /* PLL_HDMI_CON0_CTL - use HDMI register I/F rather than direct I/F */
++         writel( 0x0102030a, (APOLLO_HDMI_TX_BASE + 0x034)); /* FMT_PLL_SETTINGS - 720p, 1080i, 1080p */
++         writel( 0x00000201, (APOLLO_HDMI_TX_BASE + 0x030)); /* SER_PLL_SETTINGS - 720p, 1080i */
++         writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL - apply the pll settings */
++         writel( 0x00000130, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
++         writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
++         
++         break;
++	  case 4://480
++		 /* Set up the formatting PLL - programmed thru the HDMI I/F - and the serializer PLL */
++		 writel( 0x00000003, (APOLLO_CGU_BASE + 0x2fc));	 /* Enable TMDS clock for HDMI */
++		 writel( 0x00000020, (APOLLO_CGU_BASE + 0x11c));	 /* PLL_HDMI_CON3_CTL - use MPG0 PLL for Fmt PLL Source */
++		 writel( 0x80000002, (APOLLO_CGU_BASE + 0x110));	 /* PLL_HDMI_CON0_CTL - use HDMI register I/F rather than direct I/F */
++		 writel( 0x0102040a, (APOLLO_HDMI_TX_BASE + 0x034)); /* FMT_PLL_SETTINGS - 480i, 480p */
++		 writel( 0x00000203, (APOLLO_HDMI_TX_BASE + 0x030)); /* SER_PLL_SETTINGS - 480i, 480p (27 MHz) */
++		 writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL - apply the pll settings */
++		 writel( 0x00000130, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
++		 writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */         
++         break;
++   	  case 0: // 576i
++      	 /* Set up the formatting PLL - programmed thru the HDMI I/F - and the serializer PLL */
++         writel( 0x00000003, (APOLLO_CGU_BASE + 0x2fc));     /* Enable TMDS clock for HDMI */
++         writel( 0x00000020, (APOLLO_CGU_BASE + 0x11c));     /* PLL_HDMI_CON3_CTL - use MPG0 PLL for Fmt PLL Source */
++         writel( 0x80000002, (APOLLO_CGU_BASE + 0x110));     /* PLL_HDMI_CON0_CTL - use HDMI register I/F rather than direct I/F */
++         writel( 0x0102040a, (APOLLO_HDMI_TX_BASE + 0x034)); /* FMT_PLL_SETTINGS - 480i, 480p */
++         writel( 0x00000203, (APOLLO_HDMI_TX_BASE + 0x030)); /* SER_PLL_SETTINGS - 480i, 480p (27 MHz) */
++         writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL - apply the pll settings */
++         writel( 0x00000130, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
++         writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
++         
++         break;
++   }   
++
++   /*----------------------- Calibrate VDAC's ----------------------*/
++   writel( 0x0009c00e, (APOLLO_GBL_REG_BASE + 0x8fc)); /*reset VDAC0 */
++   writel( 0x0009c00e, (APOLLO_GBL_REG_BASE + 0x920)); /*reset VDAC1 */
++   writel( 0x0019f60e, (APOLLO_GBL_REG_BASE + 0x8fc)); /*VDAC0_CTRL0 30 MHz power */
++   writel( 0x0019f60e, (APOLLO_GBL_REG_BASE + 0x920)); /*VDAC1_CTRL0 30 MHz power */
++   writel( 0x52201750, (APOLLO_GBL_REG_BASE + 0x900)); /*VDAC0_CTRL1 */
++   writel( 0x52201750, (APOLLO_GBL_REG_BASE + 0x924)); /*VDAC1_CTRL1 */
++   writel( 0x52201752, (APOLLO_GBL_REG_BASE + 0x900)); /*VDAC0_CTRL1 */
++   writel( 0x52201752, (APOLLO_GBL_REG_BASE + 0x924)); /*VDAC1_CTRL1 */
++   writel( 0x3f000070, (APOLLO_GBL_REG_BASE + 0x90c)); /*VDAC0_CTRL4 70-->71 */
++   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x90c));
++   writel( 0x3f000070, (APOLLO_GBL_REG_BASE + 0x930)); /*VDAC1_CTRL4 70-->71 */
++   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x930));
++
++   /*Copy image into video buffers*/
++  
++#if 0  
++   if( resolution == 4 )
++   		gHightOfSdPic = 240;
++   else
++   		gHightOfSdPic = 288;
++   		
++   pIncHD = (u32*)pVRAMhd_base;
++   pIncSD = (u32*)pVRAMsd_base;
++   gIncHD = pIncHD;
++   gIncSD = pIncSD;
++   	 
++   for (i=0; i<(720 * gHightOfSdPic); i++)
++   {
++      writel( 0xff000000, pIncSD);
++      pIncSD++;
++   }
++    
++   for ( i=0; i<(aXRES * aYRES); i++)
++   {
++      writel( 0xff000000, pIncHD);
++      pIncHD++;
++   }
++#else
++
++pIncHD = pVRAMhd_base;
++pIncSD = pVRAMsd_base;
++
++if( resolution == 4 )
++	 gHightOfSdPic = 240;
++else
++	 gHightOfSdPic = 288;
++ 
++
++gIncHD = pIncHD;
++gIncSD = pIncSD;
++  
++for (i=0; i<(720 * gHightOfSdPic); i++)
++{
++   writel( 0xffffffff, pIncSD);
++   pIncSD++;
++}
++
++/* Clear the buffer to a white background. */
++for ( i=0; i<(aXRES * aYRES); i++)
++{
++   writel( 0xffffffff, pIncHD);
++   pIncHD++;
++}
++/* Calculate Address to begin write. */
++pIncHD = (u32 *)((u32)pVRAMhd_base + ((aXRES * ( (aYRES - logo_height) / 2 ) * 4 )));
++pIncSD = (u32 *)((u32)pVRAMsd_base + ((720 * ( (gHightOfSdPic - logo_height) / 2 ) * 4 )));
++for ( line = 0; line< logo_height; line++)
++{
++   pIncHD += (aXRES - logo_width) / 2;
++   pIncSD += (720  - logo_width) / 2;
++   for ( line_pixel = 0; line_pixel< logo_width; line_pixel++)
++   {
++	  HEADER_PIXEL(header_data, pixel_data)
++	  *pIncHD = 0xff000000 + (pixel_data[2] << 16) + (pixel_data[1] << 8) + pixel_data[0];
++	  pIncHD++;
++  	
++	  *pIncSD = 0xff000000 + (pixel_data[2] << 16) + (pixel_data[1] << 8) + pixel_data[0];
++	  pIncSD++;
++   }
++   pIncHD += (aXRES - logo_width) / 2;
++   pIncSD += (720  - logo_width) / 2;
++}
++
++   
++#endif
++
++   /* set up RIF on GFX layer 1 */
++   writel( 0xa000001f, (APOLLO_CPIPE_BASE + 0x8c44)); /* 32 bit variable width */
++   writel( APOLLO_VARI_FORMAT_ARGB, (APOLLO_CPIPE_BASE + 0x8c48)); /* 32 bit variable width */
++   writel( 0x80500027, (APOLLO_CPIPE_BASE + 0x8c54)); /* start DMA at line 8 pixel 0x90 */
++   writel( 4*aXRES-1, (APOLLO_CPIPE_BASE + 0x8c5c)); /* width is 719 pels */
++   writel( pVRAMhd_base, (APOLLO_CPIPE_BASE + 0x8c64)); /* data is located at 0xb10000 */
++
++   writel( 4*aXRES, (APOLLO_CPIPE_BASE + 0x8c6c)); /* stride is XRES*4 */
++   writel( 4*aXRES, (APOLLO_CPIPE_BASE + 0x8c70)); /* stride is XRES*4 */
++   writel( 4*aXRES, (APOLLO_CPIPE_BASE + 0x8c84)); /* stride is XRES*4 */
++   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8d90)); /* bypass alpha multi */
++
++   /* hdmi Mixer */
++   writel( 0xffff0000, (APOLLO_CPIPE_BASE + 0x8db0)); /* alpha blend enable */
++   writel( 0x000003fc, (APOLLO_CPIPE_BASE + 0x8db8)); /* per pixel alpha */
++
++   /* denc Mixer */
++   writel( 0xffff0000, (APOLLO_CPIPE_BASE + 0x8dd0)); /* alpha blend enable */
++   writel( 0x000003fc, (APOLLO_CPIPE_BASE + 0x8dd8)); /* per pixel alpha */
++
++   /* Set up HD layer */
++   writel( width_height,    (APOLLO_CPIPE_BASE + 0x8c04)); /* width and height */
++   writel( width_height,    (APOLLO_CPIPE_BASE + 0x8c08)); /* width and height */
++   writel( start_x_y_pos,   (APOLLO_CPIPE_BASE + 0x8c10)); /* h and v start position */
++   writel( enable_crop,     (APOLLO_CPIPE_BASE + 0x8c20)); /* enable crop */
++   writel( pix_dim,         (APOLLO_CPIPE_BASE + 0x8c28)); /* pix dim after crop */
++   writel( 0x00000006, (APOLLO_CPIPE_BASE + 0x8c34)); /* crop enable match STG field */
++
++   /* GFX VCBM*/
++   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8e90)); /* Bypass GFX VCBM */
++   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8c00)); /* apply settings to layer */
++
++   /* GNSH Settings */
++   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x94a0)); /* Turn off MSB inversion */
++   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x94a4)); /* Turn off MSB inversion */
++   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x94a8)); /* Turn off MSB inversion */
++   writel( 0x00000004, (APOLLO_CPIPE_BASE + 0x94b0)); /* Turn off MSB inversion */
++   writel( 0x00000007, (APOLLO_CPIPE_BASE + 0x94b4)); /* Turn off MSB inversion */
++
++   /* Set up color space conversions  RGB255 -> 601 */
++   writel( 0x00000016, (APOLLO_CPIPE_BASE + 0x9690)); /* width and height */
++   writel( 0x020e0408, (APOLLO_CPIPE_BASE + 0x9694)); /* width and height */
++   writel( 0x00c91ed0, (APOLLO_CPIPE_BASE + 0x9698)); /* width and height */
++   writel( 0x1dac0384, (APOLLO_CPIPE_BASE + 0x969c)); /* width and height */
++   writel( 0x03841d0f, (APOLLO_CPIPE_BASE + 0x96a0)); /* width and height */
++   writel( 0x1f6e0000, (APOLLO_CPIPE_BASE + 0x96a4)); /* width and height */
++   writel( 0x00400000, (APOLLO_CPIPE_BASE + 0x96a8)); /* width and height */
++   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x96ac)); /* width and height */
++   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x96b0)); /* width and height */
++   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x9400)); /* width and height */
++
++	if( resolution == 4 )
++	{
++	   /* HDMI AVI Infoframe */	
++	   temp0 = readl(APOLLO_HDMI_TX_BASE + 0x140);
++	   temp1 = readl(APOLLO_HDMI_TX_BASE + 0x144);
++	   temp2 = readl(APOLLO_HDMI_TX_BASE + 0x148);	   
++	   temp3 = readl(APOLLO_HDMI_TX_BASE + 0x14c);   
++	   temp4 = readl(APOLLO_HDMI_TX_BASE + 0x310);
++	   gFormat = 1;
++
++	   writel( 0x000d0282, (APOLLO_HDMI_TX_BASE + 0x140));
++	   writel( 0x005840D5, (APOLLO_HDMI_TX_BASE + 0x144));
++	   writel( 0x00000002, (APOLLO_HDMI_TX_BASE + 0x148)); /* format = 2 */
++	   writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x14c));
++	   writel( 0x00001403, (APOLLO_HDMI_TX_BASE + 0x310));
++	}
++	else
++	{
++		if( gFormat == 1)
++		{
++			writel( temp0, (APOLLO_HDMI_TX_BASE + 0x140));
++			writel( temp1, (APOLLO_HDMI_TX_BASE + 0x144));
++			writel( temp2, (APOLLO_HDMI_TX_BASE + 0x148)); /* format = 2 */
++			writel( temp3, (APOLLO_HDMI_TX_BASE + 0x14c));
++			writel( temp4, (APOLLO_HDMI_TX_BASE + 0x310));
++			gFormat = 0;
++		}
++	}
++
++   /* HDMI GNSH Settings */
++   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x98a0)); /* Turn off MSB inversion */
++   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x98a4)); /* Turn off MSB inversion */
++   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x98a8)); /* Turn off MSB inversion */
++   writel( 0x00000004, (APOLLO_CPIPE_BASE + 0x98b0)); /* Turn off MSB inversion */
++   writel( 0x00000007, (APOLLO_CPIPE_BASE + 0x98b4)); /* Turn off MSB inversion */
++
++   /* HDMI OUTC */
++   writel( 0x04080200, (APOLLO_CPIPE_BASE + 0x98c0));    /* For CPIPE-HDMI */
++//   writel( 0x030f0302, (APOLLO_CPIPE_BASE + 0x98e0));    /* For CPIPE-HDMI RGB match */   
++   writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x98e0));    /* For CPIPE-HDMI RGB match */
++   writel( 0x000fff00, (APOLLO_CPIPE_BASE + 0x98e4));    /* For CPIPE-HDMI RGB match */
++   writel( 0x000fff00, (APOLLO_CPIPE_BASE + 0x98e8));    /* For CPIPE-HDMI RGB match */
++
++   /* HDMI Set up color space conversions  RGB255 -> 601 */
++   if( resolution != 4 )
++   		writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x9a90)); /* width and height */
++   else
++   		writel( 0x00000016, (APOLLO_CPIPE_BASE + 0x9a90)); /* width and height */
++   writel( 0x020e0408, (APOLLO_CPIPE_BASE + 0x9a94)); /* width and height */
++   writel( 0x00c91ed0, (APOLLO_CPIPE_BASE + 0x9a98)); /* width and height */
++   writel( 0x1dac0384, (APOLLO_CPIPE_BASE + 0x9a9c)); /* width and height */
++   writel( 0x03841d0f, (APOLLO_CPIPE_BASE + 0x9aa0)); /* width and height */
++   writel( 0x1f6e0000, (APOLLO_CPIPE_BASE + 0x9aa4)); /* width and height */
++   writel( 0x00400000, (APOLLO_CPIPE_BASE + 0x9aa8)); /* width and height */
++   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x9aac)); /* width and height */
++   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x9ab0)); /* width and height */
++   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x9800)); /* width and height */
++
++   /* set up SD RIF for GFX */
++   writel( 0xa000001f,              (APOLLO_CPIPE_BASE + 0x4c44)); /* 32 bit variable width */
++   writel( APOLLO_VARI_FORMAT_ARGB, (APOLLO_CPIPE_BASE + 0x4c48)); /* 32 bit variable width */
++   writel( 0x80500013,              (APOLLO_CPIPE_BASE + 0x4c54)); /* start DMA at line 8 pixel 0x90 */
++   writel( 0x00000b3f,              (APOLLO_CPIPE_BASE + 0x4c5c)); /* width is 719 pels */
++   writel( (u32)pVRAMsd_base,           (APOLLO_CPIPE_BASE + 0x4c64)); /* Buffer A Address */
++   writel( (u32)(pVRAMsd_base + 0xb40),   (APOLLO_CPIPE_BASE + 0x4c68)); /* Buffer B Address */
++   writel( 0x00000b40,              (APOLLO_CPIPE_BASE + 0x4c6c)); /* stride is 720*4 */
++   writel( 0x00000b40,              (APOLLO_CPIPE_BASE + 0x4c70)); /* stride is 720*4 */
++   
++   writel( 0x00001680,				(APOLLO_CPIPE_BASE + 0x4c84)); /* stride is 720*4 */
++   writel( 0x00000001,              (APOLLO_CPIPE_BASE + 0x4d90)); /* bypass alpha multi */
++
++   /* Setup SD layer */
++   if( resolution == 4 )
++   {
++	   writel( 0x00f002d0, (APOLLO_CPIPE_BASE + 0x4c04)); /* width and height */
++	   writel( 0x00f002d0, (APOLLO_CPIPE_BASE + 0x4c08)); /* width and height */
++	   writel( 0x00880014, (APOLLO_CPIPE_BASE + 0x4c10)); /* h and v start position */
++   }
++   else
++   {
++	   writel( 0x012002d0, (APOLLO_CPIPE_BASE + 0x4c04)); /* width and height */
++	   writel( 0x012002d0, (APOLLO_CPIPE_BASE + 0x4c08)); /* width and height */
++	   writel( 0x00940014, (APOLLO_CPIPE_BASE + 0x4c10)); /* h and v start position */
++   }
++   writel( 0x00000002, (APOLLO_CPIPE_BASE + 0x4c20)); /* enable crop */
++   writel( 0x02d000f0, (APOLLO_CPIPE_BASE + 0x4c28)); /* pix dim after crop */
++   writel( 0x00000006, (APOLLO_CPIPE_BASE + 0x4c34)); /* crop enable match STG field */
++
++   /* GFX VCBM */
++   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x4e90)); /* Bypass GFX VCBM */
++   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x4c00)); /* apply settings to layer */
++
++   /* GNSH Settings */
++   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x54a0)); /* Turn off MSB inversion */
++   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x54a4)); /* Turn off MSB inversion */
++   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x54a8)); /* Turn off MSB inversion */
++   writel( 0x00000004, (APOLLO_CPIPE_BASE + 0x54b0)); /* Turn off MSB inversion */
++   writel( 0x00000007, (APOLLO_CPIPE_BASE + 0x54b4)); /* Turn off MSB inversion */
++
++   /* Set up color space conversions  RGB255 -> 601 */
++   writel( 0x00000016, (APOLLO_CPIPE_BASE + 0x5690)); /* width and height */
++   writel( 0x020e0408, (APOLLO_CPIPE_BASE + 0x5694)); /* width and height */
++   writel( 0x00c91ed0, (APOLLO_CPIPE_BASE + 0x5698)); /* width and height */
++   writel( 0x1dac0384, (APOLLO_CPIPE_BASE + 0x569c)); /* width and height */
++   writel( 0x03841d0f, (APOLLO_CPIPE_BASE + 0x56a0)); /* width and height */
++   writel( 0x1f6e0000, (APOLLO_CPIPE_BASE + 0x56a4)); /* width and height */
++   writel( 0x00400000, (APOLLO_CPIPE_BASE + 0x56a8)); /* width and height */
++   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x56ac)); /* width and height */
++   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x56b0)); /* width and height */
++   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x5400)); /* width and height */
++
++   appollo_config_HDMI(resolution);
++   appollo_config_CPIPE(resolution);
++
++          
++   return;
++}
++
++u32 CSBL_OSD_SetPalette(u32 nColorIndex, u32 nRed, u32 nGreen, u32 nBlue)
++{
++   u32 color = 0;
++   
++   if(nColorIndex >= 256)
++      return FALSE;
++   
++   color = nBlue & 0xff;
++   color = (color << 8) | (nGreen & 0xff);
++   color = (color << 8) | (nRed & 0xff);
++   color = 0xff000000|color;
++
++   osg_palette[nColorIndex] = color;
++   APOLLO_PRINTF("###CSBL_OSD_SetPalette :: 0x%x#\n",osg_palette[nColorIndex]);   
++   return TRUE;
++}
++
++/**************************************************/
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++				/*this interface is used */
++		/*to clean screen with pointed rgb color*/
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++/**************************************************/
++void osd_clean(u32 nColorIndex)
++{
++	u32 i =0;
++	u32 *pSDFrameBuffer;
++	u32 *pHDFrameBuffer;
++	pSDFrameBuffer = gIncSD;
++	pHDFrameBuffer = gIncHD;
++	for ( i=0; i<(720 * gHightOfSdPic); i++)
++	{
++	   writel( osg_palette[nColorIndex], pSDFrameBuffer);
++	   pSDFrameBuffer++;
++	}
++	
++	for ( i=0; i<(gWithOfPic*gHightOfPic); i++)
++	{
++	   writel( osg_palette[nColorIndex], pHDFrameBuffer);
++	   pHDFrameBuffer++;
++	}
++}
++
++/**************************************************/
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++				/*this interface is used*/ 
++		/*   to draw a dot in pointed position     */
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++/**************************************************/
++u32 gType;
++
++u32 osd_drawdot(u32 nXPos, u32 nYPos, u32 nColorIndex)
++{
++	u32 pos =0;
++	u32 xPos;
++	u32 yPos;
++//sd
++	if( nYPos%2 == 0 )
++	{
++		pos = (720 * nYPos/2) + nXPos;
++		writel( osg_palette[nColorIndex], &gIncSD[pos]);
++	}
++	
++//hd
++	if( gWithOfPic == 1920 )//for 1080i
++	{
++		if( nYPos%2 == 0 )
++		{
++			pos = (gWithOfPic * nYPos/2) + nXPos;
++		  writel( osg_palette[nColorIndex], &gIncHD[pos]);
++		}
++	}
++	else
++	{		
++		pos = gWithOfPic * nYPos + nXPos;
++		writel( osg_palette[nColorIndex], &gIncHD[pos]);
++	}
++}
++
++/**************************************************/
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++				/*this interface is used*/ 
++		/*   to draw a h line in pointed position     */
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++/**************************************************/
++//void osd_drawhdot( u32 nColorRGB )
++void CSBL_OSD_DrawHLine( u32 nXstart, u32 nXend, u32 nYPos , u32 nColorIndex)
++{
++   u32 xPos;
++   
++   if((nYPos > gHightOfPic) || (nYPos < 0) ||
++      (nXstart > gWithOfPic) || (nXstart < 0) ||
++      (nXend > gWithOfPic) || (nXend < 0))
++      return ;
++
++   for( xPos =nXstart; xPos <= nXend ; xPos++)
++   {
++	   osd_drawdot(xPos,nYPos,nColorIndex);
++   }
++   return 0;
++}
++
++/**************************************************/
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++				/*this interface is used*/ 
++		/*   to draw a verical line in pointed position          */
++/*                                                                                    */
++/*                                                                                    */
++/**************************************************/
++//void osd_drawvdot( u32 nColorRGB )
++void CSBL_OSD_DrawVLine( u32 nXPos, u32 nYstart, u32 nYend, u32 nColorIndex)
++{
++   u32 yPos;
++   
++   if((nYstart > gHightOfPic) || (nYstart < 0) ||
++      (nYend > gHightOfPic) || (nYend < 0) ||
++      (nXPos > gWithOfPic) || (nXPos < 0))
++      return ;
++
++   for( yPos=nYstart; yPos<=nYend; yPos++ )
++   {
++	   osd_drawdot(nXPos,yPos,nColorIndex);
++   }
++   APOLLO_PRINTF("####### color index = %d ######\n\r",nColorIndex);
++   return ;
++}
++
++/**************************************************/
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++				/*this interface is used*/ 
++		/*   to draw a RECT line in pointed position     */
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++/**************************************************/
++void CSBL_OSD_DrawRect( u32 nXstart, u32 nYstart, u32 nXend, u32 nYend ,u32 nColorIndex)
++{
++   if((nYstart > gHightOfPic) || (nYstart < 0) ||
++      (nYend > gHightOfPic) || (nYend < 0) ||
++      (nXstart > gWithOfPic) || (nXstart < 0)  ||
++      (nXend > gWithOfPic) || (nXend < 0))
++      return ;
++      
++   if((nYstart >= nYend) || (nXstart >= nXend))
++      return ; 
++      
++   CSBL_OSD_DrawHLine(nXstart, nXend,   nYstart, nColorIndex);
++   CSBL_OSD_DrawHLine(nXstart, nXend,   nYend,   nColorIndex);
++   CSBL_OSD_DrawVLine(nXstart, nYstart, nYend,   nColorIndex);
++   CSBL_OSD_DrawVLine(nXend,   nYstart, nYend,   nColorIndex);
++   
++   return ;
++}
++
++/**************************************************/
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++				/*this interface is used*/ 
++		/*   to fill a RECT line in pointed position     */
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++/*                                                                                    */
++/**************************************************/
++void CSBL_OSD_DrawFillRect( u32 nXstart, u32 nYstart, u32 nXend, u32 nYend ,u32 nColorIndex)
++{
++	int xPos, yPos;
++	if((nYstart > gHightOfPic) || (nYstart < 0) ||
++	 (nYend > gHightOfPic) || (nYend < 0) ||
++	 (nXstart > gWithOfPic) || (nXstart < 0)	||
++	 (nXend > gWithOfPic) || (nXend < 0))
++	 return ;
++
++	for( yPos=nYstart; yPos<=nYend; yPos++ )
++	{
++		CSBL_OSD_DrawHLine(nXstart, nXend, yPos, nColorIndex);
++	}
++
++	return;
++}
++
++
++void test_osd_clean(void)
++{
++	osd_clean(128);
++}
++
++void test_osd_drawHLine(void)
++{
++	CSBL_OSD_DrawHLine(180,540,100,128);
++}
++
++void test_osd_drawVLine(void)
++{
++	CSBL_OSD_DrawVLine(180,100,200,128);
++}
++
++void test_osd_drawRect(void)
++{
++	CSBL_OSD_DrawRect(180,100,540,200,128);
++}
+ 
+-/*GPIO Defines */
+-#define GPIO_LEFT   0x80
+-#define GPIO_RIGHT  0x00
+-#define GPIO_NONE   0xFF
+-#define GPIO_PRIMARY_FUNCTION_MODE 0x1
+-#define GPIO_FUNCTION_MODE 0x2
+-#define GPIO_OUTPUT_DRAIN_MODE 0x3
+-#define MAX_GPIOS 199
+-#define GPIO_LEFT_DATA_REG(n)  GPIO_DATA_REG0_REG(1) + (n*0x4)
+-#define GPIO_RIGHT_DATA_REG(n) GPIO_DATA_REG0_REG(2) + (n*0x4)
+-#define GPIO_LEFT_MODE_CTRL_REG(n)   GPIO_MODE_CTRL0_REG(1) + (n*0x4)
+-#define GPIO_RIGHT_MODE_CTRL_REG(n)  GPIO_MODE_CTRL0_REG(2) + (n*0x4)
++void test_osd_fillRect(void)
++{
++	CSBL_OSD_DrawFillRect(180,100,540,200,128);
++}
+ 
+-enum{
+-	VIDEO_OUT_PREVIOUS_MODE = -1,
+-	VIDEO_OUT_DEFAULT = 0,
+-	VIDEO_OUT_NTSC = 1,
+-	VIDEO_OUT_PAL = 2,
+-	READ_CMD_WAKEUP_FROM_RCU = 0xC1,
+-	READ_CMD_WAKEUP_FROM_FRONT = 0xC2,
+-	READ_CMD_WAKEUP_FROM_TIMER = 0xC3,
+-	READ_CMD_WAKEUP_FROM_AC = 0xC4,
+-};
++void test_osd_showlogo(u32 i)
++{
++	APOLLO_PRINTF(" #######i=%d####### \n\r",i);	
++	CSBL_OSD_SetPalette(128,0xff,0x00,00);
++	CSBL_OSD_Init(i,header_data,0);
++}
+ 
+ void board_config();
+-void apollo_splash2();
++void SetWatchDogTime(int bEnable,int sec);
++
+ /******************************************************************************
+  * Routine: board_init
+  * Description: Early hardware init.
+@@ -732,6 +2244,7 @@ int GetWakeupMode()
+ 		if (mTimeout >= 8*10)
+ 			break;		
+ 	}
++	WaitForReply(2);
+ 	if(readcmd[0] == 0x77)
+ 		return readcmd[1];
+ 	else
+@@ -785,7 +2298,7 @@ void LED_ON_OFF(int mLED_ID, int mEnable)
+ 	}
+ 
+ 	Write(ledcmd, 8);
+-	
++	WaitForReply(2);
+ }
+ 
+ void writeVFD(char* aChar)
+@@ -800,8 +2313,6 @@ void writeVFD(char* aChar)
+ 	unsigned long long tmp2[3];
+ 	unsigned long long tmp3[3];
+ 	int j=0, i=0, k=0;
+-	int length;
+-	int index = 0;
+ 
+ 	memset(buf, 0, sizeof( buf ) );
+ 	memset( tmp, 0, sizeof( tmp ) );
+@@ -838,6 +2349,7 @@ void writeVFD(char* aChar)
+ 	}
+ 
+ 	Write(vfdcmd, 25);
++	WaitForReply(2);
+ }
+ 
+ 
+@@ -891,6 +2403,49 @@ void Uart2_Disable(void)
+ #endif	
+ 
+ }
++int check_nand_update()
++{
++	ulong addr=0x8000;
++	struct mtd_device *dev;
++	struct part_info *part;
++	nand_info_t *nand;
++	const char *fit_uname = NULL;
++	
++	ulong size=1048640;
++	u8 pnum;
++
++	if ((mtdparts_init() == 0) && (find_dev_and_part("update", &dev, &pnum, &part) == 0))
++	{
++		APOLLO_PRINTF("part->offset 0x%x   %ld\n", part->offset,part->offset);	
++	}
++	else
++		return -1;
++
++	nand = &nand_info[nand_curr_device];
++
++	nand_read_skip_bad(nand, part->offset, &size,(u_char *)addr);
++
++	image_header_t	*hdr;
++
++	hdr = (image_header_t *)addr;
++
++	if (!image_check_magic (hdr)) 
++	{
++		puts ("Bad magic number\n");
++		return -1;
++	}
++	if (!image_check_hcrc (hdr)) {
++		puts ("Bad header crc\n");
++		return -1;
++	}
++	
++	writeVFD("Update   ");
++	SetWatchDogTime(FALSE,0);
++	source(0x8040,fit_uname);
++
++	return 1;
++}
++
+ void check_img()
+ {
+ 
+@@ -908,16 +2463,17 @@ void check_img()
+ 	else
+ 	{
+ 		writeVFD("Check img");	
+-		WaitForReply(2);		
+ 		APOLLO_PRINTF("Usb storage Found ....\n"
+ 				"Check update Images ....\n");
+-		size = check_update_image("update/","update/checkusb.img");
++		size = check_update_image("update_ruby/","update_ruby/checkusb.img");
+ 		if(size == -1){
+ 			APOLLO_PRINTF("uldr Image Read Fail or Not found uldr Image ....\n");
+ 		}
+ 		else{
+ 			writeVFD("Update   ");
+-			WaitForReply(2);
++			//WatchDog disable for update
++			SetWatchDogTime(FALSE,0);
++
+ 			APOLLO_PRINTF("Update ....\n");
+ 			source(0x8000,fit_uname);
+ 
+@@ -925,13 +2481,12 @@ void check_img()
+ 			{
+ 				APOLLO_PRINTF("REMOVEUSB\n");
+ 				writeVFD("REMOVEUSB");
+-				WaitForReply(2);
+ 			}
+ 			do_reset(NULL, 0, 0, NULL);
+ 		}
+ 	}
++	check_nand_update();
+ 	writeVFD("Boot Up  ");
+-	WaitForReply(2);
+ }
+ 
+ int gpio_get_level(unsigned int pio_num)
+@@ -966,7 +2521,6 @@ int gpio_get_level(unsigned int pio_num)
+ 
+ int GetHwVersion()
+ {
+-	int bLowVer, bHighVer;
+ 	int hwver = 0;
+ 
+ 	if (gpio_get_level(HWPIN_HIGH))
+@@ -978,7 +2532,6 @@ int GetHwVersion()
+ int CheckVideoMode()
+ {
+ 	int i = 0;
+-	int ch = -1;
+ 	int timecounter = 0;
+ 	char readcmd[8] = {0};
+ 	int mTimeout = 0;
+@@ -1021,12 +2574,10 @@ int CheckVideoMode()
+ }
+ void SetVideomode(int videoout)
+ {
+-	char videomode[128];
+ 	int i = 0;
+ 	if(videoout == VIDEO_OUT_NTSC)
+ 	{
+ 		writeVFD("NTSC mode");
+-		WaitForReply(2);		
+ 		setenv("videomode","NTSC");
+ 		saveenv();
+ 		for(i = 0; i < 100; i++)
+@@ -1035,7 +2586,6 @@ void SetVideomode(int videoout)
+ 	else if(videoout == VIDEO_OUT_PAL)
+ 	{
+ 		writeVFD("PAL mode");
+-		WaitForReply(2);		
+ 		setenv("videomode","PAL");
+ 		saveenv();
+ 		for(i = 0; i < 100; i++)
+@@ -1046,25 +2596,45 @@ void SetVideomode(int videoout)
+ 		APOLLO_PRINTF("Use Previous video mode!\n");
+ 	}
+ }
++
++
++void SetWatchDogTime(int bEnable, int sec) // WatchDog Added 2013.03.08 MAX Time : 255 sec
++{
++
++#ifdef SUPPORT_WATCHDOG
++	char cmd[8];
++	memset( cmd, 0x00, sizeof( cmd ) );
++	cmd[0]=0x17;
++	if(bEnable)
++		cmd[1]=0x1;
++	cmd[2]=sec;
++	Write(cmd, 8);
++	WaitForReply(2);
++#endif
++}
++
+ void board_config()
+ {
+ 	int mWakeupmode = 0;
+ 	int mVideomode = 0;
+ 	int hwversion = 0;
+ 	char hwver[128];
++	char * aVideomode;
+ 	
+ 	//Uart2 Pin mux register enable
+ 	Uart2_Enable();
+-	LED_ON_OFF(3, TRUE);
+-	WaitForReply(2);
++	LED_ON_OFF(3, TRUE)
++		;
++	SetWatchDogTime(FALSE,0);
++	SetWatchDogTime(TRUE,90); // Set WatchDog Timer 90sec!
+ 
++#ifndef UPDATE_MODE	
+ 	/* Get hw version & Set Env */
+ 	hwversion = GetHwVersion();
+ 	sprintf(hwver,"%d",hwversion);
+ 	setenv("hwver",hwver);
+ 	
+ 	mWakeupmode = GetWakeupMode();
+-	WaitForReply(2);
+ 
+ 	if(mWakeupmode == READ_CMD_WAKEUP_FROM_AC || mWakeupmode == 0)
+ 	{
+@@ -1074,338 +2644,39 @@ void board_config()
+ 		
+ 	if(mWakeupmode != READ_CMD_WAKEUP_FROM_TIMER)
+ 	{
+-		apollo_splash2();
++		if(strcmp(getenv("videomode"),"NTSC") == 0)
++			test_osd_showlogo(4);
++
++		else
++			test_osd_showlogo(1);
++	
+ 		udelay(100);
+ 	}
++#endif
+ 	check_img();
+ }
+ 
+-
+-void apollo_splash2()
++int do_maru_test (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ {
+-   int i, line_pixel, line;
+-   u32  * pVRAMhd_base = 0x21000000; //ioremap_nocache(0x21000000, (XRES * YRES * 4));
+-   u32  * pInc;
+-   unsigned char pixel_data[3];
+-
+-   /* HD DENC programming (HD-480p raster) */
+-   writel( 0x00000001, (APOLLO_DENC_BASE + 0x120)); /* DENC csc sel  - YCbCr out */
+-   writel( 0x00000104, (APOLLO_DENC_BASE + 0x104)); /* DENC raster   -  eactive & 480p */
+-   writel( 0x0000035a, (APOLLO_DENC_BASE + 0x108)); /* DENC Htotal */
+-   writel( 0x02d0007a, (APOLLO_DENC_BASE + 0x10c)); /* DENC HActive */
+-   writel( 0x01e00024, (APOLLO_DENC_BASE + 0x110)); /* DENC Vertical timing */
+-   writel( 0x0000003f, (APOLLO_DENC_BASE + 0x00c)); /* DENC enable dacs - enable all the 6 DACs */
+-   writel( 0x00000201, (APOLLO_DENC_BASE + 0x010)); /* DENC  {CBA} dac selection - {rpr, bpb, gy} */
+-   writel( 0x00050603, (APOLLO_DENC_BASE + 0x014)); /* DENC  {FED} dac selection - all cvbs for initial validation */
+-   writel( 0x00000000, (APOLLO_DENC_BASE + 0x180)); /* DENC Sync Control- don't invert Odd/even signal */
+-
+-   /* DENC programming (SD - 480i) */
+-   writel( 0x00000110, (APOLLO_DENC_BASE + 0x304)); /* DENC raster   - enable bits eactive & 480i(NTSC) */
+-   writel( 0x000006b4, (APOLLO_DENC_BASE + 0x308)); /* DENC Htotal */
+-   writel( 0x05a00104, (APOLLO_DENC_BASE + 0x30c)); /* DENC HActive (orig - 0x0590010c) */
+-   writel( 0x00f00013, (APOLLO_DENC_BASE + 0x310)); /* DENC Vertical timing */
+-   writel( 0x007e9054, (APOLLO_DENC_BASE + 0x318)); /* DENC analog timing */
+-   writel( 0x0085e574, (APOLLO_DENC_BASE + 0x324)); /* DENC amplitude */
+-   writel( 0x009b86bd, (APOLLO_DENC_BASE + 0x328)); /* DENC YUV MULT */
+-   writel( 0x80a4f000, (APOLLO_DENC_BASE + 0x32c)); /* DENC YALT Luma control reg */
+-   writel( 0x21f07c1f, (APOLLO_DENC_BASE + 0x330)); /* DENC secam reg */
+-   writel( 0x029d3000, (APOLLO_DENC_BASE + 0x380)); /* DENC Sync Control- don't invert Odd/even signal */
+-
+-   /* Disable SD DENC to supply syncs to HD CPIPE: */
+-   writel( 0x00000000, (APOLLO_DENC_BASE + 0x008));
+-   writel( 0x00000000, (APOLLO_DENC_BASE + 0x394)); /* Macrovision OFF */
+-   writel( 0x00000000, (APOLLO_DENC_BASE + 0x194)); /* Macrovision OFF */
+-
+-   /* DAC0 Programming (Component DACs) */
+-   writel( 0x0011c00e, (APOLLO_GBL_REG_BASE + 0x8fc)); /*VDAC0_CTRL0 */
+-   writel( 0x52201712, (APOLLO_GBL_REG_BASE + 0x900)); /*VDAC0_CTRL1 */
+-   writel( 0x00000ff0, (APOLLO_GBL_REG_BASE + 0x904)); /*VDAC0_CTRL2 */
+-   writel( 0x00000124, (APOLLO_GBL_REG_BASE + 0x908)); /*VDAC0_CTRL3 source from MPEG0 PLL */
+-   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x90c)); /*VDAC0_CTRL4 71-->70-->71 */
+-   writel( 0x3f000070, (APOLLO_GBL_REG_BASE + 0x90c)); /*VDAC0_CTRL4 71-->70-->71 */
+-   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x90c)); /*VDAC0_CTRL4 71-->70-->71 */
+-   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x910)); /*VDAC0_TEST_CTRL */
+-   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x914)); /*VDAC0_DTO_INCR0 */
+-   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x918)); /*VDAC0_DTO_INCR1 */
+-
+-   /* DAC1 Programming (SD - 480i) */
+-   writel( 0x0011c00e, (APOLLO_GBL_REG_BASE + 0x920)); /*VDAC1_CTRL0 */
+-   writel( 0x52201712, (APOLLO_GBL_REG_BASE + 0x924)); /*VDAC1_CTRL1 */
+-   writel( 0x00000ff0, (APOLLO_GBL_REG_BASE + 0x928)); /*VDAC1_CTRL2 */
+-   writel( 0x00000124, (APOLLO_GBL_REG_BASE + 0x92c)); /*VDAC1_CTRL3 source from MPEG0 PLL */
+-   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x930)); /*VDAC1_CTRL4 71-->70-->71 */
+-   writel( 0x3f000070, (APOLLO_GBL_REG_BASE + 0x930)); /*VDAC1_CTRL4 71-->70-->71 */
+-   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x930)); /*VDAC1_CTRL4 71-->70-->71 */
+-   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x934)); /*VDAC1_TEST_CTRL */
+-   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x938)); /*VDAC1_DTO_INCR0 */
+-   writel( 0x00000000, (APOLLO_GBL_REG_BASE + 0x93c)); /*VDAC1_DTO_INCR1 */
+-
+-   /******  Set up the DAC and CPIPE clocks */
+-   writel( 0x00000002, (APOLLO_CGU_BASE + 0x658)); /* vdac0_sel -- 74.25MHz mpg0 pll */
+-   writel( 0x00000002, (APOLLO_CGU_BASE + 0x65c)); /* vdac1_sel -- 74.25MHz */
+-   writel( 0x00000002, (APOLLO_CGU_BASE + 0x660)); /* vdac2_sel -- 74.25MHz */
+-
+-/* vdacs 3,4 and 5 are always Mpeg0 PLL, 74.25 MHz */
+-   writel( 0x00000002, (APOLLO_CGU_BASE + 0x664)); /* vdac3_sel -- 74.25MHz mpg0 pll */
+-   writel( 0x00000002, (APOLLO_CGU_BASE + 0x668)); /* vdac4_sel -- 74.25MHz */
+-   writel( 0x00000002, (APOLLO_CGU_BASE + 0x66c)); /* vdac5_sel -- 74.25MHz */
+-   writel( 0x00000005, (APOLLO_CGU_BASE + 0x640)); /* VCGEN_G1SEL -- 27MHz, MPG0 PLL */
+-   writel( 0x00000004, (APOLLO_CGU_BASE + 0x644)); /* VCGEN_G2SEL -- 54MHz, MPG0 PLL */
+-   writel( 0x00000006, (APOLLO_CGU_BASE + 0x648)); /* VCGEN_G3SEL -- 27MHz, MPG0 PLL */
+-   writel( 0x00000005, (APOLLO_CGU_BASE + 0x64c)); /* VCGEN_G4SEL -- 13.5MHz, MPG0 PLL */
+-   writel( 0x00000006, (APOLLO_CGU_BASE + 0x650)); /* VCGEN_G5SEL -- 27MHz, MPG0 PLL */
+-   writel( 0x00000000, (APOLLO_CGU_BASE + 0x654)); /* VCGEN_G6SEL -- 27MHz, MPG0 PLL */
+-
+-   /* CPIPE Sync Timing Generator settings */
+-   writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8000)); /* progressive */
+-   writel( 0x00000f33, (APOLLO_CPIPE_BASE + 0x8040)); /* enable STG + f,h,v inputs, invert f,h,v */
+-   writel( 0x0359020c, (APOLLO_CPIPE_BASE + 0x8044)); /* 858 wide, 525 tall */
+-   writel( 0x03580087, (APOLLO_CPIPE_BASE + 0x8048)); /* blank from 0x34a to 0x79 */
+-   writel( 0x02090028, (APOLLO_CPIPE_BASE + 0x804c)); /* blank from line 0x20a to 0x29 */
+-   writel( 0x000c0021, (APOLLO_CPIPE_BASE + 0x8050)); /* hsync */
+-   writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x8054)); /* vsync (not used) */
+-   writel( 0x00000012, (APOLLO_CPIPE_BASE + 0x8058)); /* vsync starts at (APOLLO_CPIPE_BASE + 0x horiz */
+-   writel( 0x00000012, (APOLLO_CPIPE_BASE + 0x805c)); /* vsync ends at (APOLLO_CPIPE_BASE + 0x */
+-   writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8060));
+-   writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8064));
+-   writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x8068)); /* ext h sets hctr to 0x25, ext v sets vctr to 2 */
+-   writel( 0x000e004b, (APOLLO_CPIPE_BASE + 0x8094)); /* hsync for hdmi starts at 1 ends at 0x3e */
+-   writel( 0x0005000a, (APOLLO_CPIPE_BASE + 0x8098)); /* 6 lines wide hdmi vsync */
+-   writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x809c));
+-   writel( 0x0000000e, (APOLLO_CPIPE_BASE + 0x80a0)); /* hdmi vsync starts at 14 horiz count */
+-   writel( 0x0000000e, (APOLLO_CPIPE_BASE + 0x80a4)); /* vsync ends, ditto */
+-   writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x94e0)); /* !hsync, !vsync, blank, odd/even to HD DENC */
+-   writel( 0x070f0002, (APOLLO_CPIPE_BASE + 0x98e0)); /* hsync, vsync, !blank, odd/even to HDMI */
+-
+-   /* SD CPIPE Sync Timing Generator settings */
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x4000)); /* interlaced */
+-   writel( 0x00000033, (APOLLO_CPIPE_BASE + 0x4040)); /* enable STG + f input only */
+-   writel( 0x03590106, (APOLLO_CPIPE_BASE + 0x4044)); /* 858 wide, 263 tall */
+-   writel( 0x03590088, (APOLLO_CPIPE_BASE + 0x4048)); /* h blank */
+-   writel( 0x01040013, (APOLLO_CPIPE_BASE + 0x404c)); /* v blank odd */
+-   writel( 0x00070010, (APOLLO_CPIPE_BASE + 0x4050)); /* hsync from 7 to 16 */
+-   writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x4054)); /* vsync from 5 to 7 odd (not used) */
+-   writel( 0x01ae0001, (APOLLO_CPIPE_BASE + 0x4058)); /* vsync starts at 1 horiz */
+-   writel( 0x01ae0001, (APOLLO_CPIPE_BASE + 0x405c)); /* vsync ends at 1 */
+-   writel( 0x01040013, (APOLLO_CPIPE_BASE + 0x4060)); /* v blank even */
+-   writel( 0x00050007, (APOLLO_CPIPE_BASE + 0x4064)); /* vsync from 5 to 7 even (not used) */
+-   writel( 0x00000000, (APOLLO_CPIPE_BASE + 0x4068)); /* ext f sets h and v to 0 */
+-   writel( 0x02060002, (APOLLO_CPIPE_BASE + 0x54e0)); /* !hsync, blank to SD DENC */
+-
+-   /* Bypass SD Out CSC */
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x5690)); /* Bypass DS Out CSC */
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x5400)); /* cause above to take effect on next shadow reload cycle */
+-
+-   /* Bypass DENC CSC */
+-   writel( 0x00000000, (APOLLO_DENC_BASE + 0x120)); /* Bypass DENC CSC */
+-
+-   /* Set up the formatting PLL - programmed thru the HDMI I/F - and the serializer PLL */
+-   writel( 0x00000003, (APOLLO_CGU_BASE + 0x2fc));     /* Enable TMDS clock for HDMI */
+-   writel( 0x00000020, (APOLLO_CGU_BASE + 0x11c));     /* PLL_HDMI_CON3_CTL - use MPG0 PLL for Fmt PLL Source */
+-   writel( 0x80000002, (APOLLO_CGU_BASE + 0x110));     /* PLL_HDMI_CON0_CTL - use HDMI register I/F rather than direct I/F */
+-   writel( 0x0102040a, (APOLLO_HDMI_TX_BASE + 0x034)); /* FMT_PLL_SETTINGS - 480i, 480p */
+-   writel( 0x00000203, (APOLLO_HDMI_TX_BASE + 0x030)); /* SER_PLL_SETTINGS - 480i, 480p (27 MHz) */
+-   writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL - apply the pll settings */
+-   writel( 0x00000130, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
+-   writel( 0x00000100, (APOLLO_HDMI_TX_BASE + 0x038)); /* PHY_CTRL */
+-
+-   /* HDMI programming */
+-   writel( 0x0000003f, (APOLLO_HDMI_TX_BASE + 0x038));
+-   writel( 0x00012761, (APOLLO_HDMI_TX_BASE + 0x044));
+-   writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4d8));
+-   writel( 0xffffffff, (APOLLO_HDMI_TX_BASE + 0x4e8));
+-   writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4dc));
+-   writel( 0x00100000, (APOLLO_HDMI_TX_BASE + 0x4e8));
+-   writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4dc));
+-   writel( 0x00080000, (APOLLO_HDMI_TX_BASE + 0x4e8));
+-   writel( 0x00040100, (APOLLO_HDMI_TX_BASE + 0x038));
+-   writel( 0x00180000, (APOLLO_HDMI_TX_BASE + 0x4d8));
+-   writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x4dc));
+-   writel( 0x42000510, (APOLLO_HDMI_TX_BASE + 0x000));
+-   writel( 0x42000410, (APOLLO_HDMI_TX_BASE + 0x000));
+-   writel( 0x31000009, (APOLLO_HDMI_TX_BASE + 0x400));
+-   writel( 0x00000016, (APOLLO_HDMI_TX_BASE + 0x404));
+-   writel( 0x000a0184, (APOLLO_HDMI_TX_BASE + 0x180));
+-   writel( 0x00000170, (APOLLO_HDMI_TX_BASE + 0x184));
+-   writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x188));
+-   writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x18c));
+-   writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x300));
+-   writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x304));
+-   writel( 0x10006978, (APOLLO_HDMI_TX_BASE + 0x308));
+-   writel( 0x00001800, (APOLLO_HDMI_TX_BASE + 0x30c));
+-   writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x314));
+-   writel( 0x00000001, (APOLLO_HDMI_TX_BASE + 0x0a8)); /* format 1 for 480p59 */
+-   writel( 0x00080013, (APOLLO_HDMI_TX_BASE + 0x0ac)); /* ext h sets hctr to 0x13, ext v sets vctr to 8 */
+-   writel( 0x00003000, (APOLLO_HDMI_TX_BASE + 0x0d4));
+-   writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x0d8));
+-   writel( 0x00010800, (APOLLO_HDMI_TX_BASE + 0x0e0));
+-   writel( 0x04020200, (APOLLO_HDMI_TX_BASE + 0x0e4));
+-   writel( 0x00000004, (APOLLO_HDMI_TX_BASE + 0x0e8));
+-   writel( 0x91c1c240, (APOLLO_HDMI_TX_BASE + 0x0ec));
+-
+-   /*----------------------- Calibrate VDAC's ----------------------*/
+-   writel( 0x0009c00e, (APOLLO_GBL_REG_BASE + 0x8fc)); /*reset VDAC0 */
+-   writel( 0x0009c00e, (APOLLO_GBL_REG_BASE + 0x920)); /*reset VDAC1 */
+-   writel( 0x0019f60e, (APOLLO_GBL_REG_BASE + 0x8fc)); /*VDAC0_CTRL0 30 MHz power */
+-   writel( 0x0019f60e, (APOLLO_GBL_REG_BASE + 0x920)); /*VDAC1_CTRL0 30 MHz power */
+-   writel( 0x52201750, (APOLLO_GBL_REG_BASE + 0x900)); /*VDAC0_CTRL1 */
+-   writel( 0x52201750, (APOLLO_GBL_REG_BASE + 0x924)); /*VDAC1_CTRL1 */
+-   writel( 0x52201752, (APOLLO_GBL_REG_BASE + 0x900)); /*VDAC0_CTRL1 */
+-   writel( 0x52201752, (APOLLO_GBL_REG_BASE + 0x924)); /*VDAC1_CTRL1 */
+-   writel( 0x3f000070, (APOLLO_GBL_REG_BASE + 0x90c)); /*VDAC0_CTRL4 70-->71 */
+-   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x90c));
+-   writel( 0x3f000070, (APOLLO_GBL_REG_BASE + 0x930)); /*VDAC1_CTRL4 70-->71 */
+-   writel( 0x3f000071, (APOLLO_GBL_REG_BASE + 0x930));
+-
+-   /*** Put the splash screen in memory ***/
+-   pInc = pVRAMhd_base;
+-   /* Clear the buffer to a white background. */
+-   for ( i=0; i<(XRES * YRES); i++)
+-   {
+-      writel( 0xffffffff, pInc);
+-      pInc++;
+-   }
+-   /* Calculate Address to begin write. */
+-   pInc = (u32 *)((u32)pVRAMhd_base + ((XRES * ( (YRES - logo_height) / 2 ) * 4 )));
+-   for ( line = 0; line< logo_height; line++)
+-   {
+-      pInc += (XRES - logo_width) / 2;
+-      for ( line_pixel = 0; line_pixel< logo_width; line_pixel++)
+-      {
+-         HEADER_PIXEL(header_data, pixel_data)
+-         *pInc = 0xff000000 + (pixel_data[2] << 16) + (pixel_data[1] << 8) + pixel_data[0];
+-         pInc++;
+-      }
+-      pInc += (XRES - logo_width) / 2;
+-   }
+-
+-   /* set up RIF on GFX layer 1 */
+-   writel( 0xa000001f, (APOLLO_CPIPE_BASE + 0x8c44)); /* 32 bit variable width */
+-   writel( APOLLO_VARI_FORMAT_ARGB, (APOLLO_CPIPE_BASE + 0x8c48)); /* 32 bit variable width */
+-   writel( 0x80500027, (APOLLO_CPIPE_BASE + 0x8c54)); /* start DMA at line 8 pixel 0x90 */
+-   writel( 0x00000b3f, (APOLLO_CPIPE_BASE + 0x8c5c)); /* width is 719 pels */
+-   writel( 0x21000000, (APOLLO_CPIPE_BASE + 0x8c64)); /* data is located at 0xb10000 */
+-   writel( 0x00000b40, (APOLLO_CPIPE_BASE + 0x8c6c)); /* stride is 720*4 */
+-   writel( 0x00000b40, (APOLLO_CPIPE_BASE + 0x8c70)); /* stride is 720*4 */
+-   writel( 0x00000b40, (APOLLO_CPIPE_BASE + 0x8c84)); /* stride is 720*4 */
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8d90)); /* bypass alpha multi */
+-
+-   /* hdmi Mixer */
+-   writel( 0xffff0000, (APOLLO_CPIPE_BASE + 0x8db0)); /* alpha blend enable */
+-   writel( 0x000003fc, (APOLLO_CPIPE_BASE + 0x8db8)); /* per pixel alpha */
+-
+-   /* denc Mixer */
+-   writel( 0xffff0000, (APOLLO_CPIPE_BASE + 0x8dd0)); /* alpha blend enable */
+-   writel( 0x000003fc, (APOLLO_CPIPE_BASE + 0x8dd8)); /* per pixel alpha */
+-
+-   /* Set up HD layer */
+-   writel( 0x01e002d0, (APOLLO_CPIPE_BASE + 0x8c04)); /* width and height */
+-   writel( 0x01e002d0, (APOLLO_CPIPE_BASE + 0x8c08)); /* width and height */
+-   writel( 0x00880028, (APOLLO_CPIPE_BASE + 0x8c10)); /* h and v start position */
+-   writel( 0x00000002, (APOLLO_CPIPE_BASE + 0x8c20)); /* enable crop */
+-   writel( 0x02d001e0, (APOLLO_CPIPE_BASE + 0x8c28)); /* pix dim after crop */
+-   writel( 0x00000006, (APOLLO_CPIPE_BASE + 0x8c34)); /* crop enable match STG field */
+-
+-   /* GFX VCBM*/
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8e90)); /* Bypass GFX VCBM */
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x8c00)); /* apply settings to layer */
+-
+-   /* GNSH Settings */
+-   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x94a0)); /* Turn off MSB inversion */
+-   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x94a4)); /* Turn off MSB inversion */
+-   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x94a8)); /* Turn off MSB inversion */
+-   writel( 0x00000004, (APOLLO_CPIPE_BASE + 0x94b0)); /* Turn off MSB inversion */
+-   writel( 0x00000007, (APOLLO_CPIPE_BASE + 0x94b4)); /* Turn off MSB inversion */
+-
+-   /* Set up color space conversions  RGB255 -> 601 */
+-   writel( 0x00000016, (APOLLO_CPIPE_BASE + 0x9690)); /* width and height */
+-   writel( 0x020e0408, (APOLLO_CPIPE_BASE + 0x9694)); /* width and height */
+-   writel( 0x00c91ed0, (APOLLO_CPIPE_BASE + 0x9698)); /* width and height */
+-   writel( 0x1dac0384, (APOLLO_CPIPE_BASE + 0x969c)); /* width and height */
+-   writel( 0x03841d0f, (APOLLO_CPIPE_BASE + 0x96a0)); /* width and height */
+-   writel( 0x1f6e0000, (APOLLO_CPIPE_BASE + 0x96a4)); /* width and height */
+-   writel( 0x00400000, (APOLLO_CPIPE_BASE + 0x96a8)); /* width and height */
+-   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x96ac)); /* width and height */
+-   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x96b0)); /* width and height */
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x9400)); /* width and height */
+-
+-   /* HDMI AVI Infoframe */
+-   writel( 0x000d0282, (APOLLO_HDMI_TX_BASE + 0x140));
+-   writel( 0x005840D5, (APOLLO_HDMI_TX_BASE + 0x144));
+-   writel( 0x00000002, (APOLLO_HDMI_TX_BASE + 0x148)); /* format = 2 */
+-   writel( 0x00000000, (APOLLO_HDMI_TX_BASE + 0x14c));
+-   writel( 0x00001403, (APOLLO_HDMI_TX_BASE + 0x310));
+-
+-   /* HDMI GNSH Settings */
+-   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x98a0)); /* Turn off MSB inversion */
+-   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x98a4)); /* Turn off MSB inversion */
+-   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x98a8)); /* Turn off MSB inversion */
+-   writel( 0x00000004, (APOLLO_CPIPE_BASE + 0x98b0)); /* Turn off MSB inversion */
+-   writel( 0x00000007, (APOLLO_CPIPE_BASE + 0x98b4)); /* Turn off MSB inversion */
+-
+-   /* HDMI OUTC */
+-   writel( 0x04080200, (APOLLO_CPIPE_BASE + 0x98c0));    /* For CPIPE-HDMI */
+-   writel( 0x030f0002, (APOLLO_CPIPE_BASE + 0x98e0));    /* For CPIPE-HDMI RGB match */
+-   writel( 0x000fff00, (APOLLO_CPIPE_BASE + 0x98e4));    /* For CPIPE-HDMI RGB match */
+-   writel( 0x000fff00, (APOLLO_CPIPE_BASE + 0x98e8));    /* For CPIPE-HDMI RGB match */
+-
+-   /* HDMI Set up color space conversions  RGB255 -> 601 */
+-   writel( 0x00000016, (APOLLO_CPIPE_BASE + 0x9a90)); /* width and height */
+-   writel( 0x020e0408, (APOLLO_CPIPE_BASE + 0x9a94)); /* width and height */
+-   writel( 0x00c91ed0, (APOLLO_CPIPE_BASE + 0x9a98)); /* width and height */
+-   writel( 0x1dac0384, (APOLLO_CPIPE_BASE + 0x9a9c)); /* width and height */
+-   writel( 0x03841d0f, (APOLLO_CPIPE_BASE + 0x9aa0)); /* width and height */
+-   writel( 0x1f6e0000, (APOLLO_CPIPE_BASE + 0x9aa4)); /* width and height */
+-   writel( 0x00400000, (APOLLO_CPIPE_BASE + 0x9aa8)); /* width and height */
+-   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x9aac)); /* width and height */
+-   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x9ab0)); /* width and height */
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x9800)); /* width and height */
+-
+-   /* set up SD RIF for GFX */
+-   writel( 0xa000001f,              (APOLLO_CPIPE_BASE + 0x4c44)); /* 32 bit variable width */
+-   writel( APOLLO_VARI_FORMAT_ARGB, (APOLLO_CPIPE_BASE + 0x4c48)); /* 32 bit variable width */
+-   writel( 0x80500013,              (APOLLO_CPIPE_BASE + 0x4c54)); /* start DMA at line 8 pixel 0x90 */
+-   writel( 0x00000b3f,              (APOLLO_CPIPE_BASE + 0x4c5c)); /* width is 719 pels */
+-   writel( 0x21000000,           (APOLLO_CPIPE_BASE + 0x4c64)); /* Buffer A Address */
+-   writel( 0x21000000 + 0xb40,   (APOLLO_CPIPE_BASE + 0x4c68)); /* Buffer B Address */
+-   writel( 0x00001680,              (APOLLO_CPIPE_BASE + 0x4c6c)); /* stride is 720*4 */
+-   writel( 0x00001680,              (APOLLO_CPIPE_BASE + 0x4c70)); /* stride is 720*4 */
+-   writel( 0x00001680,              (APOLLO_CPIPE_BASE + 0x4c84)); /* stride is 720*4 */
+-   writel( 0x00000001,              (APOLLO_CPIPE_BASE + 0x4d90)); /* bypass alpha multi */
+-
+-   /* Setup SD layer */
+-   writel( 0x00f002d0, (APOLLO_CPIPE_BASE + 0x4c04)); /* width and height */
+-   writel( 0x00f002d0, (APOLLO_CPIPE_BASE + 0x4c08)); /* width and height */
+-   writel( 0x00880014, (APOLLO_CPIPE_BASE + 0x4c10)); /* h and v start position */
+-   writel( 0x00000002, (APOLLO_CPIPE_BASE + 0x4c20)); /* enable crop */
+-   writel( 0x02d000f0, (APOLLO_CPIPE_BASE + 0x4c28)); /* pix dim after crop */
+-   writel( 0x00000006, (APOLLO_CPIPE_BASE + 0x4c34)); /* crop enable match STG field */
+-
+-   /* GFX VCBM */
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x4e90)); /* Bypass GFX VCBM */
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x4c00)); /* apply settings to layer */
+-
+-   /* GNSH Settings */
+-   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x54a0)); /* Turn off MSB inversion */
+-   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x54a4)); /* Turn off MSB inversion */
+-   writel( 0x00000010, (APOLLO_CPIPE_BASE + 0x54a8)); /* Turn off MSB inversion */
+-   writel( 0x00000004, (APOLLO_CPIPE_BASE + 0x54b0)); /* Turn off MSB inversion */
+-   writel( 0x00000007, (APOLLO_CPIPE_BASE + 0x54b4)); /* Turn off MSB inversion */
+-
+-   /* Set up color space conversions  RGB255 -> 601 */
+-   writel( 0x00000016, (APOLLO_CPIPE_BASE + 0x5690)); /* width and height */
+-   writel( 0x020e0408, (APOLLO_CPIPE_BASE + 0x5694)); /* width and height */
+-   writel( 0x00c91ed0, (APOLLO_CPIPE_BASE + 0x5698)); /* width and height */
+-   writel( 0x1dac0384, (APOLLO_CPIPE_BASE + 0x569c)); /* width and height */
+-   writel( 0x03841d0f, (APOLLO_CPIPE_BASE + 0x56a0)); /* width and height */
+-   writel( 0x1f6e0000, (APOLLO_CPIPE_BASE + 0x56a4)); /* width and height */
+-   writel( 0x00400000, (APOLLO_CPIPE_BASE + 0x56a8)); /* width and height */
+-   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x56ac)); /* width and height */
+-   writel( 0x02000000, (APOLLO_CPIPE_BASE + 0x56b0)); /* width and height */
+-   writel( 0x00000001, (APOLLO_CPIPE_BASE + 0x5400)); /* width and height */
++    switch(argc)
++    {
++        case 1:
++			check_nand_update();
++			APOLLO_PRINTF(" check update Image\n\r ");
++            break;
++        default:
++            cmd_usage(cmdtp);
++            return 1;
++    }
+ 
+-   return;
++    return 0;
+ }
+ 
+ 
++U_BOOT_CMD(
++	test_maru,	2,	1,	do_maru_test,
++	"test cmd in u_boot",
++	"[]"
++);
++
+ 
+diff --git a/common/main.c b/common/main.c
+index 3d05896..ef15bb7 100755
+--- a/common/main.c
++++ b/common/main.c
+@@ -245,6 +245,9 @@ static __inline__ int abortboot(int bootdelay)
+ 			if (tstc()) {	/* we got a key press	*/
+ 				abort  = 1;	/* don't auto boot	*/
+ 				bootdelay = 0;	/* no more delay	*/
++#ifdef CONFIG_PNX84XX
++				SetWatchDogTime(0,200); // WatchDogTimer disable 
++#endif
+ # ifdef CONFIG_MENUKEY
+ 				menukey = getc();
+ # else
+diff --git a/include/configs/vpe_apollo.h b/include/configs/vpe_apollo.h
+index b3b4e8c..ccbdb1d 100755
+--- a/include/configs/vpe_apollo.h
++++ b/include/configs/vpe_apollo.h
+@@ -270,7 +270,7 @@
+ #endif
+ 
+ #define CONFIG_EXTRA_ENV_SETTINGS                   \
+-    "nandparts=mtdparts=nx_2017:1024k@0k(uldr),2m@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),10m@379m(appfs),10m@389m(datac),-(extra)\0" \
++    "nandparts=mtdparts=nx_2017:1024k@0k(uldr),1792k@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),45m@381m(update),-(extra)\0" \
+     "nandids=nand0=nx_2017\0" \
+     "Image=tftp 0x00008000 Image; go 0x00008000\0"          \
+     "autoload=n\0"      \
+@@ -279,7 +279,7 @@
+     "uboot_macaddr=1\0"    \
+     "uboot_cmdline=1\0"		\
+     "bootcmd=run nandboot\0"	\
+-    "ldver=0.1.0\0"	\
++    "ldver=1\0"	\
+     "hwver=1\0"	\
+     "videomode=PAL\0"
+ #if 0
+@@ -291,12 +291,12 @@
+ #endif
+ 
+ //#define CONFIG_BOOTARGS "noinitrd console=ttyS1,115200n8 mtdparts=nx_2017:1024k@0k(uldr),2m@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),10m@379m(appfs),10m@389m(datac),-(extra) root=/dev/mtdblock4 rw rootfstype=jffs2"
+-#define CONFIG_BOOTARGS "noinitrd console=ttyS1,115200n8 mtdparts=nx_2017:1024k@0k(uldr),2m@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),10m@379m(appfs),10m@389m(datac),-(extra) ubi.mtd=4 root=ubi0:rootfs rootfstype=ubifs rw rootflags=sync"
++#define CONFIG_BOOTARGS "noinitrd console=ttyS1,115200n8 mtdparts=nx_2017:1024k@0k(uldr),1792k@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),45m@381m(update),-(extra) ubi.mtd=4 root=ubi0:rootfs rootfstype=ubifs rw rootflags=sync"
+ 
+ 
+ #define MTDIDS_DEFAULT	"nand0=nx_2017"
+ 
+-#define MTDPARTS_DEFAULT  "mtdparts=nx_2017:1024k@0k(uldr),512k@1024k(u-boot),20m@1536k(configure),6m@22m(kernel),350m@29m(root),10m@379m(appfs),10m@389m(datac),-(extra)"
++#define MTDPARTS_DEFAULT  "mtdparts=nx_2017:1024k@0k(uldr),1792k@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),45m@381m(update),-(extra)"
+ 
+ /*
+  * Miscellaneous configurable options
+diff --git a/tools/Makefile b/tools/Makefile
+index d84ff29..c1c556e 100644
+--- a/tools/Makefile
++++ b/tools/Makefile
+@@ -67,6 +67,7 @@ include $(TOPDIR)/config.mk
+ # Generated executable files
+ BIN_FILES-$(CONFIG_CMD_LOADS) += img2srec$(SFX)
+ BIN_FILES-y += mkimage$(SFX)
++BIN_FILES-y += mkupdateimage$(SFX)
+ BIN_FILES-$(CONFIG_ENV_IS_EMBEDDED) += envcrc$(SFX)
+ BIN_FILES-$(CONFIG_ENV_IS_IN_DATAFLASH) += envcrc$(SFX)
+ BIN_FILES-$(CONFIG_ENV_IS_IN_EEPROM) += envcrc$(SFX)
+@@ -92,6 +93,7 @@ EXT_OBJ_FILES-y += common/image.o
+ # Source files located in the tools directory
+ OBJ_FILES-$(CONFIG_CMD_LOADS) += img2srec.o
+ OBJ_FILES-y += mkimage.o
++OBH_FILES-y += mkupdateimage.o
+ OBJ_FILES-$(CONFIG_ENV_IS_EMBEDDED) += envcrc.o
+ OBJ_FILES-$(CONFIG_SHA1_CHECK_UB_IMG) += ubsha1.o
+ OBJ_FILES-$(CONFIG_CMD_NET) += gen_eth_addr.o
+@@ -174,6 +176,11 @@ $(obj)mkimage$(SFX):	$(obj)mkimage.o $(obj)crc32.o $(obj)image.o $(obj)md5.o \
+ 	$(CC) $(CFLAGS) $(HOST_LDFLAGS) -o $@ $^
+ 	$(STRIP) $@
+ 
++$(obj)mkupdateimage$(SFX):    $(obj)mkupdateimage.o $(obj)crc32.o $(obj)image.o $(obj)md5.o \
++			$(obj)sha1.o $(LIBFDT_OBJS) $(obj)os_support.o
++	$(CC) $(CFLAGS) $(HOST_LDFLAGS) -o $@ $^
++	$(STRIP) $@
++
+ $(obj)ncb$(SFX):	$(obj)ncb.o
+ 	$(CC) $(CFLAGS) $(HOST_LDFLAGS) -o $@ $^
+ 	$(STRIP) $@
+@@ -205,6 +212,9 @@ $(obj)image.o: $(SRCTREE)/common/image.c
+ $(obj)mkimage.o: $(SRCTREE)/tools/mkimage.c
+ 	$(CC) -g $(FIT_CFLAGS) -c -o $@ $<
+ 
++$(obj)mkupdateimage.o: $(SRCTREE)/tools/mkupdateimage.c
++	$(CC) -g $(FIT_CFLAGS) -c -o $@ $<
++
+ $(obj)os_support.o: $(SRCTREE)/tools/os_support.c
+ 	$(CC) -g $(FIT_CFLAGS) -c -o $@ $<
+ 
+diff --git a/tools/mkupdateimage.c b/tools/mkupdateimage.c
+new file mode 100644
+index 0000000..3aa1aa1
+--- /dev/null
++++ b/tools/mkupdateimage.c
+@@ -0,0 +1,524 @@
++/*
++ *
++ * (C) Copyright 
++ *  Marusys. co. Ltd
++ * 
++ * All rights reserved.
++ *
++ */
++
++#include "mkupdateimage.h"
++#include <image.h>
++#include <stdio.h>
++#include <string.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <dirent.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <time.h>
++#include <term.h>
++
++extern	unsigned long	crc32 (unsigned long crc, const char *buf, unsigned int len);
++static	void		copy_file (int, const char *);
++static	void		usage (void);
++
++#define FILENAME_SIZE	256
++#define PATH_LENGTH 200
++#define FILEINFO 	struct file_info
++
++int opt_os   = IH_OS_LINUX;
++int opt_arch = IH_ARCH_PPC;
++int opt_type = IH_TYPE_KERNEL;
++int opt_comp = IH_COMP_GZIP;
++
++struct file_info{
++	char filename[FILENAME_SIZE+1];
++	unsigned long inode;
++	unsigned long mode;
++	unsigned long nlink;
++	unsigned long uid;
++	unsigned long gid;
++	unsigned long size;
++	unsigned long offset;
++	time_t atime;
++	unsigned long blocks;
++	struct file_info *next;
++};
++
++char	*imagefile="update.img";
++char	*cmdname;
++unsigned long g_offset;
++
++image_header_t header;
++image_header_t *hdr = &header;
++
++int
++main (int argc, char **argv)
++{
++	int ifd = -1;
++	uint32_t checksum;
++	uint32_t addr;
++	uint32_t ep;
++	struct stat sbuf;
++	
++	char *file_name;
++	unsigned char *ptr;
++	char *name = "";
++	char path[PATH_LENGTH] = "./";
++
++	cmdname = *argv;
++
++	g_offset = 0;
++	ifd = open (imagefile,
++		O_RDWR|O_CREAT|O_TRUNC|O_BINARY, 0666);
++
++	if (ifd < 0) {
++		fprintf (stderr, "%s: Can't open %s: %s\n",
++			cmdname, imagefile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++
++	/*
++	 * Must be -w then:
++	 *
++	 * write dummy header, to be fixed later
++	 */
++	memset (hdr, 0, image_get_header_size ());
++
++	if (write(ifd, hdr, image_get_header_size ()) != image_get_header_size ()) {
++		fprintf (stderr, "%s: Write error on %s: %s\n",
++			cmdname, imagefile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++	g_offset += image_get_header_size();
++	
++	while (--argc > 0 && **++argv == '-') {
++		while (*++*argv) {
++			switch (**argv) {
++			case 'd' :
++			{
++				if (--argc <= 0)
++					usage();
++				strncpy(path,*++argv,PATH_LENGTH-1);
++				seek_dir(path);
++			}
++			case 'i' :
++			{
++				if (--argc <= 0)
++					usage();
++				file_name=*++argv;
++				copy_file(ifd, file_name);
++				goto NXTARG;				
++			}
++			case 's' :
++			{
++				if (--argc <= 0)
++					usage();
++				file_name=*++argv;
++				merge_script(ifd, file_name);
++				goto NXTARG;
++			}
++
++			}
++		}
++NXTARG:		;
++	}
++#if defined(_POSIX_SYNCHRONIZED_IO) && !defined(__sun__) && !defined(__FreeBSD__) && !defined(__APPLE__)
++	(void) fdatasync (ifd);
++#else
++	(void) fsync (ifd);
++#endif
++
++	if (fstat(ifd, &sbuf) < 0) {
++		fprintf (stderr, "%s: Can't stat %s: %s\n",
++			cmdname, imagefile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++
++	ptr = mmap(0, sbuf.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, ifd, 0);
++	if (ptr == MAP_FAILED) {
++		fprintf (stderr, "%s: Can't map %s: %s\n",
++			cmdname, imagefile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++
++	hdr = (image_header_t *)ptr;
++
++	checksum = crc32 (0,
++			  (const char *)(ptr + image_get_header_size ()),
++			  sbuf.st_size - image_get_header_size ()
++			 );
++
++	/* Build new header */
++	image_set_magic (hdr, IH_MAGIC);
++	image_set_time (hdr, sbuf.st_mtime);
++	image_set_size (hdr, sbuf.st_size - image_get_header_size ());
++	image_set_load (hdr, addr);
++	image_set_ep (hdr, ep);
++	image_set_dcrc (hdr, checksum);
++	image_set_os (hdr, opt_os);
++	image_set_arch (hdr, opt_arch);
++	image_set_type (hdr, opt_type);
++	image_set_comp (hdr, opt_comp);
++
++	image_set_name (hdr, name);
++
++	checksum = crc32 (0, (const char *)hdr, image_get_header_size ());
++
++	image_set_hcrc (hdr, checksum);
++
++	image_print_contents (hdr);
++
++	(void) munmap((void *)ptr, sbuf.st_size);
++	
++#if defined(_POSIX_SYNCHRONIZED_IO) && !defined(__sun__) && !defined(__FreeBSD__) && !defined(__APPLE__)
++	(void) fdatasync (ifd);
++#else
++	(void) fsync (ifd);
++#endif
++	printf("file close!\n");
++	if (close(ifd)) {
++		fprintf (stderr, "%s: Write error on %s: %s\n",
++			cmdname, imagefile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++
++	exit (EXIT_SUCCESS);	
++}
++
++void save_long(FILEINFO **list_head,struct stat *cur_stat,struct dirent *cur_dir)
++{
++	FILEINFO *cur_list=(*list_head);
++	
++	if( *list_head != NULL)
++		while( cur_list->next != NULL)
++			cur_list = cur_list->next;
++        
++			if( (*list_head) == NULL){
++                cur_list = (FILEINFO *)malloc(sizeof(FILEINFO));
++                cur_list->next = NULL;
++                *list_head = cur_list;
++			}else{
++                cur_list->next = (FILEINFO *)malloc(sizeof(FILEINFO));
++				cur_list = cur_list->next;
++                cur_list->next = NULL;
++			}
++			
++			
++			cur_list->inode = cur_stat->st_ino;
++			cur_list->mode = cur_stat->st_mode;
++			strcpy(cur_list->filename ,cur_dir->d_name);
++			
++			//hard-link
++			cur_list->nlink = cur_stat->st_nlink;
++			
++			//User ID  
++			cur_list->uid = cur_stat->st_uid;
++			
++			//Group ID
++			cur_list->gid = cur_stat->st_gid;
++			
++			//File Size 
++			cur_list->size = cur_stat->st_size;
++			
++			cur_list->atime = cur_stat->st_atime;
++			
++			cur_list->blocks = cur_stat->st_blocks;
++}               
++
++void print_long(FILEINFO *list_head)
++{
++	FILEINFO *cur_list;
++	unsigned long tmp_perm;
++	struct tm *tm_ptr;
++	int i;
++	
++	cur_list = list_head;
++	
++	while(cur_list != NULL){
++		tmp_perm = cur_list->mode;
++		
++		if(S_ISREG(cur_list->mode)){
++			if(cur_list->mode & 01001001)
++				printf("%c[1;32m",27);
++			else
++				printf("%c[0m",27);
++			
++			printf("REG  ");
++		}else if(S_ISDIR(cur_list->mode)){
++			printf("%c[1;34m",27);
++			printf("DIR  ");
++		}else if(S_ISCHR(cur_list->mode)){
++			printf("%c[1;37m",27);
++			printf("CHR  ");
++		}else if(S_ISBLK(cur_list->mode)){
++			printf("%c[1;33m",27);
++			printf("BLK  ");
++		}else if(S_ISFIFO(cur_list->mode)){
++			printf("%c[1;37m",27);		
++			printf("FIFO ");
++		}else if(S_ISLNK(cur_list->mode)){
++			printf("%c[1;36m",27);
++			printf("LNK  ");
++		}else if(S_ISSOCK(cur_list->mode)){
++			printf("%c[1;35m",27);
++			printf("SOCK ");
++		}
++	
++		//Permission
++		for(i=0;i<3;i++)
++		{
++			if(tmp_perm & S_IRUSR)
++				printf("r");
++			else
++				printf("-");
++			
++			if(tmp_perm & S_IWUSR)
++				printf("w");
++			else
++				printf("-");
++			
++			if(tmp_perm & S_IXUSR)
++				printf("x");
++			else
++				printf("-");
++			
++			tmp_perm <<=3;
++		}
++		
++		//hard-link
++		printf(" %2u",(unsigned int)cur_list->nlink);
++		
++		//User ID
++		printf(" %5u",(unsigned int)cur_list->uid);
++		
++		//Group ID
++		printf(" %5u",(unsigned int)cur_list->gid);
++		
++		//File Size
++		printf(" %12u",(unsigned int)cur_list->size);
++		
++		tm_ptr = gmtime(&cur_list->atime);
++		printf(" %02d/%02d/%2d %02d:%02d",tm_ptr->tm_year%100,tm_ptr->tm_mon,tm_ptr->tm_mday,tm_ptr->tm_hour,tm_ptr->tm_min);
++		
++		printf("%5u",(unsigned int)cur_list->blocks);
++		
++		printf(" %s",cur_list->filename);
++		
++		printf("\n");
++		cur_list = cur_list->next;
++	}
++}
++
++void free_list(FILEINFO *list_head){
++	FILEINFO *tmp_list;
++	
++	while(list_head != NULL){
++		tmp_list = list_head;
++		list_head = list_head->next;
++		free(tmp_list);
++	}
++}
++
++void sort_list(FILEINFO *list_head){	
++	FILEINFO *tmp_list_left;
++	FILEINFO *tmp_list_right;
++	
++	FILEINFO tmp_list;
++	FILEINFO *tmp_listp;
++	
++	
++	if( list_head == NULL )
++		return ;
++	
++	if( list_head->next == NULL)
++		return ;
++	
++	tmp_list_left = list_head;
++	tmp_list_right = list_head->next;
++	
++	
++	while( tmp_list_left->next != NULL){
++		
++		while(tmp_list_right != NULL){
++			
++			if( strcmp(tmp_list_left->filename,tmp_list_right->filename) >0 ){	
++				memcpy(&tmp_list , tmp_list_left,sizeof(FILEINFO));
++				memcpy(tmp_list_left , tmp_list_right,sizeof(FILEINFO));
++				memcpy(tmp_list_right , &tmp_list,sizeof(FILEINFO));
++				tmp_listp = tmp_list_left->next;
++				tmp_list_left->next = tmp_list_right->next;
++				tmp_list_right->next = tmp_listp;
++			}
++			
++			tmp_list_right = tmp_list_right->next;
++		}
++		tmp_list_left = tmp_list_left->next;
++		tmp_list_right = tmp_list_left->next;
++	}
++}
++
++
++
++void
++seek_dir(char * dir)
++{
++	DIR *dp;
++	struct dirent *entry;
++	struct stat tmp_stat;
++	FILEINFO *tmp_list;
++	FILEINFO *list_head;
++	list_head = NULL;
++
++	if((dp = opendir(dir)) == NULL)
++	{
++		fprintf(stderr,"directory open error: %s\n",dir);
++		return;
++	}
++	while((entry = readdir(dp)) != NULL)
++	{
++		lstat(entry->d_name, &tmp_stat);
++		save_long(&list_head,&tmp_stat,entry);
++	}	
++	sort_list(list_head);
++	print_long(list_head);
++	tmp_list = list_head;
++	chdir("..");
++	
++	closedir(dp);
++	free_list(list_head);
++}
++static void
++copy_file (int ifd, const char *datafile)
++{
++	int dfd;
++	struct stat sbuf;
++	unsigned char *ptr;
++	int tail;
++	int zero = 0;
++	int offset;
++	int size;
++	offset = g_offset;
++	
++	if ((dfd = open(datafile, O_RDONLY|O_BINARY)) < 0) {
++		fprintf (stderr, "%s: Can't open %s: %s\n",
++			cmdname, datafile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++
++	if (fstat(dfd, &sbuf) < 0) {
++		fprintf (stderr, "%s: Can't stat %s: %s\n",
++			cmdname, datafile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++
++	ptr = mmap(0, sbuf.st_size, PROT_READ, MAP_SHARED, dfd, 0);
++	if (ptr == MAP_FAILED) {
++		fprintf (stderr, "%s: Can't read %s: %s\n",
++			cmdname, datafile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++
++	size = sbuf.st_size;
++
++	printf("filename = %s\n",datafile);
++	printf("offset = 0x%x %d offset+0x28000000 = 0x%x \n",offset,offset,offset+0x28000000);
++	printf("size = 0x%x %d\n",size,size);
++	
++	if (write(ifd, ptr, size) != size) {
++		fprintf (stderr, "%s: Write error on %s: %s\n",
++			cmdname, datafile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++	
++	if (((tail = size % 4) != 0)) 
++	{
++		g_offset +=size + 4 -tail;
++		if (write(ifd, (char *)&zero, 4-tail) != 4-tail) {
++			fprintf (stderr, "%s: Write error on %s: %s\n",
++				cmdname, datafile, strerror(errno));
++			exit (EXIT_FAILURE);
++		}
++	}
++	else
++	{
++		printf("size%4 = 0!!\n");
++		g_offset +=size;
++	}
++
++	(void) munmap((void *)ptr, sbuf.st_size);
++	(void) close (dfd);
++}
++
++void
++merge_script (int ifd, const char *datafile)
++{
++	int dfd;
++	struct stat sbuf;
++	unsigned char *ptr;
++	int tail;
++	int zero=0;
++	int offset;
++	int size;
++	offset = g_offset;
++	
++	if ((dfd = open(datafile, O_RDONLY|O_BINARY)) < 0) {
++		fprintf (stderr, "%s: Can't open %s: %s\n",
++			cmdname, datafile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++
++	if (fstat(dfd, &sbuf) < 0) {
++		fprintf (stderr, "%s: Can't stat %s: %s\n",
++			cmdname, datafile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++
++	ptr = mmap(0, sbuf.st_size, PROT_READ, MAP_SHARED, dfd, 0);
++	if (ptr == MAP_FAILED) {
++		fprintf (stderr, "%s: Can't read %s: %s\n",
++			cmdname, datafile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++
++	size = sbuf.st_size;
++	printf("filename = %s\n",datafile);
++	printf("offset = 0x%x %d\n",offset,offset);
++	printf("size = 0x%x %d\n",size,size);
++	if (write(ifd, ptr, size) != size) {
++		fprintf (stderr, "%s: Write error on %s: %s\n",
++			cmdname, datafile, strerror(errno));
++		exit (EXIT_FAILURE);
++	}
++	int i;
++	// script region alligned 1M
++	if (((tail = size % 1048576) != 0)) 
++	{
++		for(i=0;i<(1048576-tail);i++)
++		{
++			if (write(ifd, (char *)&zero, 1) != 1)
++			{
++				fprintf (stderr, "%s: 1Write error on %s: %s %d\n",
++					cmdname, datafile, strerror(errno),1024-tail);
++				exit (EXIT_FAILURE);
++			}
++		}
++	}
++
++	g_offset +=size + 1048576 -tail;
++	(void) munmap((void *)ptr, sbuf.st_size);
++	(void) close (dfd);
++}
++
++
++
++void
++usage ()
++{
++	fprintf (stderr, "       %s -s [scriptimage] -i [other image] -i [other image]\n",
++		cmdname);
++	fprintf (stderr, "       Output File name -> update.img \n");
++
++	exit (EXIT_FAILURE);
++}
+diff --git a/tools/mkupdateimage.h b/tools/mkupdateimage.h
+new file mode 100644
+index 0000000..4b7f8d3
+--- /dev/null
++++ b/tools/mkupdateimage.h
+@@ -0,0 +1,30 @@
++/*
++ *
++ * (C) Copyright 
++ *  Marusys. co. Ltd
++ * 
++ * All rights reserved.
++ *
++ */
++
++
++#include "os_support.h"
++#include <errno.h>
++#include <fcntl.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/stat.h>
++#include <time.h>
++#include <unistd.h>
++#include <sha1.h>
++#include "fdt_host.h"
++
++#define MKUPDATEIMAGE_DEBUG
++
++#ifdef MKUPDATEIMAGE_DEBUG
++#define debug(fmt,args...)	printf (fmt ,##args)
++#else
++#define debug(fmt,args...)
++#endif /* MKUPDATEIMAGE_DEBUG */
++

@@ -1,0 +1,36 @@
+diff -Naur u-boot-2009.08/include/net.h u-boot-2009.08_new/include/net.h
+--- u-boot-2009.08/include/net.h	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08_new/include/net.h	2010-04-26 14:33:57.000000000 -0500
+@@ -359,7 +359,7 @@
+ typedef enum { BOOTP, RARP, ARP, TFTP, DHCP, PING, DNS, NFS, CDP, NETCONS, SNTP } proto_t;
+ 
+ /* from net/net.c */
+-extern char	BootFile[128];			/* Boot File name		*/
++extern char	BootFile[256];			/* Boot File name		*/
+ 
+ #if defined(CONFIG_CMD_DNS)
+ extern char *NetDNSResolve;		/* The host to resolve  */
+diff -Naur u-boot-2009.08/net/bootp.h u-boot-2009.08_new/net/bootp.h
+--- u-boot-2009.08/net/bootp.h	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08_new/net/bootp.h	2010-04-26 14:33:22.000000000 -0500
+@@ -57,7 +57,7 @@
+ 
+ /* bootp.c */
+ extern ulong	BootpID;		/* ID of cur BOOTP request		*/
+-extern char	BootFile[128];		/* Boot file name			*/
++extern char	BootFile[256];		/* Boot file name			*/
+ extern int	BootpTry;
+ #ifdef CONFIG_BOOTP_RANDOM_DELAY
+ extern ulong	seed1, seed2;		/* seed for random BOOTP delay		*/
+diff -Naur u-boot-2009.08/net/net.c u-boot-2009.08_new/net/net.c
+--- u-boot-2009.08/net/net.c	2010-04-26 08:51:52.000000000 -0500
++++ u-boot-2009.08_new/net/net.c	2010-04-26 14:33:02.000000000 -0500
+@@ -163,7 +163,7 @@
+ ushort		NetOurVLAN = 0xFFFF;		/* default is without VLAN	*/
+ ushort		NetOurNativeVLAN = 0xFFFF;	/* ditto			*/
+ 
+-char		BootFile[128];		/* Boot File name			*/
++char		BootFile[256];		/* Boot File name			*/
+ 
+ #if defined(CONFIG_CMD_PING)
+ IPaddr_t	NetPingIP;		/* the ip address to ping		*/

@@ -1,0 +1,72 @@
+diff -Naur u-boot-2009.08/lib_arm/flash.c u-boot-2009.08_cleanmarker/lib_arm/flash.c
+--- u-boot-2009.08/lib_arm/flash.c	2010-02-10 20:55:18.000000000 -0600
++++ u-boot-2009.08_cleanmarker/lib_arm/flash.c	2010-02-10 20:29:34.000000000 -0600
+@@ -179,6 +179,7 @@
+ void nor_write_partition(char * partition)
+ {
+    char *s;
++   bool clean_marker = FALSE;
+    u_int32 uDdrAddr, uFlashAddr, uErasesize;
+    if (strcmp(partition, "kernel") == 0)
+    {
+@@ -191,6 +192,7 @@
+    {
+       uFlashAddr = ROOTFS_IMAGE_FLASH_OFFSET;
+       uErasesize = ROOTFS_IMAGE_MTD_LENGTH;
++	clean_marker = TRUE;
+    }
+    else
+    {
+@@ -198,11 +200,11 @@
+       return -1;
+    }
+    s = getenv ("loadaddr");
+-	uDdrAddr= (int)simple_strtol(s, NULL, 10);
+-   nor_write_region(uFlashAddr, NetBootFileXferSize, uDdrAddr, uErasesize);
++   uDdrAddr= (int)simple_strtol(s, NULL, 10);
++   nor_write_region(uFlashAddr, NetBootFileXferSize, uDdrAddr, uErasesize, clean_marker);
+    
+ }
+-void nor_write_region(u_int32 uFlashAddr, u_int32 uLength, u_int32 uDdrAddr, u_int32 uErasesize)
++void nor_write_region(u_int32 uFlashAddr, u_int32 uLength, u_int32 uDdrAddr, u_int32 uErasesize, bool clean_marker)
+ {
+ 
+    int32 nblks, i, j, remaining_data, z= 0;
+@@ -255,7 +257,37 @@
+       nx_nor_write( (void *)uFlashAddr, 
+                  (int)remaining_data,
+                  (void *)uDdrAddr );  
++
++   i++;                       /* value is used in the following if block */
++   uFlashAddr+=blksize;   /* value is used in the following if block */
++   }
++   if (clean_marker)
++   {
++      const char cleanmarker[] = {  
++                                    0x85, 0x19, 0x03, 0x20, 
++                                    0x0C, 0x00, 0x00, 0x00,
++                                    0xB1, 0xB0, 0x1E, 0xE4
++                                 };
++    /*  myprint("\r\nWriting JFFS2 clean markers!\r\n") ;*/
++      nblks = (uErasesize >= blksize) ? uErasesize/blksize : 1;
++      for (; i < nblks; i++)
++      {
++         nx_nor_write( (void *)uFlashAddr, 
++                 (int) sizeof(cleanmarker), 
++                 (void *)cleanmarker );
++         
++         uFlashAddr+=blksize;
++	#if 0
++         if ((i%8)==0)
++         {
++            myprint(".");
++            z++;
++            if ((z%80)==0) myprint("\r\n");
++         }
++	#endif
++      }
+    }
++
+ }
+ 
+ 

@@ -1,0 +1,130 @@
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c u-boot-2009.08-new/drivers/net/lipp_6300eth/lipp_6300eth.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c	2011-07-25 17:44:02.000000000 +0800
++++ u-boot-2009.08-new/drivers/net/lipp_6300eth/lipp_6300eth.c	2011-07-26 13:52:54.000000000 +0800
+@@ -83,9 +83,9 @@
+ 
+     GMAC_DBG("Initialize:Start\n");
+ 
+-    gtmhwLIPP6100Eth_Base[0].baseAddress = GMAC_UNIT_BASE(0);
++    gtmhwLIPP6100Eth_Base[0].baseAddress = GMAC_UNIT_BASE(1);
+ 
+-    GMAC_DBG("Ethernet MAC base address:%08x\n",GMAC_UNIT_BASE(0));
++    GMAC_DBG("Ethernet MAC base address:%08x\n",GMAC_UNIT_BASE(1));
+ 
+     for(unitNum=0; unitNum < MAX_LIPP_6300ETH_UNITS; unitNum++)
+     {
+@@ -179,6 +179,7 @@
+     UInt32 hwVersion;
+     UInt32 i;
+ 
++    GMAC_DBG("lipp_6300eth_init:enter\n");
+     if(gInitialized == 1U)
+     {
+         Txfer.dirFlag = tmhwLIPP6100Eth_Dir_TxRx;
+@@ -217,7 +218,9 @@
+     setup_dma_descriptors(&gDma_desc[pPriv->hwUnitNo],pPriv->hwUnitNo);
+ 
+     /* Get the PHY interface function pointers */
+-    tmbslPhyGetInterface(pPriv->hwUnitNo,&gpPhyInterface[pPriv->hwUnitNo]);
++    //tmbslPhyGetInterface(pPriv->hwUnitNo,&gpPhyInterface[pPriv->hwUnitNo]);
++    //use GMAC 1
++    tmbslPhyGetInterface(pPriv->hwUnitNo + 1,&gpPhyInterface[pPriv->hwUnitNo]);
+     printf("Using %s Ethernet PHY\n", gpPhyInterface[pPriv->hwUnitNo]->phyName);
+ 
+     tmhwLIPP6100Eth_GetHWVersion(pPriv->hwUnitNo,&hwVersion);
+@@ -230,8 +233,9 @@
+         return 0;
+     }
+ #endif
+-    ret_val = tmhwLIPP6100Eth_Init(pPriv->hwUnitNo, GMAC0_MII_SEL);
+-
++    //ret_val = tmhwLIPP6100Eth_Init(pPriv->hwUnitNo, GMAC0_MII_SEL);
++    //use MII mode ON GMAC1
++    ret_val = tmhwLIPP6100Eth_Init(pPriv->hwUnitNo, True);
+     if(TM_OK !=  ret_val)
+     {
+         GMAC_DBG("MAC init failed\n");
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyAccess.c u-boot-2009.08-new/drivers/net/lipp_6300eth/tmbslPhyAccess.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyAccess.c	2011-07-25 17:44:02.000000000 +0800
++++ u-boot-2009.08-new/drivers/net/lipp_6300eth/tmbslPhyAccess.c	2011-07-26 13:57:46.000000000 +0800
+@@ -321,10 +321,79 @@
+ 
+ #endif
+ 
++static tmErrorCode_t KSZ8863PhyInit(tmUnitSelect_t phyUnitId)
++{
++    return TM_OK;
++}
++
++static tmErrorCode_t KSZ8863PhySetBasicModeControl(
++    tmUnitSelect_t                   		phyUnitId,   
++    ptmbslPhyBasicModeControl_t      		pPhyBasicModeControl
++    )
++{
++    return TM_OK;
++}
++
++static tmErrorCode_t KSZ8863PhyGetBasicModeStatus_t(
++    tmUnitSelect_t                  		phyUnitId,   
++    ptmbslPhyBasicModeStatus_t    			pPhyBasicModeStatus     
++    )
++{
++    pPhyBasicModeStatus->duplexMode = tmbslPhyFullDuplex;
++    pPhyBasicModeStatus->speed = tmbslPhySpeed100Mbps;
++    return TM_OK;
++}
++
++static tmErrorCode_t KSZ8863PhyAutoNegotiate(
++    tmUnitSelect_t                       	phyUnitId,   
++    ptmbslPhyAutoNegotitationMask_t      	pAutoNegotiationMask
++    )
++{
++    return TM_OK;
++}
++
++static tmErrorCode_t KSZ8863PhyGetLinkStatus(
++    tmUnitSelect_t                          phyUnitId,   
++    ptmbslPhyEnableDisable_t           		pLinkStatus
++    )
++{
++    *pLinkStatus = tmbslPhyEnable;
++    return TM_OK;
++}
++
++tmbslPhyConfig_t KSZ8863PhyInterface =
++{  
++    "KSZ8863 PHY",
++    0x00221430,
++    LAN_CLK_SEL,
++    LAN_CLK_SPEED_SEL,
++    Null,
++    Null,
++    KSZ8863PhyInit,
++    Null,
++    Null,
++    Null,
++    Null,
++    KSZ8863PhySetBasicModeControl,
++    KSZ8863PhyGetBasicModeStatus_t,
++    KSZ8863PhyAutoNegotiate,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    KSZ8863PhyGetLinkStatus
++};
++
+ phyID_interface_tbl phy_tbl[]={
+ {0x0, &gtmbslMYSTIPhyInterface},
+ {0x0293c411, &gtmbslMYSTIPhyInterface},
+-{0x001cc912,  &gtmbslRTL8211BNPhyInterface}
++{0x001cc912,  &gtmbslRTL8211BNPhyInterface},
++{0x00221430, &KSZ8863PhyInterface}
+ };
+ 
+ static UInt32 gmac_read_phy_reg(UInt32 gmacAddr, UInt32 reg, UInt16* pVal)

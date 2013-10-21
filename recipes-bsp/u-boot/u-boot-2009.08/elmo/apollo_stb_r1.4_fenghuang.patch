@@ -1,0 +1,11 @@
+--- u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c	2011-07-25 17:44:02.000000000 +0800
++++ u-boot-2009.08-new/drivers/mtd/nand/nx_nand_ip2070.c	2011-07-26 13:49:11.000000000 +0800
+@@ -1124,6 +1124,8 @@
+     nx_nc->ctrl_base = (void __iomem *) KSEG1ADDR(PNX8XXX_EFM_BASE);
+ 
+ #ifdef  CONFIG_PNX84XX
++    //writel(0x00000010, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++    writel(0x00000004, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
+     writel(0x02644448, (nx_nc->ctrl_base + DEV_TIMING0_OFFSET));
+     writel(0x01008444, (nx_nc->ctrl_base + DEV_TIMING1_OFFSET));
+ #endif

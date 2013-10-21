@@ -1,0 +1,2102 @@
+diff -Naurp u-boot-2009.08.org/board/nxp/common/power.c u-boot-2009.08/board/nxp/common/power.c
+--- u-boot-2009.08.org/board/nxp/common/power.c	2010-04-09 10:31:02.000000000 -0500
++++ u-boot-2009.08/board/nxp/common/power.c	2010-04-13 12:45:26.000000000 -0500
+@@ -32,9 +32,8 @@
+  *****************************************************************************/
+ void power_init_r(void)
+ {
+-	unsigned char byte;
+ 
+-#ifdef CONFIG_DRIVER_PNX*4XX_I2C
++#ifdef CONFIG_DRIVER_PNX84XX_I2C
+ 	i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
+ #endif
+ 
+diff -Naurp u-boot-2009.08.org/board/nxp/vpe_apollo/vpe_apollo.c u-boot-2009.08/board/nxp/vpe_apollo/vpe_apollo.c
+--- u-boot-2009.08.org/board/nxp/vpe_apollo/vpe_apollo.c	2010-04-09 10:31:02.000000000 -0500
++++ u-boot-2009.08/board/nxp/vpe_apollo/vpe_apollo.c	2010-04-09 11:42:02.000000000 -0500
+@@ -38,11 +38,11 @@ int board_init(void)
+ {
+ 	DECLARE_GLOBAL_DATA_PTR;
+ 
+-	gcs_init(); /* in SRAM or SDRAM, finish GCS */
++	//gcs_init(); /* in SRAM or SDRAM, finish GCS */
+ 	/* board id for Linux */
+ 	gd->bd->bi_arch_number = MACH_TYPE_APOLLO;
+ 	/* boot param addr */
+-	gd->bd->bi_boot_params = (PNX84XX_SDRC_CS0 + 0x100);
++	gd->bd->bi_boot_params = (PNX84XX_SDRC_CS0 + 0x2000);
+ 
+ 	return 0;
+ }
+@@ -50,17 +50,9 @@ int board_init(void)
+  * Routine: board_eth_init
+  * Description: ethernet init.
+  *****************************************************************************/
+-#undef CONFIG_LIPP_6300ETH
+-
+-extern void lipp_6300eth_initialize(void);
+-
+ int board_eth_init(bd_t *bis)
+ {
+-	int c=1;
+-#ifdef CONFIG_LIPP_6300ETH
+-	lipp_6300eth_initialize();
+-#endif
+-	return c;
++	return 1;
+ 
+ }
+ 
+@@ -95,3 +87,11 @@ void set_muxconf_regs(void)
+ 	 writel( 0x3000, global_reg_base->res_peripheral_config[GPIO_SEC_PIN_MUX_REG_0]);
+ 
+ }
++
++#if defined(CONFIG_SHOW_BOOT_PROGRESS)
++void show_boot_progress(int progress)
++{
++    printf("Boot reached stage %d\n", progress);
++}
++#endif
++
+diff -Naurp u-boot-2009.08.org/common/cmd_boot.c u-boot-2009.08/common/cmd_boot.c
+--- u-boot-2009.08.org/common/cmd_boot.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/common/cmd_boot.c	2010-04-13 13:16:29.000000000 -0500
+@@ -28,6 +28,8 @@
+ #include <command.h>
+ #include <net.h>
+ 
++extern void patch_ataglist( void );
++
+ /* Allow ports to override the default behavior */
+ __attribute__((weak))
+ unsigned long do_go_exec (ulong (*entry)(int, char *[]), int argc, char *argv[])
+@@ -37,7 +39,7 @@ unsigned long do_go_exec (ulong (*entry)
+ 
+ int do_go (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ {
+-	ulong	addr, rc;
++	ulong	addr, rc=1;
+ 	int     rcode = 0;
+ 
+ 	if (argc < 2) {
+diff -Naurp u-boot-2009.08.org/common/cmd_nor.c u-boot-2009.08/common/cmd_nor.c
+--- u-boot-2009.08.org/common/cmd_nor.c	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/common/cmd_nor.c	2010-04-13 13:19:52.000000000 -0500
+@@ -19,6 +19,7 @@
+ #include <asm/byteorder.h>
+ #include <nor.h>
+ 
++extern void nor_write_partition(char * partition);
+ 
+ int do_nor(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
+ {
+@@ -44,9 +45,9 @@ int do_nor(cmd_tbl_t * cmdtp, int flag, 
+ 		off = (ulong)simple_strtoul(argv[3], NULL, 16);
+ 		size = (ulong)simple_strtoul(argv[4], NULL, 16);
+ 
+-		printf ("## RAM Addr         %x ...\n", addr);
+-		printf ("## NOR Flash Offset %x ...\n", off);
+-		printf ("## Image size       %x ...\n", size);
++		printf ("## RAM Addr         %x ...\n", (unsigned int)addr);
++		printf ("## NOR Flash Offset %x ...\n", (unsigned int)off);
++		printf ("## Image size       %x ...\n", (unsigned int)size);
+ 	
+ 		puts("U-Boot -- Copying from NOR flash\n");
+ 
+@@ -92,9 +93,9 @@ int do_nor(cmd_tbl_t * cmdtp, int flag, 
+    		off = (ulong)simple_strtoul(argv[3], NULL, 16);
+    		size = (ulong)simple_strtoul(argv[4], NULL, 16);
+ 
+-   		printf ("## RAM Addr         %x ...\n", addr);
+-   		printf ("## NOR Flash Offset %x ...\n", off);
+-   		printf ("## Image size       %x ...\n", size);
++   		printf ("## RAM Addr         %x ...\n", (unsigned int)addr);
++   		printf ("## NOR Flash Offset %x ...\n", (unsigned int)off);
++   		printf ("## Image size       %x ...\n", (unsigned int)size);
+    	
+    		puts("U-Boot -- Writing NOR flash\n");
+ 
+@@ -114,7 +115,7 @@ int do_nor(cmd_tbl_t * cmdtp, int flag, 
+ 		off = (ulong)simple_strtoul(argv[2], NULL, 16);
+ 		size = (ulong)simple_strtoul(argv[3], NULL, 16);
+ 	
+-		printf ("## NOR Flash Offset %x ...\n", off);
++		printf ("## NOR Flash Offset %x ...\n", (unsigned int)off);
+ 		printf ("## Image size       %x ...\n", size);
+ 	
+ 		puts("U-Boot -- Erasing NOR flash\n");
+@@ -127,7 +128,7 @@ int do_nor(cmd_tbl_t * cmdtp, int flag, 
+ 		
+ 	} 
+    else {
+-		printf("Unknown NOR command suffix '%s'.\n");
++		printf("Unknown NOR command suffix '%s'.\n", cmd);
+ 		return 1;
+ 	}
+ #else
+diff -Naurp u-boot-2009.08.org/common/env_flash.c u-boot-2009.08/common/env_flash.c
+--- u-boot-2009.08.org/common/env_flash.c	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/common/env_flash.c	2010-04-13 13:20:12.000000000 -0500
+@@ -266,7 +266,7 @@ int  env_init(void)
+ 
+ int saveenv(void)
+ {
+-	int	len, rc;
++	int	len;
+ 	ulong	end_addr;
+ 	ulong	flash_sect_addr;
+ #if defined(CONFIG_ENV_SECT_SIZE) && (CONFIG_ENV_SECT_SIZE > CONFIG_ENV_SIZE)
+diff -Naurp u-boot-2009.08.org/cpu/arm_cortexa8/cpu.c u-boot-2009.08/cpu/arm_cortexa8/cpu.c
+--- u-boot-2009.08.org/cpu/arm_cortexa8/cpu.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/cpu/arm_cortexa8/cpu.c	2010-04-13 12:42:18.000000000 -0500
+@@ -41,6 +41,8 @@
+ 
+ void cache_flush(void);
+ 
++#if 0
++
+ /* read co-processor 15, register #1 (control register) */
+ static unsigned long read_p15_c1(void)
+ {
+@@ -68,6 +70,7 @@ static void cp_delay(void)
+ 	asm("nop");
+ 	asm("nop");
+ }
++#endif
+ 
+ /* See also ARM Ref. Man. */
+ #define C1_MMU		(1<<0)	/* mmu off/on */
+diff -Naurp u-boot-2009.08.org/cpu/arm_cortexa8/pnx84xx/board.c u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/board.c
+--- u-boot-2009.08.org/cpu/arm_cortexa8/pnx84xx/board.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/board.c	2010-04-13 12:53:42.000000000 -0500
+@@ -28,6 +28,7 @@
+ #include <asm/io.h>
+ #include <asm/arch/sys_proto.h>
+ #include <asm/arch/mem.h>
++#include <asm/cache.h>
+ 
+ extern pnx84xx_sysinfo sysinfo;
+ 
+@@ -198,41 +199,107 @@ void watchdog_init(void)
+ 	/* no watchdogs in first vpe model */
+ }
+ 
+-/******************************************************************************
+- * Routine: dram_init
+- * Description: sets uboots idea of sdram size
+- *****************************************************************************/
+-int dram_init(void)
++#define CNXT_ATAG_TYPE_MEM 0x54410002
++
++int get_ddr_size_ataglist(void)
+ {
+ 	DECLARE_GLOBAL_DATA_PTR;
+-	unsigned int size0 = 0, size1 = 0;
+-	u32 btype;
+ 
+-	btype = get_board_type();
++    unsigned int i=0, uAtagSize, uAtagType, uAtagIdx, uSizeInWords, *puATAGList;
++    int process_atag=1;
+ 
+-	display_board_info(btype);
++    puATAGList = (unsigned int*)0x2000;
+ 
+-	/*
+-	 * If a second bank of DDR is attached to CS1 this is
+-	 * where it can be started.  Early init code will init
+-	 * memory on CS0.
+-	 */
+-	if ((sysinfo.mtype == DDR_COMBO) || (sysinfo.mtype == DDR_STACKED)) {
+-		do_sdrc_init(CS1, NOT_EARLY);
+-		make_cs1_contiguous();
+-	}
+-
+-	size0 = get_sdr_cs_size(CS0);
+-	size1 = get_sdr_cs_size(CS1);
+-
+-	gd->bd->bi_dram[0].start = PHYS_SDRAM_1;
+-	gd->bd->bi_dram[0].size = size0;
+-	gd->bd->bi_dram[1].start = PHYS_SDRAM_1 + get_sdr_cs_offset(CS1);
+-	gd->bd->bi_dram[1].size = size1;
++    if(*puATAGList == 0)
++    {
++        printf("Ataglist is not setup, cannot find DDR info\n");
++        return 0;
++    }
++
++    uAtagIdx = 0;
++    uSizeInWords = 0;
++
++    while ( process_atag )
++    {
++        uAtagSize = puATAGList[uAtagIdx];
++        uAtagType = puATAGList[uAtagIdx+1];
++        uSizeInWords += uAtagSize;
++        if ( !uAtagSize )
++        {
++            /* this is the end of atag */
++            uSizeInWords += 1;
++            break;
++        }
++
++        if(uAtagType == CNXT_ATAG_TYPE_MEM)
++        {
++            gd->bd->bi_dram[i].start = puATAGList[uAtagIdx+3];
++            gd->bd->bi_dram[i].size = puATAGList[uAtagIdx+2];
++            i++;
++            if (i == CONFIG_NR_DRAM_BANKS)
++                break;
++        }
++       
++        uAtagIdx += uAtagSize;
++    }
+ 
+-	return 0;
++    return 0;
+ }
+ 
++#define CNXT_ATAG_TYPE_MAC 0x5441000A
++void get_mac_addr_ataglist(uchar *enetaddr)
++{
++    unsigned int i=0, uAtagSize, uAtagType, uAtagIdx, uSizeInWords, *puATAGList;
++    int process_atag=1;
++
++    puATAGList = (unsigned int*)0x2000;
++
++    if(*puATAGList == 0)
++    {
++        printf("Ataglist is not setup, cannot find DDR info\n");
++        return;
++    }
++
++    uAtagIdx = 0;
++    uSizeInWords = 0;
++
++    while ( process_atag )
++    {
++        uAtagSize = puATAGList[uAtagIdx];
++        uAtagType = puATAGList[uAtagIdx+1];
++        uSizeInWords += uAtagSize;
++        if ( !uAtagSize )
++        {
++            /* this is the end of atag */
++            uSizeInWords += 1;
++            break;
++        }
++
++        if(uAtagType == CNXT_ATAG_TYPE_MAC)
++        {
++            uchar* mac = (uchar*)&puATAGList[uAtagIdx+2];
++
++            for (i=0; i<6; i++)
++                enetaddr[i] = mac[i];
++
++            break;
++        }
++       
++        uAtagIdx += uAtagSize;
++    }
++
++}
++
++/******************************************************************************
++ * Routine: dram_init
++ * Description: sets uboots idea of sdram size
++ *****************************************************************************/
++int dram_init(void)
++{
++    get_ddr_size_ataglist();
++    
++	return 0;
++}
+ 
+ /******************************************************************************
+  * Dummy function to handle errors for EABI incompatibility
+diff -Naurp u-boot-2009.08.org/cpu/arm_cortexa8/pnx84xx/mem.c u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/mem.c
+--- u-boot-2009.08.org/cpu/arm_cortexa8/pnx84xx/mem.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/mem.c	2010-04-13 12:56:06.000000000 -0500
+@@ -41,10 +41,6 @@ unsigned int boot_flash_sec;
+ unsigned int boot_flash_type;
+ volatile unsigned int boot_flash_env_addr;
+ 
+-
+-
+-static ip2035_t *sdrc_base = (ip2035_t *)PNX84XX_SDRC_BASE;
+-
+ /**************************************************************************
+  * make_cs1_contiguous() - for es2 and above remap cs1 behind cs0 to allow
+  *  command line mem=xyz use all memory with out discontinuous support
+@@ -121,7 +117,6 @@ void do_sdrc_init(u32 cs, u32 early)
+  *****************************************************/
+ void gcs_init(void)
+ {
+-	unsigned long temp_val;
+ 	gcs_config_t *gcs_base = (gcs_config_t *)(PNX84XX_GCS_BASE + PNX84XX_GCS_CFG_OFSET);
+ /*
+  *
+diff -Naurp u-boot-2009.08.org/cpu/arm_cortexa8/pnx84xx/sys_info.c u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/sys_info.c
+--- u-boot-2009.08.org/cpu/arm_cortexa8/pnx84xx/sys_info.c	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/sys_info.c	2010-04-13 12:43:53.000000000 -0500
+@@ -159,7 +159,7 @@ u32 get_board_type(void)
+  ****************************************************************************/
+ u32 get_gcs0_base(void)
+ {
+-	u32 b;
++	u32 b=0;
+ 
+ /* TODO: remove 	b = readl(&gcs_cs_base->config7);  */
+ 	b &= 0x1F;		/* keep base [5:0] */
+diff -Naurp u-boot-2009.08.org/cpu/arm_cortexa8/start.S u-boot-2009.08/cpu/arm_cortexa8/start.S
+--- u-boot-2009.08.org/cpu/arm_cortexa8/start.S	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/cpu/arm_cortexa8/start.S	2010-04-13 12:41:00.000000000 -0500
+@@ -184,7 +184,7 @@ next:
+ 	ldr r1,scratch2_addr
+ 	mov r2,#0x006
+ 	str	r2,[r1]
+-#endif	bl	cpu_init_crit
++#endif
+ #endif
+ 
+ #ifndef CONFIG_SKIP_RELOCATE_UBOOT
+diff -Naurp u-boot-2009.08.org/drivers/mtd/nor/Makefile u-boot-2009.08/drivers/mtd/nor/Makefile
+--- u-boot-2009.08.org/drivers/mtd/nor/Makefile	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/drivers/mtd/nor/Makefile	2010-04-13 12:30:41.000000000 -0500
+@@ -45,8 +45,6 @@ all:	$(LIB)
+ $(LIB):	$(OBJS)
+ 	$(AR) $(ARFLAGS) $@ $(OBJS)
+ 
+-$(LIB):	$(OBJS)
+-	$(AR) $(ARFLAGS) $@ $(OBJS)
+ #########################################################################
+ 
+ # defines $(obj).depend target
+diff -Naurp u-boot-2009.08.org/drivers/mtd/nor/nor.c u-boot-2009.08/drivers/mtd/nor/nor.c
+--- u-boot-2009.08.org/drivers/mtd/nor/nor.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/mtd/nor/nor.c	2010-04-13 12:34:26.000000000 -0500
+@@ -35,7 +35,7 @@
+ #include "dmac.h"
+ #include "nor.h"
+ #include "nor_flashdescr.h"
+-
++#include "libfuncs.h"
+ 
+ //#define NOR_MAX_BOOT_IMAGE_LEN_ALLOWED    2048
+ #define NOR_DMA_CHAN_CONFIG_VAL                 0xC001
+@@ -220,7 +220,7 @@ static void SetFlashWPLine(bool set)
+ /****************************************************/
+ int read_flash(void *addr, int count, void *buffer)
+ {
+-   u_int32 uNCRomBase;
++//   u_int32 uNCRomBase;
+ 
+    //uNCRomBase = internal_flash_get_ncrom_base();
+    
+diff -Naurp u-boot-2009.08.org/drivers/mtd/nor/nor_flashamd.c u-boot-2009.08/drivers/mtd/nor/nor_flashamd.c
+--- u-boot-2009.08.org/drivers/mtd/nor/nor_flashamd.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/mtd/nor/nor_flashamd.c	2010-04-13 12:33:45.000000000 -0500
+@@ -48,6 +48,7 @@
+ #endif
+ #include "ldr_types.h"
+ #include "nor_flashdescr.h"
++#include "libfuncs.h"
+ #if 0
+ #include "flashrw.h" /* TODO provide Macros for Read Mode and Program mode */
+ #endif
+diff -Naurp u-boot-2009.08.org/drivers/mtd/nor/nor_setupflashdescr.c u-boot-2009.08/drivers/mtd/nor/nor_setupflashdescr.c
+--- u-boot-2009.08.org/drivers/mtd/nor/nor_setupflashdescr.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/mtd/nor/nor_setupflashdescr.c	2010-04-13 12:28:47.000000000 -0500
+@@ -145,7 +145,7 @@ void setupFlashDescriptors(devicetype_t 
+ {
+    FLASH_DESC  *pFlashDesc;
+    bool        FlashFound;
+-   u_int32     uMaxReadAccess, dev_cfg;
++   u_int32     uMaxReadAccess;
+    u_int32     uMaxDiv;
+    u_int8      BankWidth=0, ChipWidth=0, ROMBank, NumChips=0;
+    u_int32     BankSize, RealBankStartAddr, BankStartAddr;
+@@ -154,7 +154,6 @@ void setupFlashDescriptors(devicetype_t 
+    u_int16     DeviceCode16;
+    u_int32     DeviceCode16Word2;
+    u_int32     FlashType, data, val, div;
+-   u_int8      temp;
+ 
+    BankStartAddr = RealBankStartAddr = ROM_BASE;
+    
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth.c u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c	2010-04-13 11:04:53.000000000 -0500
+@@ -15,6 +15,7 @@
+ #include <common.h> /* Needed for datatypes for ethernet driver */
+ #include <asm/io.h>
+ #include <net.h>
++#include <malloc.h>
+ 
+ /*----------------------------------------------------------------------------*/
+ /* Global data:                                                               */
+@@ -117,7 +118,7 @@ void lipp_6300eth_initialize(void)
+  //       pEthDevice[unitNum]->iobase = (int)gtmhwLIPP6100Eth_Base[unitNum];
+ 
+         /* Fill the ethernet interface info */
+-        sprintf(pEthDevice[unitNum]->name, "lip%d",unitNum);
++        sprintf(pEthDevice[unitNum]->name, "lip%d",(int)unitNum);
+ 
+         memcpy(pEthDevice[unitNum]->enetaddr,dev_addr,6);
+ 
+@@ -216,6 +217,7 @@ static int lipp_6300eth_init(struct eth_
+ 
+     /* Get the PHY interface function pointers */
+     tmbslPhyGetInterface(pPriv->hwUnitNo,&gpPhyInterface[pPriv->hwUnitNo]);
++    printf("Using %s Ethernet PHY\n", gpPhyInterface[pPriv->hwUnitNo]->phyName);
+ 
+     tmhwLIPP6100Eth_GetHWVersion(pPriv->hwUnitNo,&hwVersion);
+ 
+@@ -381,15 +383,15 @@ static int lipp_6300Eth_recv(struct eth_
+ 
+             if( pPriv->bufferFlip[pPriv->rx_consume_index] == 0)
+             {
+-                pEmptyBuf = &gDmaBuffers[pPriv->hwUnitNo].rxCopyBuffer[pPriv->rx_consume_index][0];
++                pEmptyBuf = (pUInt8)&gDmaBuffers[pPriv->hwUnitNo].rxCopyBuffer[pPriv->rx_consume_index][0];
+                 pPriv->bufferFlip[pPriv->rx_consume_index] = 1;
+-                pFullBuf = &gDmaBuffers[pPriv->hwUnitNo].rxBuffer[pPriv->rx_consume_index][0];
++                pFullBuf = (pUInt8)&gDmaBuffers[pPriv->hwUnitNo].rxBuffer[pPriv->rx_consume_index][0];
+             }
+             else
+             {
+-                pEmptyBuf = &gDmaBuffers[pPriv->hwUnitNo].rxBuffer[pPriv->rx_consume_index][0];
++                pEmptyBuf = (pUInt8)&gDmaBuffers[pPriv->hwUnitNo].rxBuffer[pPriv->rx_consume_index][0];
+                 pPriv->bufferFlip[pPriv->rx_consume_index] =0;
+-                pFullBuf = &gDmaBuffers[pPriv->hwUnitNo].rxCopyBuffer[pPriv->rx_consume_index][0];
++                pFullBuf = (pUInt8)&gDmaBuffers[pPriv->hwUnitNo].rxCopyBuffer[pPriv->rx_consume_index][0];
+             }
+ 
+ 			#if ENABLE_VIRT_TO_PHYS
+@@ -469,6 +471,19 @@ lipp_6300eth_transmit(struct eth_device 
+     UInt32 intr_status;
+     tmhwLIPP6100Eth_Int_t   macStatus;
+     tmhwLIPP6100Eth_EnTxfr_t Txfer;
++    tmbslPhyEnableDisable_t    curr_link_status;
++
++    if( gpPhyInterface[pPriv->hwUnitNo]->getLinkStatusFunc( pPriv->hwUnitNo, &curr_link_status) != TM_OK )
++    {
++        printf("Get Link Mode status failed\n");
++        return 0;
++    }
++
++    if(curr_link_status == tmbslPhyDisable)
++    {
++        printf("Link down - check cable or link partner\n");
++        return 0;
++    }
+ 
+ #if 0
+     int i;
+@@ -642,7 +657,7 @@ Int32 setup_phy(plipp_6300eth_priv_t pPr
+     tmbslPhyBasicModeStatus_t  bms ;
+     tmbslPhyBasicModeControl_t bmc ;
+     tmbslPhyAutoNegotiationMask_t auto_neg_mask ;
+-    tmErrorCode_t ret_val;
++    tmErrorCode_t ret_val=TMBSL_ERR_PHY_NOT_SUPPORTED;
+ 
+     memset(&auto_neg_mask,0,sizeof(tmbslPhyAutoNegotiationMask_t));
+ 
+@@ -657,15 +672,19 @@ Int32 setup_phy(plipp_6300eth_priv_t pPr
+     auto_neg_mask.protocolSel = tmbslPhyIEEE8023;
+     auto_neg_mask.maskRemoteFault = tmbslPhyEnable;
+ 
++    /* Disable 1Gig Support */
++    auto_neg_mask.mask1000BaseTFullDuplexSupport = tmbslPhyEnable;
++    auto_neg_mask.mask1000BaseTHalfDuplexSupport = tmbslPhyEnable;
++
+     if( pPriv->u_autoneg == LX_AUTONEG_ENABLE )
+     {
+-
++#if 0
+         if(LX_SPEED_10 == ETH_LINK_SPEED)
+         {
+             auto_neg_mask.mask100BaseTxFullDuplexSupport = tmbslPhyEnable;
+             auto_neg_mask.mask100BaseTxSupport = tmbslPhyEnable;
+         }
+-
++#endif
+         /* autonegotiate for three times. If every time it fails, then set fixed values */
+         for( i = 0 ; i < AUTO_NEG_RETRY_COUNT ; i++ )
+         {
+@@ -678,18 +697,23 @@ Int32 setup_phy(plipp_6300eth_priv_t pPr
+ 
+         }
+ 
+-        if(TM_OK != ret_val)
++        if((TM_OK != ret_val) && (TMBSL_ERR_PHY_NOT_SUPPORTED != ret_val))
+         {
+-            GMAC_DBG("Auto Negotiation Failed.Disabling auto negotiation\n");
++            GMAC_DBG("Auto Negotiation Failed\n");
++        }
++        else if( TMBSL_ERR_PHY_NOT_SUPPORTED == ret_val )
++        {
++            GMAC_DBG("Auto Negotiation Not Supported by PHY\n");
+         }
+ 
+     }
+ 
+-    if( ( pPriv->u_autoneg == LX_AUTONEG_DISABLE ) || ( i == AUTO_NEG_RETRY_COUNT) )
++    if( ( pPriv->u_autoneg == LX_AUTONEG_DISABLE ) || ( ret_val == TMBSL_ERR_PHY_NOT_SUPPORTED) )
+     {
+         /* auto negotiation is disabled or auto negotiation is failed, then set the parameters
+         ** into phy register
+         */
++        pPriv->u_autoneg = 0;
+ 
+         switch(pPriv->u_speed)
+         {
+@@ -718,24 +742,27 @@ Int32 setup_phy(plipp_6300eth_priv_t pPr
+         }
+ 
+     }
+-
+-    /* read the status register to get the speed/duplex mode */
+-    if( gpPhyInterface[pPriv->hwUnitNo]->getBasicModeStatusFunc( pPriv->hwUnitNo, &bms) != TM_OK )
++    else
+     {
+-        GMAC_DBG("Get Basic Mode status failed\n");
+-        goto _err_setup_phy ;
+-    }
+ 
+-    /* store the updated results into the priv structure */
+-    pPriv->u_mode = bms.duplexMode ;
++        /* read the status register to get the speed/duplex mode */
++        if( gpPhyInterface[pPriv->hwUnitNo]->getBasicModeStatusFunc( pPriv->hwUnitNo, &bms) != TM_OK )
++        {
++            GMAC_DBG("Get Basic Mode status failed\n");
++            goto _err_setup_phy ;
++        }
+ 
+-    if(tmbslPhySpeed100Mbps == bms.speed)
+-    {
+-        pPriv->u_speed = LX_SPEED_100;
+-    }
+-    else if(tmbslPhySpeed10Mbps == bms.speed)
+-    {
+-        pPriv->u_speed = LX_SPEED_10;
++        /* store the updated results into the priv structure */
++        pPriv->u_mode = bms.duplexMode ;
++
++        if(tmbslPhySpeed100Mbps == bms.speed)
++        {
++            pPriv->u_speed = LX_SPEED_100;
++        }
++        else if(tmbslPhySpeed10Mbps == bms.speed)
++        {
++            pPriv->u_speed = LX_SPEED_10;
++        }
+     }
+ 
+     return 0 ;
+@@ -746,6 +773,8 @@ _err_setup_phy:
+ 
+ }
+ 
++extern UInt32 phyAddr;
++
+ tmErrorCode_t setup_mac(plipp_6300eth_priv_t pPriv)
+ {
+ 
+@@ -766,7 +795,7 @@ tmErrorCode_t setup_mac(plipp_6300eth_pr
+     eth_cfg.backOffLim = tmhwLIPP6100Eth_BackoffVal0;
+     eth_cfg.clockSelect = (tmhwLIPP6100Eth_ClkDiv_t)TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL;
+     eth_cfg.ifg = tmhwLIPP6100Eth_IFG96bits;
+-    eth_cfg.phyAddress = TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL;
++    eth_cfg.phyAddress = phyAddr; //TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL;
+ 
+     if(LX_SPEED_1000 != pPriv->u_speed)
+     {
+@@ -886,4 +915,13 @@ void setup_dma_descriptors(pdma_descs_t 
+ 
+ }
+ 
++void lipp_6300eth_set_mac_addr (const unsigned char *addr)
++{
++	int i;
++
++	for (i = 0; i < sizeof (dev_addr); i++) {
++		dev_addr[i] = addr[i];
++	}
++}
++
+ 
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth_common.h u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth_common.h
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth_common.h	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth_common.h	2010-04-13 11:03:14.000000000 -0500
+@@ -19,7 +19,7 @@
+ #define GMAC_PRINT 0
+ 
+ #if (GMAC_PRINT == 1)
+-#define GMAC_DBG(args...)	printf("\nlipp6300eth: " args)
++#define GMAC_DBG(args...)	printf("\nGMAC: " args)
+ #define GMAC_DBGOUT(fmt,args...) printf(fmt ,##args)
+ #else
+ #define GMAC_DBG(args...)
+@@ -29,6 +29,8 @@
+ 
+ #define __LIPP_6300ETH__ /* Defined inside PHY code */
+ 
++extern void udelay(unsigned long usec);
++
+ /* Macros for PHY driver */
+ #define mdelay(n)   udelay((n)*1000)
+ 
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth.h u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.h
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth.h	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.h	2010-04-13 11:21:49.000000000 -0500
+@@ -307,7 +307,7 @@
+ 
+ #define MAX_LIPP_6300ETH_UNITS (1)
+ 
+-#define NULL 0
++//#define NULL 0
+ 
+ /*----------------------------------------------------------------------------*/
+ /**********************      Structures  definitions     **********************/
+@@ -366,6 +366,8 @@ typedef struct lipp_6300eth_priv 
+ 
+ } lipp_6300eth_priv_t,*plipp_6300eth_priv_t ;
+ 
++void lipp_6300eth_set_mac_addr (const unsigned char *addr);
++
+ #endif /* _LIPP_6300ETH_H_ */
+ 
+ 
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyAccess.c u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyAccess.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyAccess.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyAccess.c	2010-04-13 13:52:00.000000000 -0500
+@@ -33,10 +33,13 @@
+ */
+ #include "tmbslPhy.h"
+ #include "tmhwLIPP6100Eth_Cfg.h"
++#include "tmhwLIPP6100Eth_Vhip.h"
+ 
+ #define LAN_CLK_SEL        0
+ #define LAN_CLK_SPEED_SEL  0
+ 
++UInt32 phyAddr;
++
+ #ifdef __USING_SMSC8700_PHY__
+ #include "tmbslPhySMSC8700.h"
+ /* PHY interface structure to store PHY register access functions */
+@@ -172,69 +175,63 @@
+ 
+ #endif
+ 
+-#ifdef __USING_MYSTI110E_PHY__
+-//#include "tmbslPhyMYSTI110E.h"
+ /* PHY interface structure to store PHY register access functions */
+- tmbslPhyConfig_t gtmbslPhyInterface[TMHWLIPP6100ETH_NUM_UNITS] =
+-{
+-    {  "MYSTI",
+-        LAN_CLK_SEL,
+-        LAN_CLK_SPEED_SEL,
+-        tmbslPhyMYSTI110EGetSWVersion,
+-        tmbslPhyMYSTI110EGetCapabilities,
+-        tmbslPhyMYSTI110EInit,
+-        tmbslPhyMYSTI110EDeinit,
+-        tmbslPhyMYSTI110ESetPowerState,
+-        tmbslPhyMYSTI110EGetPowerState,
+-        tmbslPhyMYSTI110EGetBasicModeControl,
+-        tmbslPhyMYSTI110ESetBasicModeControl,
+-        tmbslPhyMYSTI110EGetBasicModeStatus,
+-        tmbslPhyMYSTI110EAutoNegotiate,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        tmbslPhyMYSTI110ELoopBack,
+-        tmbslPhyMYSTI110ESoftReset,
+-        tmbslPhyMYSTI110EGetLinkStatus
+-    }
++tmbslPhyConfig_t gtmbslMYSTIPhyInterface =
++{  
++    "Internal-PHY",
++    0x0,
++    LAN_CLK_SEL,
++    LAN_CLK_SPEED_SEL,
++    tmbslPhyMYSTI110EGetSWVersion,
++    tmbslPhyMYSTI110EGetCapabilities,
++    tmbslPhyMYSTI110EInit,
++    tmbslPhyMYSTI110EDeinit,
++    tmbslPhyMYSTI110ESetPowerState,
++    tmbslPhyMYSTI110EGetPowerState,
++    tmbslPhyMYSTI110EGetBasicModeControl,
++    tmbslPhyMYSTI110ESetBasicModeControl,
++    tmbslPhyMYSTI110EGetBasicModeStatus,
++    tmbslPhyMYSTI110EAutoNegotiate,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    tmbslPhyMYSTI110ELoopBack,
++    tmbslPhyMYSTI110ESoftReset,
++    tmbslPhyMYSTI110EGetLinkStatus
+ };
+-#endif
+ 
+-#ifdef __USING_RTL8211_PHY__
+-//#include "tmbslPhyRTL8211BN.h"
+ /* PHY interface structure to store PHY register access functions */
+- tmbslPhyConfig_t gtmbslPhyInterface[TMHWLIPP6100ETH_NUM_UNITS] =
+-{
+-    {  "REALTEK",
+-        LAN_CLK_SEL,
+-        LAN_CLK_SPEED_SEL,
+-        tmbslPhyRTL8211BNGetSWVersion,
+-        tmbslPhyRTL8211BNGetCapabilities,
+-        tmbslPhyRTL8211BNInit,
+-        tmbslPhyRTL8211BNDeinit,
+-        tmbslPhyRTL8211BNSetPowerState,
+-        tmbslPhyRTL8211BNGetPowerState,
+-        tmbslPhyRTL8211BNGetBasicModeControl,
+-        tmbslPhyRTL8211BNSetBasicModeControl,
+-        tmbslPhyRTL8211BNGetBasicModeStatus,
+-        tmbslPhyRTL8211BNAutoNegotiate,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        tmbslPhyRTL8211BNLoopBack,
+-        tmbslPhyRTL8211BNSoftReset,
+-        tmbslPhyRTL8211BNGetLinkStatus
+-    }
++tmbslPhyConfig_t gtmbslRTL8211BNPhyInterface =
++{  
++    "RTL8211BN",
++    0x001cc912,
++    LAN_CLK_SEL,
++    LAN_CLK_SPEED_SEL,
++    tmbslPhyRTL8211BNGetSWVersion,
++    tmbslPhyRTL8211BNGetCapabilities,
++    tmbslPhyRTL8211BNInit,
++    tmbslPhyRTL8211BNDeinit,
++    tmbslPhyRTL8211BNSetPowerState,
++    tmbslPhyRTL8211BNGetPowerState,
++    tmbslPhyRTL8211BNGetBasicModeControl,
++    tmbslPhyRTL8211BNSetBasicModeControl,
++    tmbslPhyRTL8211BNGetBasicModeStatus,
++    tmbslPhyRTL8211BNAutoNegotiate,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    tmbslPhyRTL8211BNLoopBack,
++    tmbslPhyRTL8211BNSoftReset,
++    tmbslPhyRTL8211BNGetLinkStatus
+ };
+-#endif
+ 
+ #ifdef __USING_APOLLO_EMU_PHY__
+ #include "tmbslPhyEmu.h"
+@@ -297,40 +294,109 @@
+ #include "tmbslPhyEmu.h"
+ /* PHY interface structure to store PHY register access functions */
+  tmbslPhyConfig_t gtmbslPhyInterface[TMHWLIPP6100ETH_NUM_UNITS] =
++{  "EMULATOR",
++    LAN_CLK_SEL,
++    LAN_CLK_SPEED_SEL,
++    tmbslPhyEmuGetSWVersion,
++    tmbslPhyEmuGetCapabilities,
++    tmbslPhyEmuInit,
++    tmbslPhyEmuDeinit,
++    tmbslPhyEmuSetPowerState,
++    tmbslPhyEmuGetPowerState,
++    tmbslPhyEmuGetBasicModeControl,
++    tmbslPhyEmuSetBasicModeControl,
++    tmbslPhyEmuGetBasicModeStatus,
++    tmbslPhyEmuAutoNegotiate,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    Null,
++    tmbslPhyEmuLoopBack,
++    tmbslPhyEmuSoftReset,
++    tmbslPhyEmuGetLinkStatus
++};
++
++#endif
++
++phyID_interface_tbl phy_tbl[]={
++{0x0, &gtmbslMYSTIPhyInterface},
++{0x001cc912,  &gtmbslRTL8211BNPhyInterface}
++};
++
++static UInt32 gmac_read_phy_reg(UInt32 gmacAddr, UInt32 reg, UInt16* pVal)
+ {
+-    {  "EMULATOR",
+-        LAN_CLK_SEL,
+-        LAN_CLK_SPEED_SEL,
+-        tmbslPhyEmuGetSWVersion,
+-        tmbslPhyEmuGetCapabilities,
+-        tmbslPhyEmuInit,
+-        tmbslPhyEmuDeinit,
+-        tmbslPhyEmuSetPowerState,
+-        tmbslPhyEmuGetPowerState,
+-        tmbslPhyEmuGetBasicModeControl,
+-        tmbslPhyEmuSetBasicModeControl,
+-        tmbslPhyEmuGetBasicModeStatus,
+-        tmbslPhyEmuAutoNegotiate,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        Null,
+-        tmbslPhyEmuLoopBack,
+-        tmbslPhyEmuSoftReset,
+-        tmbslPhyEmuGetLinkStatus
++    UInt32 regVal, timeout=0;
++    volatile UInt32* pAdrReg;
++    volatile UInt32* pDataReg;
++
++    /* Get the Address register */
++    pAdrReg = (UInt32*)(gmacAddr+TMVH_LIPP6100ETH_GMII_ADDRESS_REG_OFFSET) ;
++    pDataReg = (UInt32*)(gmacAddr+TMVH_LIPP6100ETH_GMII_DATA_REG_OFFSET) ;
++
++    /* Program the Register address in the MII */
++    regVal = *pAdrReg;
++
++    /* Clear the earlier GMII reg value in Address register and write the new value */
++    regVal &= TMVH_LIPP6100ETH_GMII_GMII_REGISTER_CLR;
++    regVal |= (reg << TMVH_LIPP6100ETH_GMII_GMII_REGISTER_POS);
++
++    /* Clear the bit GMII write for read operation */
++    regVal &= TMVH_LIPP6100ETH_GMII_GMII_WRITE_CLR;
++
++    *pAdrReg = regVal | 1;
++
++    /* Wait till the read operation is complete */
++    do
++    {
++        timeout++;
++    }while ( ((*pAdrReg & TMHW_LIPP6100ETH_GMII_BUSY_VAL) == TMHW_LIPP6100ETH_GMII_BUSY_VAL) &&
++                  (timeout < PHY_TIMEOUT) );
++
++    if( (timeout == PHY_TIMEOUT) &&
++        ((*pAdrReg & TMHW_LIPP6100ETH_GMII_BUSY_VAL) == TMHW_LIPP6100ETH_GMII_BUSY_VAL) )
++    {
++        return 1;
+     }
+ 
+-};
++    /* Read the data from the data register */
++    *pVal = (UInt16) *pDataReg;
+ 
+-#endif
++    return 0;
++
++}
+ 
++#define PHY_PHYID1  2
++#define PHY_PHYID2  3
+ 
+-void tmbslPhyGetInterface(int unitnumber, tmbslPhyConfig_t ** pPhyInterface)
++static void detect_phy(UInt32 unitnumber, UInt32* phyID, UInt32* phyAddr)
+ {
+-     *(pPhyInterface) = &gtmbslPhyInterface[unitnumber];
++    UInt16 ID0Reg=0, ID1Reg=0;
++    volatile UInt32* pAdrReg;
++    UInt32 regVal;
++    
++    gmac_read_phy_reg(GMAC_UNIT_BASE(unitnumber), PHY_PHYID1, &ID0Reg);
++    gmac_read_phy_reg(GMAC_UNIT_BASE(unitnumber), PHY_PHYID2, &ID1Reg);
++
++    *phyID = (ID0Reg <<16) | ID1Reg;
++
++    pAdrReg = (UInt32*)(GMAC_UNIT_BASE(unitnumber)+TMVH_LIPP6100ETH_GMII_ADDRESS_REG_OFFSET) ;
++    regVal = *pAdrReg;
++    *phyAddr = (regVal & TMVH_LIPP6100ETH_GMII_PHY_ADDRESS_MSK) >> TMVH_LIPP6100ETH_GMII_PHY_ADDRESS_POS ;
+ }
+ 
++void tmbslPhyGetInterface(int unitnumber, tmbslPhyConfig_t ** pPhyInterface)
++{
++    UInt32 phyID,i;
++
++     detect_phy(unitnumber, &phyID, &phyAddr);
++
++     GMAC_DBG("phyID = %x, phyAddr = %d\n", phyID, phyAddr);
++
++     for(i=0 ; i< sizeof(phy_tbl)/sizeof(phyID_interface_tbl); i++)
++        if(phy_tbl[i].phyID == phyID)
++            *(pPhyInterface) = phy_tbl[i].interface_fns;
++}
+ 
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhy.c u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhy.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhy.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhy.c	2010-04-09 12:52:09.000000000 -0500
+@@ -37,15 +37,12 @@
+     #include "tmbslPhyEmu.c"    
+     #endif
+ 
+-    #ifdef CONFIG_USING_RTL8211_PHY
+     #include "tmbslPhyRTL8211BN.h"        
+     #include "tmbslPhyRTL8211BN.c"    
+-    #endif
+ 
+-    #ifdef CONFIG_USING_MYSTI110E_PHY
+     #include "tmbslPhyMYSTI110E.h"        
+     #include "tmbslPhyMYSTI110E.c"    
+-    #endif
++
+     /* Files which are must for ethernet driver, utilizing 
+     ** macros in config.h, tv55x.h
+     */
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhy.h u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhy.h
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhy.h	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhy.h	2010-04-09 12:58:08.000000000 -0500
+@@ -684,6 +684,7 @@ typedef tmErrorCode_t
+ typedef struct _tmbslPhyConfig_t 
+ {
+ 	char     phyName[HAL_DEVICE_NAME_LENGTH];
++    UInt32   phyID;
+ 	UInt32   lanClkSrc; // To select Clock source
+ 	UInt32   lanClkSpeed; // To select the speed
+ 	
+@@ -710,6 +711,11 @@ typedef struct _tmbslPhyConfig_t 
+ 
+ } tmbslPhyConfig_t,*ptmbslPhyConfig_t;
+ 
++typedef struct {
++UInt32 phyID;
++tmbslPhyConfig_t *interface_fns;
++}phyID_interface_tbl;
++
+ void tmbslPhyGetInterface(int unitno,tmbslPhyConfig_t**pPhyInterface);
+ 
+ #if        defined(__cplusplus)
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c	2010-04-13 11:00:28.000000000 -0500
+@@ -52,11 +52,11 @@
+ 
+ #define PHY_TIMEOUT                 (100000)
+ 
+-#define ANAR_DEFAULT_VAL (0xDE1)
++#define MYSTI_ANAR_DEFAULT_VAL (0xDE1)
+ 
+ /* Global Data */
+  /* Initialize with base address of GMAC. This will be used to access MAC Address & MAC data register */
+-static tmbslPhyMYSTI110EContext_t gEthContext[PHY_UNIT_ID_COUNT];
++static tmbslPhyMYSTI110EContext_t gMystiEthContext[PHY_UNIT_ID_COUNT];
+ 
+ typedef	enum	_tmbslPhyMYSTI110EReg_t
+ {
+@@ -255,7 +255,7 @@ tmbslPhyMYSTI110EInit(
+     UInt32                         timeout=0;
+     UInt16 regval=0, id1, id2;
+ 
+-    gEthContext[ethUnitId].pRegs = gtmhwLIPP6100Eth_Base[ethUnitId].baseAddress;
++    gMystiEthContext[ethUnitId].pRegs = gtmhwLIPP6100Eth_Base[ethUnitId].baseAddress;
+ 
+     ethStatus = tmbslPhyMYSTI110ERead(ethUnitId,tmbslPhyMYSTI110ELedcr,&regval);
+ 
+@@ -695,7 +695,7 @@ tmbslPhyMYSTI110EAutoNegotiate (
+     tmErrorCode_t   ethStatus=TM_OK;
+     UInt32             timeout=AUTO_NEG_DELAY_MULTIPLIER; /* Timeout of 800*5 msecs = 4 Sec */
+ 
+-    UInt16 regVal = ANAR_DEFAULT_VAL;
++    UInt16 regVal = MYSTI_ANAR_DEFAULT_VAL;
+     UInt16 mask =0;
+ 
+     ethStatus = tmbslPhyMYSTI110EWrite(ethUnitId,tmbslPhyMYSTI110EAnar,regVal);
+@@ -935,7 +935,7 @@ tmbslPhyMYSTI110ERead (
+     UInt32 regValue;
+ 
+     /* get Ethernet Module Reg Pointer  */
+-    pEthRegs = gEthContext[ethUnitId].pRegs;
++    pEthRegs = gMystiEthContext[ethUnitId].pRegs;
+ 
+     /* Get the Address register */
+     pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
+@@ -1007,7 +1007,7 @@ tmbslPhyMYSTI110EWrite (
+     UInt32      timeout=0;
+ 
+     /* Get the Ethernet Module Reg pointer */
+-    pEthRegs = gEthContext[ethUnitId].pRegs;
++    pEthRegs = gMystiEthContext[ethUnitId].pRegs;
+ 
+     /* Get the Address register */
+     pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c	2010-04-13 11:00:55.000000000 -0500
+@@ -45,17 +45,17 @@
+ 
+ #define PHY_UNIT_ID_COUNT			1
+ 
+-#define PHY_TIMEOUT				(0x0FFFFFFF)
++#define PHY_TIMEOUT           (100000)
+ 
+ #define TMBSLPHYRTL8211_PHY_MMIO_ADDRESS0	(0xC0000000)
+ 
+-#define ANAR_DEFAULT_VAL			(0xADE1)
++#define RTL8211_ANAR_DEFAULT_VAL			(0xADE1)
+ #define KTCR1_DEFAULT_VAL			(0x300)
+ 
+ /* Global Data */
+  /* Initialize with base address of GMAC. This will be used to access MAC Address & MAC data register */
+ 
+-tmbslPhyRTL8211Context_t gEthContext[PHY_UNIT_ID_COUNT] = {{TMBSLPHYRTL8211_PHY_MMIO_ADDRESS0}};
++tmbslPhyRTL8211Context_t gRTL8211EthContext[PHY_UNIT_ID_COUNT] = {{TMBSLPHYRTL8211_PHY_MMIO_ADDRESS0}};
+ 
+ typedef	enum	_tmbslPhyRTL8211Reg_t
+ {
+@@ -267,9 +267,9 @@ tmbslPhyRTL8211BNInit(
+     UInt16		regval = 0;
+     UInt16 id1, id2;
+ 
+-    gEthContext[ethUnitId].pRegs = gtmhwLIPP6100Eth_Base[ethUnitId].baseAddress;
++    gRTL8211EthContext[ethUnitId].pRegs = gtmhwLIPP6100Eth_Base[ethUnitId].baseAddress;
+ 
+-    regval = TMBSL_PHYRTL8211_BMCR_RST_VAL;
++    regval = TMBSL_PHYRTL8211_BMCR_RST_VAL | TMBSL_PHYRTL8211_BMCR_AN_EN;
+ 
+     ethStatus = tmbslPhyRTL8211Write(ethUnitId,tmbslPhyRTL8211Bmcr,regval);
+ 
+@@ -327,16 +327,6 @@ tmbslPhyRTL8211BNInit(
+         return(TMBSL_ERR_PHY_NOT_SUPPORTED);
+     }
+ 
+-    regval = 0;
+-
+-    /* Set the PHY for the 10Mbps and Half Duplex mode */
+-    ethStatus = tmbslPhyRTL8211Write(ethUnitId,tmbslPhyRTL8211Bmcr,regval);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return (ethStatus);
+-    }
+-
+     return TM_OK;
+ }
+ 
+@@ -655,7 +645,7 @@ tmbslPhyRTL8211BNGetBasicModeStatus (
+         pPhyBasicModeStatus->duplexMode =
+                 (((linkan & TMBSL_PHYRTL8211_PHYSTAT_DUPLEX) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
+ 
+-        speedVal = TMBSL_PHYRTL8211_PHYSTAT_SPEED_MSK & linkan;
++        speedVal = (TMBSL_PHYRTL8211_PHYSTAT_SPEED_MSK & linkan)>>14;
+ 
+         switch(speedVal)
+         {
+@@ -699,7 +689,7 @@ tmbslPhyRTL8211BNAutoNegotiate (
+     tmErrorCode_t	ethStatus = TM_OK;
+     UInt32		timeout = 0;
+ 
+-    UInt16 regVal = ANAR_DEFAULT_VAL;
++    UInt16 regVal = RTL8211_ANAR_DEFAULT_VAL;
+     UInt16 mask =0;
+ 
+     ethStatus = tmbslPhyRTL8211Write(ethUnitId,tmbslPhyRTL8211Anar,regVal);
+@@ -829,9 +819,9 @@ tmbslPhyRTL8211BNAutoNegotiate (
+         timeout++;
+     }
+ 
+-    if(ethStatus != TM_OK)
+-    {
+-        return(ethStatus);
++    if((timeout >= PHY_TIMEOUT) && ((regVal & TMBSL_PHYRTL8211_BMSR_AN_VAL) != TMBSL_PHYRTL8211_BMSR_AN_VAL))
++    {        
++        return(TMBSL_ERR_PHY_AUTONEG_TIMEOUT);
+     }
+ 
+     return TM_OK;
+@@ -927,10 +917,10 @@ tmbslPhyRTL8211BNGetLinkStatus (
+     )
+ {
+     tmErrorCode_t	ethStatus = TM_OK;
+-    UInt16		ansr;
++    UInt16     Physr;
+ 
+-    /* Read the ANSR register */
+-    ethStatus = tmbslPhyRTL8211Read(ethUnitId,tmbslPhyRTL8211Physr,&ansr);
++    /* Read the PHYSR register */
++    ethStatus = tmbslPhyRTL8211Read(ethUnitId,tmbslPhyRTL8211Physr,&Physr);
+ 
+     if(ethStatus != TM_OK)
+     {
+@@ -938,7 +928,7 @@ tmbslPhyRTL8211BNGetLinkStatus (
+     }
+ 
+     *pLinkStatus =
+-    (((ansr & TMBSL_PHYRTL8211_PHYSTAT_LINK_RT) > 0) ? tmbslPhyEnable : tmbslPhyDisable);
++    (((Physr & TMBSL_PHYRTL8211_PHYSTAT_LINK_RT) > 0) ? tmbslPhyEnable : tmbslPhyDisable);
+ 
+     return(TM_OK);
+ }
+@@ -973,7 +963,7 @@ tmbslPhyRTL8211Read (
+     UInt32		regValue;
+ 
+     /* get Ethernet Module Reg Pointer  */
+-    pEthRegs = gEthContext[ethUnitId].pRegs;
++    pEthRegs = gRTL8211EthContext[ethUnitId].pRegs;
+ 
+     /* Get the Address register */
+     pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
+@@ -1042,7 +1032,7 @@ tmbslPhyRTL8211Write (
+     UInt32		timeout = 0;
+ 
+     /* Get the Ethernet Module Reg pointer */
+-    pEthRegs = gEthContext[ethUnitId].pRegs;
++    pEthRegs = gRTL8211EthContext[ethUnitId].pRegs;
+ 
+     /* Get the Address register */
+     pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c	2010-04-08 13:14:28.000000000 -0500
+@@ -181,6 +181,7 @@ tmhwLIPP6100Eth_GetHWVersion(
+ ** NOTES:       
+ **-----------------------------------------------------------------------------
+ */
++extern UInt32 phyAddr;
+ 
+ tmErrorCode_t
+ tmhwLIPP6100Eth_Init(
+@@ -215,7 +216,7 @@ tmhwLIPP6100Eth_Init(
+     regVal = ((regVal & TMVH_LIPP6100ETH_GMII_PHY_ADDRESS_CLR) & 
+                     TMVH_LIPP6100ETH_GMII_ADDRESS_CSR_CLR);
+ 
+-    regVal |= (TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL << TMVH_LIPP6100ETH_GMII_PHY_ADDRESS_POS) |
++    regVal |= (phyAddr << TMVH_LIPP6100ETH_GMII_PHY_ADDRESS_POS) |
+                   (TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL << TMVH_LIPP6100ETH_GMII_ADDRESS_CSR_POS);
+ 
+     TMVH_GEN_WRITE(pEthRegs+TMVH_LIPP6100ETH_GMII_ADDRESS_REG_OFFSET,
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h	2010-04-09 13:10:41.000000000 -0500
+@@ -80,16 +80,12 @@ extern "C"
+ #define TMHWLIPP6100ETH_NUM_UNITS (1)
+ 
+ #ifdef CONFIG_PHY
+-#if (CFG_GMAC0_PHY == EXTERNAL_PHY)
+-    #define CONFIG_USING_RTL8211_PHY
+-    #define __USING_RTL8211_PHY__
++#if (CFG_GMAC0 == PRESENT)
++    #define GMAC_UNIT_BASE0           (0xe067c000)
++    #define GMAC_UNIT_BASE1           (0xe06b8000)
++    #define GMAC_UNIT_BASE(x)         ((x) == 0 ? GMAC_UNIT_BASE0 : GMAC_UNIT_BASE1)
+     #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
+-    #define TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL 0x1U
+ #else
+-    #define CONFIG_USING_MYSTI110E_PHY
+-    #define __USING_MYSTI110E_PHY__
+-    #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
+-    #define TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL 0x0U
+ #endif
+ #endif
+ 
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h	2010-04-08 13:01:42.000000000 -0500
+@@ -154,6 +154,13 @@ extern "C" {  /* Assume C declarations f
+ #define TMVH_LIPP6100ETH_GMII_ADDRESS_REG_OFFSET (0x0010)
+ #define TMVH_LIPP6100ETH_GMII_PHY_ADDRESS_CLR (0xffff07ffU)
+ #define TMVH_LIPP6100ETH_GMII_PHY_ADDRESS_MSK (0xF800)
++#define TMVH_LIPP6100ETH_GMII_PHY_ADDRESS_POS (11)
++
++#define TMVH_LIPP6100ETH_GMII_GMII_REGISTER_CLR (0xfffff83fU)
++#define TMVH_LIPP6100ETH_GMII_GMII_REGISTER_POS (6)
++
++#define TMVH_LIPP6100ETH_GMII_GMII_WRITE_CLR (0xfffffffdU)
++#define TMHW_LIPP6100ETH_GMII_BUSY_VAL 1
+ 
+ /* PHY address value is in  the configuraiton file */
+ #define TMVH_LIPP6100ETH_GMII_PHY_ADDRESS_POS (11)
+diff -Naurp u-boot-2009.08.org/include/asm-arm/arch-pnx84xx/cpu.h u-boot-2009.08/include/asm-arm/arch-pnx84xx/cpu.h
+--- u-boot-2009.08.org/include/asm-arm/arch-pnx84xx/cpu.h	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/include/asm-arm/arch-pnx84xx/cpu.h	2010-04-13 11:06:49.000000000 -0500
+@@ -56,7 +56,7 @@ typedef struct ctrl_id {
+ #define GP_DEVICE		0x3
+ 
+ /* GPMC CS3/cs4/cs6 not avaliable */
+-#define GCS_BASE			(PNX84XX_GCS_BASE)
++//#define GCS_BASE			(PNX84XX_GCS_BASE)
+ #define GCS_CONFIG_CS0		0x60
+ #define GCS_CONFIG_CS6		0x150
+ #define GCS_CONFIG_CS0_BASE	(GCS_BASE + GCS_CONFIG_CS0)
+diff -Naurp u-boot-2009.08.org/include/asm-arm/arch-pnx84xx/pnx84xx.h u-boot-2009.08/include/asm-arm/arch-pnx84xx/pnx84xx.h
+--- u-boot-2009.08.org/include/asm-arm/arch-pnx84xx/pnx84xx.h	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/include/asm-arm/arch-pnx84xx/pnx84xx.h	2010-04-13 13:24:29.000000000 -0500
+@@ -67,7 +67,7 @@
+ #ifndef __ASSEMBLY__
+ typedef struct global_reg {
+ 	unsigned char res_arm_config[0x100];        /* 0x000 */
+-	unsigned char res_peripheral_config[0x100];	/* 0x100 */
++	unsigned int  res_peripheral_config[0x100];	/* 0x100 */
+ 	unsigned char res_various_config[0x100];	/* 0x200 */
+ 	unsigned char res_IPcontrols_config[0x100];	/* 0x300 */
+ 	unsigned char res_TM_config[0x100];     	/* 0x400 */
+diff -Naurp u-boot-2009.08.org/include/asm-arm/arch-pnx84xx/sys_proto.h u-boot-2009.08/include/asm-arm/arch-pnx84xx/sys_proto.h
+--- u-boot-2009.08.org/include/asm-arm/arch-pnx84xx/sys_proto.h	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/include/asm-arm/arch-pnx84xx/sys_proto.h	2010-04-13 11:12:27.000000000 -0500
+@@ -67,5 +67,7 @@ void make_cs1_contiguous(void);
+ void omap_nand_switch_ecc(int);
+ void power_init_r(void);
+ void dieid_num_r(void);
++void get_mac_addr_ataglist(uchar *enetaddr);
++void lipp_6300eth_set_mac_addr (const unsigned char *addr);
+ 
+ #endif
+diff -Naurp u-boot-2009.08.org/include/asm-arm/cache.h u-boot-2009.08/include/asm-arm/cache.h
+--- u-boot-2009.08.org/include/asm-arm/cache.h	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08/include/asm-arm/cache.h	2010-04-13 12:54:57.000000000 -0500
+@@ -27,6 +27,8 @@
+ 
+ #include <asm/system.h>
+ 
++void cache_flush(void);
++
+ /*
+  * Invalidate L2 Cache using co-proc instruction
+  */
+diff -Naurp u-boot-2009.08.org/include/configs/vpe_apollo.h u-boot-2009.08/include/configs/vpe_apollo.h
+--- u-boot-2009.08.org/include/configs/vpe_apollo.h	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/include/configs/vpe_apollo.h	2010-04-09 13:16:31.000000000 -0500
+@@ -1,7 +1,7 @@
+ /*
+- * (C) Copyright 2005-2009
+- * NXP Semiconuctors,
+- * Tjeu Horsch <tjeu.horsch@nxp.com>
++ * (C) Copyright 2010
++ * Trident Microsystems
++ * Nitin Garg
+  *
+  * Configuration settings for the NXP Apollo virtual prototyping environment .
+  *
+@@ -15,7 +15,7 @@
+  *
+  * This program is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+  *
+  * You should have received a copy of the GNU General Public License
+@@ -32,201 +32,174 @@
+  * High Level Configuration Options
+  */
+ 
+-#define CONFIG_ARMCORTEXA8	1	/* This is an ARM V7 CPU core */
+-#define CONFIG_PNX			1	/* in a NXP nexperia core */
+-#define CONFIG_PNX84XX		1	/* which is a APOLLO */
+-#define CONFIG_PNX8493		1	/* which is in a pnx8493 */
++#define CONFIG_ARMCORTEXA8  1   /* This is an ARM V7 CPU core */
++#define CONFIG_PNX          1   /* in a NXP nexperia core */
++#define CONFIG_PNX84XX      1   /* which is a APOLLO */
++#define CONFIG_PNX8493      1   /* which is in a pnx8493 */
+ 
+ #if 0     /* 0 is EMU,  1 for VPE */
+-#define CONFIG_PNX_VPE		1   /* working with VPE */
++#define CONFIG_PNX_VPE      1   /* working with VPE */
+ #else
+-#define CONFIG_PNX_EMU		1 	/* working on emulator */
++#define CONFIG_PNX_EMU      1   /* working on emulator */
+ #endif
+ 
+-#include <asm/arch/cpu.h>		/* get chip and board defs */
++#include <asm/arch/cpu.h>       /* get chip and board defs */
+ #include <asm/arch/pnx84xx.h>
+ 
+ /* Clock config to target*/
+-#define PRCM_CONFIG_I		1
+-/* #define PRCM_CONFIG_II	1 */
++#define PRCM_CONFIG_I       1
++/* #define PRCM_CONFIG_II   1 */
+ 
+ /* Boot method */
+ /* uncomment if you use NOR boot */
+-/* #define CONFIG_SYS_NOR_BOOT		1  */
++/* #define CONFIG_SYS_NOR_BOOT      1  */
+ 
+ /* uncomment if you use NOR */
+-/* #define CONFIG_SYS_USE_NOR		1 */
++/* #define CONFIG_SYS_USE_NOR       1 */
+ 
+ /* uncomment if you want to use UBI */
+ /* #define CONFIG_SYS_USE_UBI  */
+ 
+ 
+-#define	V_SCLK	50000000
++#define V_SCLK  50000000
+ 
+ /* input clock of PLL */
+-#define	CONFIG_SYS_CLK_FREQ	V_SCLK
++#define CONFIG_SYS_CLK_FREQ V_SCLK
+ #ifdef CONFIG_PNX_EMU
+-#define	CONFIG_SYS_PERICLK_FREQ	250000000
++#define CONFIG_SYS_PERICLK_FREQ 250000000
+ #else
+-#define	CONFIG_SYS_PERICLK_FREQ	25000000
++#define CONFIG_SYS_PERICLK_FREQ 25000000
+ #endif
+-#undef	CONFIG_USE_IRQ	/* no support for IRQs */
+-#define	CONFIG_MISC_INIT_R
++#undef  CONFIG_USE_IRQ  /* no support for IRQs */
++#define CONFIG_MISC_INIT_R
+ 
+-#define	CONFIG_CMDLINE_TAG	1	/* enable passing of ATAGs */
+-#define	CONFIG_SETUP_MEMORY_TAGS	1
+-#define	CONFIG_INITRD_TAG	1
+-#define	CONFIG_REVISION_TAG	1
++#define CONFIG_CMDLINE_TAG  1   /* enable passing of ATAGs */
++#define CONFIG_SETUP_MEMORY_TAGS    1
++#define CONFIG_INITRD_TAG   1
++#define CONFIG_REVISION_TAG 1
+ 
+ #define CONFIG_MEMORY_UPPER_CODE
+-#define CONFIG_SYS_UBOOT_SIZE		(SZ_4M)
++#define CONFIG_SYS_UBOOT_SIZE       (SZ_4M)
+ /*
+  * Size of malloc() pool
+  */
+-#define	CONFIG_SYS_MALLOC_LEN	( SZ_2M)
++#define CONFIG_SYS_MALLOC_LEN   ( SZ_2M)
+ /* bytes reserved for initial data */
+-#define	CONFIG_SYS_GBL_DATA_SIZE	512
++#define CONFIG_SYS_GBL_DATA_SIZE    512
+ 
+ /*
+  * Hardware drivers
+  */
+ 
+ /*
+- * SMC91c96 Etherent
+- */
+-
+-/*
+-#define	CONFIG_DRIVER_LAN91C96
+-#define	CONFIG_LAN91C96_BASE	(APOLLON_CS1_BASE+0x300)
+-#define	CONFIG_LAN91C96_EXT_PHY
+-*/
+-
+-/*
+  * NS16550 Configuration
+  */
+ #ifdef CONFIG_PNX_EMU
+-#define	V_NS16550_CLK	(50000000)	/* 76800 Khz  */
++#define V_NS16550_CLK   (50000000)  /* 76800 Khz  */
+ #else
+-#define	V_NS16550_CLK	(25000000)	/* 25MHz  */
++#define V_NS16550_CLK   (25000000)  /* 25MHz  */
+ #endif
+ 
+ 
+-#define	CONFIG_SYS_NS16550
+-#define	CONFIG_SYS_NS16550_SERIAL
+-#define	CONFIG_SYS_NS16550_REG_SIZE	(-4)
+-/*#define	CONFIG_SYS_NS16550_REG_SIZE	(4)  */
+-#define	CONFIG_SYS_NS16550_CLK	V_NS16550_CLK	/* 3MHz (1.5MHz*2) */
++#define CONFIG_SYS_NS16550
++#define CONFIG_SYS_NS16550_SERIAL
++#define CONFIG_SYS_NS16550_REG_SIZE (-4)
++/*#define   CONFIG_SYS_NS16550_REG_SIZE (4)  */
++#define CONFIG_SYS_NS16550_CLK  V_NS16550_CLK   /* 3MHz (1.5MHz*2) */
+ #ifdef CONFIG_PNX_EMU
+-#define	CONFIG_SYS_NS16550_COM1	PNX84XX_UART3
++#define CONFIG_SYS_NS16550_COM1 PNX84XX_UART3
+ #endif
+ #ifdef CONFIG_PNX_VPE
+-#define	CONFIG_SYS_NS16550_COM1	PNX84XX_UART1
++#define CONFIG_SYS_NS16550_COM1 PNX84XX_UART1
+ #endif
+ 
+ /*
+  * select serial console configuration
+  */
+-#define	CONFIG_SERIAL1	1	/* UART1 */
++#define CONFIG_SERIAL1  1   /* UART1 */
+ 
+ /* allow to overwrite serial and ethaddr */
+-#define	CONFIG_ENV_OVERWRITE
+-#define	CONFIG_CONS_INDEX	1
+-#define	CONFIG_BAUDRATE	115200	
+-#define	CONFIG_SYS_BAUDRATE_TABLE	{4800, 9600, 19200, 38400, 57600, 115200}
++#define CONFIG_ENV_OVERWRITE
++#define CONFIG_CONS_INDEX   1
++#define CONFIG_BAUDRATE 115200  
++#define CONFIG_SYS_BAUDRATE_TABLE   {4800, 9600, 19200, 38400, 57600, 115200}
+ 
+ /* this must be included AFTER the definition of CONFIG_COMMANDS (if any) */
+-#include	<config_cmd_default.h>
++#include    <config_cmd_default.h>
+ 
+ #define CONFIG_CMD_DHCP  
+ #undef CONFIG_CMD_NET
+ #undef CONFIG_CMD_NFS
+ 
+-#define	CONFIG_CMD_DIAG
+-/* #define	CONFIG_CMD_ONENAND  */
++#define CONFIG_CMD_DIAG
++/* #define  CONFIG_CMD_ONENAND  */
+ 
+ #ifdef CONFIG_SYS_USE_UBI
+-#define	CONFIG_CMD_JFFS2
+-#define	CONFIG_CMD_UBI
+-#define	CONFIG_RBTREE
++#define CONFIG_CMD_JFFS2
++#define CONFIG_CMD_UBI
++#define CONFIG_RBTREE
+ #define CONFIG_MTD_PARTITIONS
+ #endif
+ 
+-#define	CONFIG_CMD_AUTOSCRIPT
++#define CONFIG_CMD_AUTOSCRIPT
+ 
+ 
+-	#define CONFIG_CMD_BSP		/* Board Specific functions	*/
+-/*	#define CONFIG_CMD_CACHE	*//* icache, dcache		*/
+-	#define CONFIG_CMD_DHCP		/* DHCP Support			*/
+-	#define CONFIG_CMD_DIAG		/* Diagnostics			*/
+-	#define CONFIG_CMD_FAT		/* FAT support			*/
+-	#define CONFIG_CMD_FLASH	/* flinfo, erase, protect	*/
+-/*	#define CONFIG_CMD_I2C		*//* I2C serial bus support	*/
+-	#undef  CONFIG_CMD_IMI		/* iminfo			*/
+-	#undef  CONFIG_CMD_IMLS		/* List all found images	*/
+-/*	#define CONFIG_CMD_JFFS2	*//* JFFS2 Support		*/
+-	#define CONFIG_CMD_LOADB	/* loadb			*/
+-	#define CONFIG_CMD_LOADS	/* loads			*/
+-	#define CONFIG_CMD_MEMORY	/* md mm nm mw cp cmp crc base loop mtest */
+-	#define CONFIG_CMD_MII		/* MII support			*/
+-	#define CONFIG_CMD_MISC		/* Misc functions like sleep etc*/
+-	#define CONFIG_CMD_MTDPARTS  /* MTD functions 		*/
+-//	#define CONFIG_CMD_NAND		/* NAND support			*/
+-	#define CONFIG_CMD_NOR		/* NOR support			*/
+-	#undef CONFIG_CMD_NAND		/* Remove NAND support			*/
+-//	#undef CONFIG_CMD_NOR		/* Remove NOR support			*/
+-
+-	#define CONFIG_NET_MULTI
+-	#define CONFIG_BOOTP_SUBNETMASK
+-   #define CONFIG_BOOTP_RANDOM_DELAY
+-   #define CONFIG_BOOTP_GATEWAY
+-   #define CONFIG_BOOTP_DNS
+-
+-	#define CONFIG_CMD_NFS		/* NFS support		*/
+-	#define CONFIG_CMD_NET		/* bootp, tftpboot, rarpboot	*/
+-	#undef  CONFIG_CMD_ONENAND	/* OneNAND support		*/
+-	#undef  CONFIG_CMD_PCI		/* pciinfo			*/
+-/*	#define CONFIG_CMD_PCI		*//* pciinfo			*/
+-	#define CONFIG_CMD_PING		/* ping support			*/
+-	#define CONFIG_CMD_PORTIO	/* Port I/O			*/
+-	#define CONFIG_CMD_REGINFO	/* Register dump		*/
+-	#define CONFIG_CMD_RUN		/* run command in env variable	*/
+-	#define	CONFIG_CMD_SARI		/* Simple arithmetic operations */
+-/*	#define CONFIG_CMD_SDRAM	*//* SDRAM DIMM SPD info printout */
+-/*	#define CONFIG_CMD_UBIFS	*//* UBIFS Support		*/
+-/*	#define CONFIG_CMD_USB		*//* USB Support			*/\
++    #define CONFIG_CMD_BSP      /* Board Specific functions */
++/*  #define CONFIG_CMD_CACHE    *//* icache, dcache     */
++    #define CONFIG_CMD_DHCP     /* DHCP Support         */
++    #define CONFIG_CMD_DIAG     /* Diagnostics          */
++    #define CONFIG_CMD_FAT      /* FAT support          */
++    #define CONFIG_CMD_FLASH    /* flinfo, erase, protect   */
++/*  #define CONFIG_CMD_I2C      *//* I2C serial bus support */
++    #undef  CONFIG_CMD_IMI      /* iminfo           */
++    #undef  CONFIG_CMD_IMLS     /* List all found images    */
++/*  #define CONFIG_CMD_JFFS2    *//* JFFS2 Support      */
++    #define CONFIG_CMD_LOADB    /* loadb            */
++    #define CONFIG_CMD_LOADS    /* loads            */
++    #define CONFIG_CMD_MEMORY   /* md mm nm mw cp cmp crc base loop mtest */
++    #define CONFIG_CMD_MII      /* MII support          */
++    #define CONFIG_CMD_MISC     /* Misc functions like sleep etc*/
++    #define CONFIG_CMD_MTDPARTS  /* MTD functions       */
++//  #define CONFIG_CMD_NAND     /* NAND support         */
++    #define CONFIG_CMD_NOR      /* NOR support          */
++    #undef CONFIG_CMD_NAND      /* Remove NAND support          */
++//  #undef CONFIG_CMD_NOR       /* Remove NOR support           */
++
++    #define CONFIG_NET_MULTI
++    #define CONFIG_BOOTP_SUBNETMASK
++    #define CONFIG_BOOTP_RANDOM_DELAY
++    #define CONFIG_BOOTP_GATEWAY
++    #define CONFIG_BOOTP_DNS
++
++    #define CONFIG_CMD_NFS      /* NFS support      */
++    #define CONFIG_CMD_NET      /* bootp, tftpboot, rarpboot    */
++    #undef  CONFIG_CMD_ONENAND  /* OneNAND support      */
++    #undef  CONFIG_CMD_PCI      /* pciinfo          */
++/*  #define CONFIG_CMD_PCI      *//* pciinfo            */
++    #define CONFIG_CMD_PING     /* ping support         */
++    #define CONFIG_CMD_PORTIO   /* Port I/O         */
++    #define CONFIG_CMD_REGINFO  /* Register dump        */
++    #define CONFIG_CMD_RUN      /* run command in env variable  */
++    #define CONFIG_CMD_SARI     /* Simple arithmetic operations */
++/*  #define CONFIG_CMD_SDRAM    *//* SDRAM DIMM SPD info printout */
++/*  #define CONFIG_CMD_UBIFS    *//* UBIFS Support      */
++/*  #define CONFIG_CMD_USB      *//* USB Support            */\
+ 
+ #ifdef CONFIG_CMD_NET
+-
+     #define CONFIG_LIPP_6300ETH
+     #define CONFIG_PHY        /* Comment this out for EMY PHY */
+ //    #define CONFIG_USING_EMU_PHY
+ //    #define __USING_EMU_PHY__
++//    #define __NULL_PHY__
++//    #define CONFIG_NET_RETRY_COUNT 50
++    #define CONFIG_NETMASK 255.255.255.0
++    #define CONFIG_IPADDR 192.168.2.5
++    #define CONFIG_SERVERIP 192.168.2.2
++    #define CONFIG_BOOTFILE "vmlinux.bin"
++    #define	CONFIG_ETHADDR ff:ff:ff:ff:ff:ff
+ 
+-#if 0    
+-#if (CFG_GMAC0_PHY == EXTERNAL_PHY)
+-    #define CONFIG_USING_RTL8211_PHY
+-    #define __USING_RTL8211_PHY__
+-    #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
+-    #define TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL 0x1U
+-#else
+-xxx
+-    #define CONFIG_USING_MYSTI110E_PHY
+-    #define __USING_MYSTI110E_PHY__
+-    #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
+-    #define TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL 0x0U
+-#endif
+-#endif
+-    #define __NULL_PHY__
+- //   #define CONFIG_NET_RETRY_COUNT 50
+-
+-    #define	CONFIG_NETMASK 255.255.255.0
+-    #define	CONFIG_IPADDR 192.168.2.5
+-    #define	CONFIG_SERVERIP 192.168.2.2
+-    #define	CONFIG_BOOTFILE "loadfiles.mi"
+-    #define	CONFIG_ETHADDR aa:bb:cc:dd:ee:ff
+-
+-    #define CONFIG_LOADADDR	  0x00008000
+-    #define CONFIG_BOOTP_SERVERIP 10.0.0.9 //dummy
++    #define CONFIG_LOADADDR   0x00008000
++//    #define CONFIG_BOOTP_SERVERIP 10.0.0.9 //dummy
+ 
+ 
+ #endif
+@@ -234,40 +207,28 @@ xxx
+ /*-----------------------------------------------------------------------
+  * Environment configuration
+  */
+-#if 1
+ #define CONFIG_CMD_SAVEENV
+ #define CONFIG_ENV_IS_IN_FLASH
+ #define CONFIG_ENV_ADDR         SSBOOT_ENV_FLASH_OFFSET
+-#endif
+-
+-
+-#if (0)        /* TH */
+-#define  CONFIG_ENV_IS_NOWHERE
+-#if defined(CONFIG_CMD_NAND)
+-#undef CONFIG_ENV_IS_NOWHERE
+-#define CONFIG_ENV_IS_IN_NAND
+-#define CONFIG_ENV_OFFSET	0x0003C000	/* Address of Environment Sector*/
+-#endif
+-#endif
+ 
+ #if defined(CFG_ONENAND)
+ #undef  CONFIG_ENV_IS_NOWHERE
+ #define CONFIG_ENV_IS_IN_ONENAND
+-#define CONFIG_ENV_ADDR		0x00120000
++#define CONFIG_ENV_ADDR     0x00120000
+ #endif
+ 
+-#define CONFIG_ENV_SIZE		0x00010000	/* Size of Environment Sector	*/
++#define CONFIG_ENV_SIZE     0x00010000  /* Size of Environment Sector   */
+ 
+-//#define CONFIG_ENV_SECT_SIZE 	0x20000
++//#define CONFIG_ENV_SECT_SIZE  0x20000
+ 
+ /*
+-#define	CONFIG_BOOTP_MASK	CONFIG_BOOTP_DEFAULT
++#define CONFIG_BOOTP_MASK   CONFIG_BOOTP_DEFAULT
+ */
+ 
+-#define	CONFIG_BOOTDELAY	2
++#define CONFIG_BOOTDELAY    2
+ 
+ 
+-#define CONFIG_SYS_MEM	"mem=64M"
++#define CONFIG_SYS_MEM  "mem=64M"
+ 
+ #ifdef CONFIG_SYS_USE_UBI
+ #define CONFIG_SYS_UBI "ubi.mtd=4"
+@@ -275,114 +236,81 @@ xxx
+ #define CONFIG_SYS_UBI ""
+ #endif
+ 
+-#if 0
+-#define CONFIG_BOOTARGS "root=/dev/nfs rw " CONFIG_SYS_MEM \
+-	" console=ttyS0,115200n8" \
+-	" ip=192.168.116.25:192.168.116.1:192.168.116.1:255.255.255.0:" \
+-	"apollon:eth0:off nfsroot=/tftpboot/nfsroot profile=2 " \
+-	CONFIG_SYS_UBI
+-#endif
+-
+-#if 1
+ #define CONFIG_BOOTARGS "noinitrd " \
+-	"console=ttyS1,115200n8 "\
+-	"mtdparts=nx_2016:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra) " \
+-	"root=/dev/mtdblock2 rw " \
+-	"rootfstype=jffs2"
+-#endif	
+-
+-#define	CONFIG_EXTRA_ENV_SETTINGS					\
+-	"Image=tftp 0x80008000 Image; go 0x80008000\0"			\
+-	"zImage=tftp 0x80180000 zImage; go 0x80180000\0"		\
+-	"uImage=tftp 0x80180000 uImage; bootm 0x80180000\0"		\
+-	"autoload=n\0"		\
+-	"uboot=tftp 0x80008000 u-boot.bin; go 0x80008000\0"		\
+-	"norboot=nor read 0x8000 0x180000 0x500000; go 0x8000\0"	\
+-	"bootcmd=run norboot;\0"
+-
+-#if 0
+-#define	CONFIG_EXTRA_ENV_SETTINGS					\
+-	"Image=tftp 0x80008000 Image; go 0x80008000\0"			\
+-	"zImage=tftp 0x80180000 zImage; go 0x80180000\0"		\
+-	"uImage=tftp 0x80180000 uImage; bootm 0x80180000\0"		\
+-	"uboot=tftp 0x80008000 u-boot.bin; go 0x80008000\0"		\
+-	"xloader=tftp 0x80180000 x-load.bin; "				\
+-	" cp.w 0x80180000 0x00000400 0x1000; go 0x00000400\0"		\
+-	"syncmode50=mw.w 0x1e442 0xc0c4; mw 0x6800a060 0xe30d1201\0"	\
+-	"loadaddr=0x8000\0"\
+-	"imgaddr=0x180000\0"\
+-	"syncmode=mw.w 0x1e442 0xe0f4; mw 0x6800a060 0xe30d1201\0"	\
+-	"norboot=nor read $loadaddr $imgaddr 0x400000; go $loadaddr\0"	\
+-	"oneboot=onenand read 0x80008000 0x40000 0x200000; go 0x80008000\0" \
+-	"onesyncboot=run syncmode oneboot\0"				\
+-	"updateb=tftp 0x80180000 u-boot-onenand.bin; "			\
+-	" onenand erase 0x0 0x20000; onenand write 0x80180000 0x0 0x20000\0" \
+-	"ubi=setenv bootargs ${bootargs} ubi.mtd=4 ${mtdparts}; run uImage\0" \
+-	"ubi=setenv bootargs ${bootargs} ubi.mtd=4 ${mtdparts}; run uImage\0" \
+-	"bootdelay=5\0" \
+-	"bootcmd=run norboot;\0"
+-#endif
++    "console=ttyS1,115200n8 "\
++    "mtdparts=nx_2016:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra) " \
++    "root=/dev/mtdblock2 rw " \
++    "rootfstype=jffs2"
++
++#define CONFIG_EXTRA_ENV_SETTINGS                   \
++    "Image=tftp 0x00008000 Image; go 0x00008000\0"          \
++    "autoload=n\0"      \
++    "uboot=tftp 0x00008000 u-boot.bin; go 0x00008000\0"     \
++    "norboot=nor read 0x8000 0x180000 0x500000; go 0x8000\0"    \
++    "bootcmd=run norboot;\0"
++
+ /*
+  * Miscellaneous configurable options
+  */
+-#define	V_PROMPT	"Apollo # "
++#define V_PROMPT    "Apollo # "
+ 
+ #define CONFIG_APOLLO
+ 
+ #define CONFIG_AUTO_COMPLETE    1
+ 
++/*#define CONFIG_SHOW_BOOT_PROGRESS*/ /* Enable for debugging */
+ #define CONFIG_SYS_HUSH_PARSER          /* use "hush" command parser */
+ #define CONFIG_SYS_PROMPT_HUSH_PS2      "> "
+ 
+-#define	CONFIG_SYS_LONGHELP	/* undef to save memory */
+-#define	CONFIG_SYS_PROMPT	V_PROMPT
+-#define	CONFIG_SYS_CBSIZE	512	/* Console I/O Buffer Size */
++#define CONFIG_SYS_LONGHELP /* undef to save memory */
++#define CONFIG_SYS_PROMPT   V_PROMPT
++#define CONFIG_SYS_CBSIZE   512 /* Console I/O Buffer Size */
+ /* Print Buffer Size */
+-#define	CONFIG_SYS_PBSIZE	(CONFIG_SYS_CBSIZE+sizeof(CONFIG_SYS_PROMPT)+16)
+-#define	CONFIG_SYS_MAXARGS	16	/* max number of command args */
++#define CONFIG_SYS_PBSIZE   (CONFIG_SYS_CBSIZE+sizeof(CONFIG_SYS_PROMPT)+16)
++#define CONFIG_SYS_MAXARGS  16  /* max number of command args */
+ /* Boot Argument Buffer Size */
+-#define	CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE
++#define CONFIG_SYS_BARGSIZE CONFIG_SYS_CBSIZE
+ /* memtest works on */
+-#define	CONFIG_SYS_MEMTEST_START	(PNX84XX_SDRC_CS0)
+-#define	CONFIG_SYS_MEMTEST_END		(PNX84XX_SDRC_CS0+SZ_32M)
++#define CONFIG_SYS_MEMTEST_START    (PNX84XX_SDRC_CS0)
++#define CONFIG_SYS_MEMTEST_END      (PNX84XX_SDRC_CS0+SZ_32M)
+ 
+-#undef	CONFIG_SYS_CLKS_IN_HZ	/* everything, incl board info, in Hz */
++#undef  CONFIG_SYS_CLKS_IN_HZ   /* everything, incl board info, in Hz */
+ /* default load address */
+-#define	CONFIG_SYS_LOAD_ADDR	(PNX84XX_SDRC_CS0)
++#define CONFIG_SYS_LOAD_ADDR    (PNX84XX_SDRC_CS0)
+ 
+ /* The PNX84XX uses the timers in the cortex-A9 driven by the SysClk (12/13/19.2)
+  * This rate is divided by a local
+  * divisor.
+  */
+-#define	V_PTV	4 	/* TODO: correct value */
++#define V_PTV   4   /* TODO: correct value */
+ 
+-#define	CONFIG_SYS_PTV	V_PTV	/* 2^(pvt+1) */
+-#define	CONFIG_PERTIMER_CLOCK_HZ (CONFIG_SYS_PERICLK_FREQ)
+-#define	CONFIG_SYS_HZ		 1000000
++#define CONFIG_SYS_PTV  V_PTV   /* 2^(pvt+1) */
++#define CONFIG_PERTIMER_CLOCK_HZ (CONFIG_SYS_PERICLK_FREQ)
++#define CONFIG_SYS_HZ        1000000
+ 
+ /*-----------------------------------------------------------------------
+  * Stack sizes
+  *
+  * The stack sizes are set up in start.S using the settings below
+  */
+-#define	CONFIG_STACKSIZE SZ_64K	/* regular stack */
+-#ifdef	CONFIG_USE_IRQ
+-# define	CONFIG_STACKSIZE_IRQ SZ_4K	/* IRQ stack */
+-# define	CONFIG_STACKSIZE_FIQ SZ_4K	/* FIQ stack */
++#define CONFIG_STACKSIZE SZ_64K /* regular stack */
++#ifdef  CONFIG_USE_IRQ
++# define    CONFIG_STACKSIZE_IRQ SZ_4K  /* IRQ stack */
++# define    CONFIG_STACKSIZE_FIQ SZ_4K  /* FIQ stack */
+ #endif
+ 
+ /*-----------------------------------------------------------------------
+  * Physical Memory Map
+  */
+-#define	CONFIG_NR_DRAM_BANKS	1	/* CS1 may or may not be populated */
+-#define	PHYS_SDRAM_1		PNX84XX_SDRC_CS0
+-#define	PHYS_SDRAM_1_SIZE	SZ_128M
+-#define	PHYS_SDRAM_2		PNX84XX_SDRC_CS1
++#define CONFIG_NR_DRAM_BANKS    2   /* CS1 may or may not be populated */
++#define PHYS_SDRAM_1        PNX84XX_SDRC_CS0
++#define PHYS_SDRAM_1_SIZE   SZ_128M
++#define PHYS_SDRAM_2        PNX84XX_SDRC_CS1
+ 
+ /*-----------------------------------------------------------------------
+  * FLASH and environment organization
+  */
+-#undef	CONFIG_CRAMFS		 /* No CRAM FS support although JFFS2 support */
++#undef  CONFIG_CRAMFS        /* No CRAM FS support although JFFS2 support */
+ #define CONFIG_DOS_PARTITION
+ /*-----------------------------------------------------------------------
+  * NOR flash configuration
+@@ -403,12 +331,12 @@ xxx
+  * NAND flash configuration
+  */
+ 
+-#define CONFIG_SYS_FLASH_BASE		0xc0000000
+-#define CONFIG_SYS_MONITOR_BASE		0x04000000
++#define CONFIG_SYS_FLASH_BASE       0xc0000000
++#define CONFIG_SYS_MONITOR_BASE     0x04000000
+ 
+ #undef  CFG_NAND_LEGACY
+ #undef  CFG_NAND
+-#undef	CONFIG_NAND_NXP_IPA051
++#undef  CONFIG_NAND_NXP_IPA051
+ 
+ #if defined(CONFIG_CMD_NAND)
+ #define CONFIG_DMAC_NXP_1902
+@@ -416,21 +344,21 @@ xxx
+ #define CONFIG_MTD_NX_NAND_HWECC
+ #endif
+ 
+-#define CONFIG_SYS_MAX_NAND_DEVICE	4		/* Max number of NAND devices		*/
++#define CONFIG_SYS_MAX_NAND_DEVICE  4       /* Max number of NAND devices       */
+ #define CONFIG_SYS_NAND_MAX_CHIPS   1       /* TH nuber of chips in a device?)  */
+-#define CONFIG_SYS_MAX_FLASH_SECT	(520)
++#define CONFIG_SYS_MAX_FLASH_SECT   (520)
+ #define CONFIG_SYS_MAX_FLASH_BANKS 4
+-#define CFG_NAND_QUIET			1
++#define CFG_NAND_QUIET          1
+ 
+ /* Note: NAND_BASE refers to the xio profiles, in board_nand_init the correct base
+    values are retreived from the xio profiles
+ */
+-#define CONFIG_SYS_NAND_BASE	        0x814, 0x818, 0x81C, 0x834, 0x838
++#define CONFIG_SYS_NAND_BASE            0x814, 0x818, 0x81C, 0x834, 0x838
+ #define CONFIG_MTD_NAND_VERIFY_WRITE
+-#define NAND_MAX_FLOORS 		1
+-#define NAND_MAX_CHIPS 			1
+-#define NAND_ChipID_UNKNOWN		0x00
+-#define SECTORSIZE			512
++#define NAND_MAX_FLOORS         1
++#define NAND_MAX_CHIPS          1
++#define NAND_ChipID_UNKNOWN     0x00
++#define SECTORSIZE          512
+ 
+ /* UBIFS support */
+ #ifdef CONFIG_CMD_UBIFS
+@@ -450,11 +378,11 @@ xxx
+ 
+ /* JFFS2 support */
+ #ifdef CONFIG_CMD_JFFS2
+-#define	CONFIG_JFFS2_CMDLINE		1
+-#define	CONFIG_JFFS2_DEV		"nand0"
+-#define	CONFIG_JFFS2_NAND
+-#define	MTDIDS_DEFAULT			"nand0=sys"
+-#define	MTDPARTS_DEFAULT		"mtdparts=sys:11232k@176k(bootfs);sys:4000k@11408k(rootfs)"
++#define CONFIG_JFFS2_CMDLINE        1
++#define CONFIG_JFFS2_DEV        "nand0"
++#define CONFIG_JFFS2_NAND
++#define MTDIDS_DEFAULT          "nand0=sys"
++#define MTDPARTS_DEFAULT        "mtdparts=sys:11232k@176k(bootfs);sys:4000k@11408k(rootfs)"
+ #endif
+ 
+ #endif /* __CONFIG_H */
+diff -Naurp u-boot-2009.08.org/include/nor.h u-boot-2009.08/include/nor.h
+--- u-boot-2009.08.org/include/nor.h	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/include/nor.h	2010-04-13 11:30:14.000000000 -0500
+@@ -23,12 +23,12 @@ extern nor_erase_info_t nor_erase_info;
+ 
+ static inline int nor_read(nor_info_t *info, loff_t ofs, size_t *len, u_char *buf)
+ {
+-	return info->read(info, ofs, *len, (size_t *)len, (unsigned int)buf);
++	return info->read(info, ofs, *len, (size_t *)len, buf);
+ }
+ 
+ static inline int nor_write(nor_info_t *info, loff_t ofs, size_t *len, u_char *buf)
+ {
+-	return info->write(info, ofs, *len, (size_t *)len, (unsigned int)buf);
++	return info->write(info, ofs, *len, (size_t *)len, buf);
+ }
+ 
+ static inline int nor_erase(nor_info_t *info, nor_erase_info_t *einfo )
+diff -Naurp u-boot-2009.08.org/lib_arm/board.c u-boot-2009.08/lib_arm/board.c
+--- u-boot-2009.08.org/lib_arm/board.c	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/lib_arm/board.c	2010-04-13 11:33:28.000000000 -0500
+@@ -59,6 +59,11 @@
+ #include "../drivers/net/lan91c96.h"
+ #endif
+ 
++#ifdef CONFIG_LIPP_6300ETH
++#include <asm/arch/sys_proto.h>
++#include "../drivers/net/lipp_6300eth/lipp_6300eth.h"
++#endif
++
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+ ulong monitor_flash_len;
+@@ -276,7 +281,7 @@ init_fnc_t *init_sequence[] = {
+ 	arch_cpu_init,		/* basic arch cpu dependent setup */
+ #endif	
+ #endif
+-#if !defined(CONFIG_APOLLO)
++#if defined(CONFIG_APOLLO)
+ 		board_init,		/* basic board dependent setup */
+ #endif
+ 
+@@ -284,8 +289,8 @@ init_fnc_t *init_sequence[] = {
+ 	interrupt_init,		/* set up exceptions */
+ #endif
+ 	timer_init,		/* initialize timer */
+-   env_init,		/* initialize environment */
+-#if !defined(CONFIG_APOLLO)	
++    env_init,		/* initialize environment */
++#if defined(CONFIG_APOLLO)	
+ 	
+ 	init_baudrate,		/* initialze baudrate settings */
+ 	serial_init,		/* serial communications setup */
+@@ -301,7 +306,7 @@ init_fnc_t *init_sequence[] = {
+ #if defined(CONFIG_HARD_I2C) || defined(CONFIG_SOFT_I2C)
+ 	init_func_i2c,
+ #endif
+-#if !defined(CONFIG_APOLLO)
++#if defined(CONFIG_APOLLO)
+ 	dram_init,		/* configure available RAM banks */
+ #endif	
+ #if defined(CONFIG_CMD_PCI) || defined (CONFIG_PCI)
+@@ -316,7 +321,6 @@ init_fnc_t *init_sequence[] = {
+ 
+ void start_armboot (void)
+ {
+-	int i = 0 ;
+ 	init_fnc_t **init_fnc_ptr;
+ 	char *s;
+ #if defined(CONFIG_VFD) || defined(CONFIG_LCD)
+@@ -502,6 +506,21 @@ extern void davinci_eth_set_mac_addr (co
+ #if defined(CONFIG_NET_MULTI)
+ 	puts ("Net:   ");
+ #endif
++#ifdef CONFIG_LIPP_6300ETH
++    if (getenv ("ethaddr")) {
++        uchar enetaddr[6];
++        int is_valid;
++        is_valid = eth_getenv_enetaddr("ethaddr", enetaddr);
++        if(!is_valid)
++        {   
++            puts ("Getting MAC addr from ATAG\n");
++            puts ("Net:   ");
++            get_mac_addr_ataglist(enetaddr);
++            eth_setenv_enetaddr("ethaddr", enetaddr);
++        }
++        lipp_6300eth_set_mac_addr(enetaddr);
++    }
++#endif    
+ 	eth_initialize(gd->bd);
+ #if defined(CONFIG_RESET_PHY_R)
+ 	debug ("Reset Ethernet PHY\n");
+diff -Naurp u-boot-2009.08.org/lib_arm/bootm.c u-boot-2009.08/lib_arm/bootm.c
+--- u-boot-2009.08.org/lib_arm/bootm.c	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/lib_arm/bootm.c	2010-04-13 13:01:30.000000000 -0500
+@@ -26,6 +26,7 @@
+ #include <image.h>
+ #include <u-boot/zlib.h>
+ #include <asm/byteorder.h>
++#include <net.h>
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+@@ -280,7 +281,8 @@ void  patch_ataglist( void )
+ {
+    int i = 0, cmdline_length, uboot_macaddr=0, uboot_cmdline=0;
+    uchar enetaddr[6];
+-   uchar *tmp, *tmp1, *s, *cmdline;   
++   uchar *tmp, *tmp1;
++   char *s, *cmdline;   
+    u32 *patch_addr = (u32 *)0x2000, cmdline_words;
+ 	/* Initialize from environment */
+ 	if ((s = getenv ("uboot_macaddr")) != NULL) {
+@@ -327,7 +329,7 @@ void  patch_ataglist( void )
+       }
+    /* patch command line */
+    
+-      cmdline_length = strlen((uchar *)cmdline);
++      cmdline_length = strlen((char *)cmdline);
+ 
+       if ((cmdline_length & 0x3))
+        cmdline_words = (cmdline_length/4) + 1;
+@@ -337,7 +339,7 @@ void  patch_ataglist( void )
+       *patch_addr++ = cmdline_words + 2;
+       *patch_addr++ = ATAG_CMDLINE;
+       tmp1 = (uchar *)patch_addr;
+-      tmp = cmdline;
++      tmp = (uchar*)cmdline;
+       for( i = 0; i<cmdline_length; i++)
+       {
+               *tmp1++ = *tmp++;
+diff -Naurp u-boot-2009.08.org/lib_arm/flash.c u-boot-2009.08/lib_arm/flash.c
+--- u-boot-2009.08.org/lib_arm/flash.c	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/lib_arm/flash.c	2010-04-13 12:24:48.000000000 -0500
+@@ -19,6 +19,10 @@
+ #include <nor.h>
+ #include "board.h"
+ #include "stbcfg.h"
++#include "../drivers/mtd/nor/nor.h"
++
++void nor_erase_region(u_int32 addr, u_int32 len);
++void nor_write_region(u_int32 uFlashAddr, u_int32 uLength, u_int32 uDdrAddr, u_int32 uErasesize, bool clean_marker);
+ 
+ nor_info_t nor_info;
+ nor_erase_info_t nor_erase_info;
+@@ -99,17 +103,18 @@ retcode_t find_boot_device(devicetype_t 
+ 
+ int mtd_nor_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen, u_char *buf)
+ {
+-	nx_nor_read((void *)from, (u_int32)len, (void *)buf) ;	
++	return (nx_nor_read((void *)from, (int)len, (void *)buf)) ;
+ }
+ 
+ int mtd_nor_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen, u_char *buf)
+ {
+-	nx_nor_write((void *)to, (u_int32)len, (void *)buf) ;	
++	return (nx_nor_write((void *)to, (int)len, (void *)buf)) ;
+ }
+ 
+ int mtd_nor_erase(struct mtd_info *mtd, struct erase_info *einfo)
+ {
+ 	nor_erase_region((u_int32)einfo->addr, (u_int32)einfo->len) ;	
++    return 0;
+ }
+ 
+ void nor_init(void)
+@@ -137,7 +142,7 @@ void nor_init(void)
+ 
+ 	nor_info.read =  mtd_nor_read ;
+ 	nor_info.write = mtd_nor_write ;
+-   nor_info.erase = mtd_nor_erase ;
++    nor_info.erase = mtd_nor_erase ;
+ 	return ;
+ }
+ 
+@@ -202,13 +207,14 @@ void nor_write_partition(char * partitio
+    else
+    {
+       printf(" unknown command option . \n");
+-      return -1;
++      return;
+    }
+    s = getenv ("loadaddr");
+    uDdrAddr= (int)simple_strtol(s, NULL, 10);
+    nor_write_region(uFlashAddr, NetBootFileXferSize, uDdrAddr, uErasesize, clean_marker);
+    
+ }
++
+ void nor_write_region(u_int32 uFlashAddr, u_int32 uLength, u_int32 uDdrAddr, u_int32 uErasesize, bool clean_marker)
+ {
+ 
+diff -Naurp u-boot-2009.08.org/lib_arm/ip2070gcs.c u-boot-2009.08/lib_arm/ip2070gcs.c
+--- u-boot-2009.08.org/lib_arm/ip2070gcs.c	2010-04-09 10:31:04.000000000 -0500
++++ u-boot-2009.08/lib_arm/ip2070gcs.c	2010-04-13 13:20:58.000000000 -0500
+@@ -33,6 +33,7 @@
+ #include "nor.h"
+ #include "ip2070gcs.h"
+ #include "board.h"
++#include "libfuncs.h"
+ 
+ #define GCS_ENABLE_ISA_MODE_MSK            (0)
+ #define GCS_ENABLE_PCI_MODE_MSK            (1)
+diff -Naurp u-boot-2009.08.org/net/eth.c u-boot-2009.08/net/eth.c
+--- u-boot-2009.08.org/net/eth.c	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/net/eth.c	2010-04-13 13:03:22.000000000 -0500
+@@ -26,6 +26,10 @@
+ #include <net.h>
+ #include <miiphy.h>
+ 
++#ifdef CONFIG_LIPP_6300ETH
++extern void lipp_6300eth_initialize(void);
++#endif
++
+ #ifdef CONFIG_CMD_NET
+ void eth_parse_enetaddr(const char *addr, uchar *enetaddr)
+ {
+diff -Naurp u-boot-2009.08.org/net/nfs.c u-boot-2009.08/net/nfs.c
+--- u-boot-2009.08.org/net/nfs.c	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08/net/nfs.c	2010-04-13 10:43:52.000000000 -0500
+@@ -31,9 +31,9 @@
+ 
+ #if defined(CONFIG_CMD_NET) && defined(CONFIG_CMD_NFS)
+ 
+-#define HASHES_PER_LINE 65	/* Number of "loading" hashes per line	*/
++#define HASHES_PER_LINE 80	/* Number of "loading" hashes per line	*/
+ #define NFS_RETRY_COUNT 30
+-#define NFS_TIMEOUT 2000UL
++#define NFS_TIMEOUT 4000UL
+ 
+ static int fs_mounted = 0;
+ static unsigned long rpc_id = 0;
+diff -Naurp u-boot-2009.08.org/tools/Makefile u-boot-2009.08/tools/Makefile
+--- u-boot-2009.08.org/tools/Makefile	2010-04-09 10:31:03.000000000 -0500
++++ u-boot-2009.08/tools/Makefile	2010-04-13 12:37:15.000000000 -0500
+@@ -67,10 +67,10 @@ include $(TOPDIR)/config.mk
+ # Generated executable files
+ BIN_FILES-$(CONFIG_CMD_LOADS) += img2srec$(SFX)
+ BIN_FILES-y += mkimage$(SFX)
+-#BIN_FILES-$(CONFIG_ENV_IS_EMBEDDED) += envcrc$(SFX)
++BIN_FILES-$(CONFIG_ENV_IS_EMBEDDED) += envcrc$(SFX)
+ BIN_FILES-$(CONFIG_ENV_IS_IN_DATAFLASH) += envcrc$(SFX)
+ BIN_FILES-$(CONFIG_ENV_IS_IN_EEPROM) += envcrc$(SFX)
+-#BIN_FILES-$(CONFIG_ENV_IS_IN_FLASH) += envcrc$(SFX)
++BIN_FILES-$(CONFIG_ENV_IS_IN_FLASH) += envcrc$(SFX)
+ BIN_FILES-$(CONFIG_ENV_IS_IN_ONENAND) += envcrc$(SFX)
+ BIN_FILES-$(CONFIG_ENV_IS_IN_NAND) += envcrc$(SFX)
+ BIN_FILES-$(CONFIG_ENV_IS_IN_NVRAM) += envcrc$(SFX)

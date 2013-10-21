@@ -1,0 +1,75 @@
+diff --git a/common/usb_storage.c b/common/usb_storage.c
+old mode 100644
+new mode 100755
+index 927ee6b..7ce13cc
+--- a/common/usb_storage.c
++++ b/common/usb_storage.c
+@@ -241,7 +241,7 @@ int usb_stor_scan(int mode)
+ 			 * get info and fill it in
+ 			 */
+ 			if (usb_stor_get_info(dev, &usb_stor[usb_max_devs],
+-						&usb_dev_desc[usb_max_devs]))
++						&usb_dev_desc[usb_max_devs]) > 0)
+ 				usb_max_devs++;
+ 		}
+ 		/* if storage device */
+@@ -874,7 +874,7 @@ do_retry:
+ static int usb_inquiry(ccb *srb, struct us_data *ss)
+ {
+ 	int retry, i;
+-	retry = 5;
++	retry = 2;
+ 	do {
+ 		memset(&srb->cmd[0], 0, 12);
+ 		srb->cmd[0] = SCSI_INQUIRY;
+@@ -887,7 +887,7 @@ static int usb_inquiry(ccb *srb, struct us_data *ss)
+ 			break;
+ 	} while (retry--);
+ 
+-	if (!retry) {
++	if (retry <= -1) {
+ 		printf("error in inquiry\n");
+ 		return -1;
+ 	}
+@@ -915,8 +915,7 @@ static int usb_request_sense(ccb *srb, struct us_data *ss)
+ 
+ static int usb_test_unit_ready(ccb *srb, struct us_data *ss)
+ {
+-	int retries = 10;
+-
++	int retries = 3;
+ 	do {
+ 		memset(&srb->cmd[0], 0, 12);
+ 		srb->cmd[0] = SCSI_TST_U_RDY;
+@@ -935,7 +934,7 @@ static int usb_read_capacity(ccb *srb, struct us_data *ss)
+ {
+ 	int retry;
+ 	/* XXX retries */
+-	retry = 3;
++	retry = 2;
+ 	do {
+ 		memset(&srb->cmd[0], 0, 12);
+ 		srb->cmd[0] = SCSI_RD_CAPAC;
+@@ -1028,10 +1027,9 @@ unsigned long usb_stor_read(int device, unsigned long blknr,
+ 
+ 	USB_STOR_PRINTF("\nusb_read: dev %d startblk %lx, blccnt %lx"
+ 			" buffer %lx\n", device, start, blks, buf_addr);
+-
+ 	do {
+ 		/* XXX need some comment here */
+-		retry = 2;
++		retry = 1;
+ 		srb->pdata = (unsigned char *)buf_addr;
+ 		if (blks > USB_MAX_READ_BLK)
+ 			smallblks = USB_MAX_READ_BLK;
+@@ -1321,5 +1319,10 @@ int usb_stor_get_info(struct usb_device *dev, struct us_data *ss,
+ 	init_part(dev_desc);
+ 
+ 	USB_STOR_PRINTF("partype: %d\n", dev_desc->part_type);
++
++	/* return error when dev_desc->part_type is unknown! */
++	if(dev_desc->part_type == 0)
++		return 0;
++
+ 	return 1;
+ }

@@ -1,0 +1,51 @@
+diff -Naurp u-boot-2009.08/drivers/mtd/nand/nand_base.c u-boot-2009.08_nand/drivers/mtd/nand/nand_base.c
+--- u-boot-2009.08/drivers/mtd/nand/nand_base.c	2011-06-23 18:08:45.865769000 +0530
++++ u-boot-2009.08_nand/drivers/mtd/nand/nand_base.c	2011-06-23 18:30:53.989326000 +0530
+@@ -2486,10 +2486,15 @@ int nand_erase_nand(struct mtd_info *mtd
+ 
+ 		/* See if block erase succeeded */
+ 		if (status & NAND_STATUS_FAIL) {
+-			MTDDEBUG (MTD_DEBUG_LEVEL0, "nand_erase: "
+-			          "Failed erase, page 0x%08x\n", page);
+ 			instr->state = MTD_ERASE_FAILED;
+ 			instr->fail_addr = (page << chip->page_shift);
++         #if 0
++         MTDDEBUG(MTD_DEBUG_LEVEL0, "nand_erase: "
++                  "Failed erase, page 0x%08x\n", page);
++         #else
++         printf("nand_erase: "
++                "Failed erase, offset 0x%08llx\n", instr->fail_addr);
++         #endif
+ 			goto erase_exit;
+ 		}
+ 
+diff -Naurp u-boot-2009.08/drivers/mtd/nand/nand_bbt.c u-boot-2009.08_nand/drivers/mtd/nand/nand_bbt.c
+--- u-boot-2009.08/drivers/mtd/nand/nand_bbt.c	2011-06-23 18:08:45.082855000 +0530
++++ u-boot-2009.08_nand/drivers/mtd/nand/nand_bbt.c	2011-06-23 16:12:25.549664000 +0530
+@@ -348,7 +348,6 @@ static int scan_block_fast(struct mtd_in
+ 	ops.datbuf = NULL;
+ 	ops.mode = MTD_OOB_PLACE;
+ 
+-	mtd->flags |= MTD_USE_DEV_OOB_LAYOUT;
+ 
+ 	for (j = 0; j < len; j++) {
+ 		/*
+@@ -366,7 +365,6 @@ static int scan_block_fast(struct mtd_in
+ 		offs += mtd->writesize;
+ 	}
+ 	
+-	mtd->flags &= ~MTD_USE_DEV_OOB_LAYOUT;
+ 
+ 	return 0;
+ }
+diff -Naurp u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c u-boot-2009.08_nand/drivers/mtd/nand/nx_nand_ip2070.c
+--- u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c	2011-06-23 18:08:46.322773000 +0530
++++ u-boot-2009.08_nand/drivers/mtd/nand/nx_nand_ip2070.c	2011-06-23 16:12:55.133315000 +0530
+@@ -722,6 +722,7 @@ static int nx_nand_read_oob(struct mtd_i
+         return -ENOMEM;
+     }
+     /* Not optimal, since we read the whole page as well */
++    chip->cmdfunc(mtd, NAND_CMD_READOOB, -1, page);
+     nand_read_page(mtd, nbuf, chip->oob_poi);
+ 
+     free(nbuf);

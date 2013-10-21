@@ -1,0 +1,43 @@
+diff -Naurp u-boot-2009.08.old/cpu/arm_cortexa8/config.mk u-boot-2009.08/cpu/arm_cortexa8/config.mk
+--- u-boot-2009.08.old/cpu/arm_cortexa8/config.mk	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08/cpu/arm_cortexa8/config.mk	2010-11-22 23:24:37.000000000 -0600
+@@ -20,8 +20,7 @@
+ # Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ # MA 02111-1307 USA
+ #
+-PLATFORM_RELFLAGS += -fno-strict-aliasing -fno-common -ffixed-r8 \
+-		     -msoft-float
++PLATFORM_RELFLAGS += -fno-strict-aliasing -fno-common -ffixed-r8 
+ 
+ # Make ARMv5 to allow more compilers to work, even though its v7a.
+ PLATFORM_CPPFLAGS += -march=armv5
+diff -Naurp u-boot-2009.08.old/cpu/arm_cortexa8/pnx84xx/config.mk u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/config.mk
+--- u-boot-2009.08.old/cpu/arm_cortexa8/pnx84xx/config.mk	2010-11-11 22:59:24.000000000 -0600
++++ u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/config.mk	2010-11-22 23:25:53.000000000 -0600
+@@ -21,8 +21,13 @@
+ # MA 02111-1307 USA
+ #
+ #PLATFORM_RELFLAGS += -fno-strict-aliasing -mcpu=cortex-a9 -mfpu=vfpv3-d16 -mfloat-abi=softfp -ffixed-r8 -O2
+-PLATFORM_RELFLAGS += -fno-strict-aliasing -fno-common -ffixed-r8 \
+-		     -msoft-float
++PLATFORM_RELFLAGS += -fno-strict-aliasing -fno-common -ffixed-r8
++
++ifeq ($(findstring x4.5.,x$(shell $(CC) -v 2>&1 | tail -n 1 | awk -F ' ' '{print $$3}')),x4.5.)
++PLATFORM_RELFLAGS += -mhard-float
++else
++PLATFORM_RELFLAGS += -msoft-float
++endif
+ 
+ # Make ARMv5 to allow more compilers to work, even though its v7a.
+ PLATFORM_CPPFLAGS += -march=armv5 -D__UBOOT__ -DSWCONFIG_INCL=1 
+--- u-boot-2009.08.old/common/hdcp.c	2010-11-11 22:59:24.000000000 -0600
++++ u-boot-2009.08/common/hdcp.c	2010-11-22 23:32:25.000000000 -0600
+@@ -18,7 +18,7 @@
+ */
+ static int conv_htoi(unsigned char *hex)
+ {
+-   int i, j, ret = 0;
++   int i, j = 0, ret = 0;
+    unsigned char c;
+ 
+    for(i = 0; i<2; i++) {

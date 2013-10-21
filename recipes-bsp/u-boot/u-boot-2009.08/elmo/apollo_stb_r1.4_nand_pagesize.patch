@@ -1,0 +1,127 @@
+diff -Nauprb u-boot-2009.08.orig/board/apollon/apollon.c u-boot-2009.08/board/apollon/apollon.c
+--- u-boot-2009.08.orig/board/apollon/apollon.c	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08/board/apollon/apollon.c	2011-01-06 19:09:37.304140311 -0600
+@@ -33,6 +33,8 @@
+ #include <asm/arch/mem.h>
+ #include <asm/mach-types.h>
+ 
++extern gcs_global_info gFlashInfo;
++
+ void wait_for_command_complete(unsigned int wd_base);
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+@@ -66,6 +68,8 @@ int board_init(void)
+ {
+ 	gpmc_init();		/* in SRAM or SDRM, finish GPMC */
+ 
++        gFlashInfo.configstrap = INP32(RGU_CNFG_TRAPS_REG);
++
+ 	gd->bd->bi_arch_number = 919;
+ 	/* adress of boot parameters */
+ 	gd->bd->bi_boot_params = (OMAP2420_SDRC_CS0 + 0x100);
+diff -Nauprb u-boot-2009.08.orig/drivers/mtd/nand/nx_nand_ip2070.c u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c
+--- u-boot-2009.08.orig/drivers/mtd/nand/nx_nand_ip2070.c	2011-01-06 19:07:26.924640281 -0600
++++ u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c	2011-01-06 19:09:37.308890052 -0600
+@@ -37,6 +37,9 @@
+ 
+ #include "nx_nand_ip2070.h"
+ #include <linux/nx_dmac_ip1902.h>
++#include "ip2070gcs.h"
++
++extern gcs_global_info gFlashInfo;
+ 
+ #undef DEBUG
+ #ifdef DEBUG
+@@ -1081,7 +1084,35 @@ int board_nand_init(struct nand_chip *ch
+ 
+ #ifdef  CONFIG_PNX84XX
+     /* Configure controller timing */
++    switch (gFlashInfo.configstrap & RGU_CNFG_TRAPS_BOOT_DEV_SEL) {
++    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_SMALL_3CYCLE:
++    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_SMALL_4CYCLE:
++    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_SMALL_5CYCLE:
++    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_SMALL_3CYCLE:
++    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_SMALL_4CYCLE:
++    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_SMALL_5CYCLE:
++        /* 512 byte page size */
++        writel(0x00000000, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++        break;
++
++    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_LARGE_4CYCLE:
++    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_LARGE_5CYCLE:
++    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_LARGE_4CYCLE:
++    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_LARGE_5CYCLE:
++        /* 2048 byte page size */
++        writel(0x00000010, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++        break;
++
++    default:
++        printf("Unknown NAND page size - configstrap = 0x%x\n",
++               (int)gFlashInfo.configstrap);
++
++        /* Default to 2K page size if none is specified */
+     writel(0x00000010, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++        break;
++    }
++
++
+     writel(0x02644448, (nx_nc->ctrl_base + DEV_TIMING0_OFFSET));
+     writel(0x01008444, (nx_nc->ctrl_base + DEV_TIMING1_OFFSET));
+ #endif
+diff -Nauprb u-boot-2009.08.orig/lib_arm/flash.c u-boot-2009.08/lib_arm/flash.c
+--- u-boot-2009.08.orig/lib_arm/flash.c	2011-01-06 19:07:26.944141308 -0600
++++ u-boot-2009.08/lib_arm/flash.c	2011-01-06 19:09:37.308890052 -0600
+@@ -73,12 +73,9 @@ retcode_t check_uart_boot_sel(void);
+ retcode_t check_uart_boot_sel(void)
+ {
+    retcode_t ret = RETCODE_BOOTDEV_INVALID;  /* default booting device is a Flash */
+-   u_int32 lconfigstrapReg = INP32(RGU_CNFG_TRAPS_REG);
+-   
+-   gFlashInfo.configstrap = lconfigstrapReg;
+    
+    /* check config straps to see if UART boot over-ride is enabled  */
+-   if (!(lconfigstrapReg & RGU_CNFG_TRAPS_BOOT_UART_SEL) )
++   if (!(gFlashInfo.configstrap & RGU_CNFG_TRAPS_BOOT_UART_SEL) )
+    {
+        /* Throw error and return ---- boot from uart not supported for micro-loader */
+        return RETCODE_BOOTDEV_UART;
+diff -Nauprb u-boot-2009.08.orig/lib_arm/ldr_common.h u-boot-2009.08/lib_arm/ldr_common.h
+--- u-boot-2009.08.orig/lib_arm/ldr_common.h	2011-01-06 19:07:26.324639288 -0600
++++ u-boot-2009.08/lib_arm/ldr_common.h	2011-01-06 19:09:37.308890052 -0600
+@@ -99,6 +99,36 @@ static inline void delay(unsigned long l
+ #define RGU_CNFG_TRAPS_IO_MODE               (BIT_16_MSK)
+ #define RGU_CNFG_TRAPS_PCI_HOST              (BIT_23_MSK)
+ 
++#define RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_SMALL_4CYCLE   (0x00 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_SMALL_5CYCLE   (0x01 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_LARGE_4CYCLE   (0x02 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_LARGE_5CYCLE   (0x03 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_SMALL_4CYCLE    (0x04 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_SMALL_5CYCLE    (0x05 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_LARGE_4CYCLE    (0x06 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_LARGE_5CYCLE    (0x07 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_PCI                     (0x08 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_SMALL_3CYCLE   (0x09 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_SMALL_3CYCLE    (0x0b << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_SPI_16BIT               (0x0c << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_SPI_24BIT               (0x0d << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_SPI_32BIT               (0x0e << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X8_21BIT            (0x10 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X8_22BIT            (0x11 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X8_23BIT            (0x12 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X8_24BIT            (0x13 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X8_25BIT            (0x14 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X8_26BIT            (0x15 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X8_27BIT            (0x16 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X16_21BIT           (0x18 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X16_22BIT           (0x19 << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X16_23BIT           (0x1a << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X16_24BIT           (0x1b << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X16_25BIT           (0x1c << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X16_26BIT           (0x1d << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X16_27BIT           (0x1e << 1)
++#define RGU_CNFG_TRAPS_BOOT_DEV_NOR_X16_ADM             (0x1f << 1)
++
+ 
+ 
+ 

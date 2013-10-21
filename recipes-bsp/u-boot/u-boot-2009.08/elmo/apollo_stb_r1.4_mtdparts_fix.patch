@@ -1,0 +1,12 @@
+diff -Naurp u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08.new/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-11-15 23:14:30.000000000 -0600
++++ u-boot-2009.08.new/include/configs/vpe_apollo.h	2010-11-15 23:14:13.000000000 -0600
+@@ -266,7 +266,7 @@
+ #define CONFIG_BOOTARGS "noinitrd " \
+     "console=ttyS1,115200n8 "\
+     "${mtdparts} " \
+-    "root=/dev/mtdblock2 rw " \
++    "root=/dev/mtdblock3 rw " \
+     "rootfstype=jffs2"
+ 
+   #define MTDIDS_DEFAULT	NULL

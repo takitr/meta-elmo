@@ -1,0 +1,41 @@
+diff -Naur u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08_nand_trace/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-04-27 11:39:40.000000000 -0500
++++ u-boot-2009.08_nand_trace/include/configs/vpe_apollo.h	2010-04-27 10:09:09.000000000 -0500
+@@ -365,7 +365,7 @@
+ #define NAND_MAX_CHIPS          1
+ #define NAND_ChipID_UNKNOWN     0x00
+ #define SECTORSIZE          512
+-
++#define CONFIG_SYS_64BIT_VSPRINTF
+ /* UBIFS support */
+ #ifdef CONFIG_CMD_UBIFS
+ #define CONFIG_SYS_64BIT_VSPRINTF
+diff -Naur u-boot-2009.08/lib_arm/flash.c u-boot-2009.08_nand_trace/lib_arm/flash.c
+--- u-boot-2009.08/lib_arm/flash.c	2010-04-27 11:39:40.000000000 -0500
++++ u-boot-2009.08_nand_trace/lib_arm/flash.c	2010-04-27 09:01:40.000000000 -0500
+@@ -4,11 +4,11 @@
+ #        All rights are reserved. Reproduction in whole or in part is
+ #        prohibited without the written consent of the copyright owner.
+ #
+-#        Author   : Makarand Pawagi
++#        Author   : Karthik Murthy
+ #
+-#        Filename : nor.c
++#        Filename : Flash.c
+ #
+-#        Purpose  : NOR Support
++#        Purpose  : GCS/Flash Support for NOR/NAND/SFC
+ #===========================================================
+ */
+ 
+@@ -192,9 +192,8 @@
+       }
+       else if (FLASH_TYPE_NAND == eFlashtype){ 
+          puts("Boot Device: NAND Flash\r\n");
+-         env_name_spec = env_name_spec_nand;
+-         env_name_spec = env_name_spec_nand;
+          env_ptr = (env_t *)((ulong)0x0);
++         env_name_spec = env_name_spec_nand;
+          gEnv->init = env_init_nand;
+          gEnv->save = saveenv_nand;
+          gEnv->relocate_spec = env_relocate_spec_nand;

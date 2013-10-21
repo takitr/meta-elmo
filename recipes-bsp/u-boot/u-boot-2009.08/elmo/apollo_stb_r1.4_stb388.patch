@@ -1,0 +1,55 @@
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2011-07-25 17:44:02.000000000 +0800
++++ u-boot-2009.08-new/include/configs/vpe_apollo.h	2011-07-26 14:38:16.000000000 +0800
+@@ -206,6 +206,8 @@
+     #define CONFIG_USB_EHCI_PNX84XX
+     #define CONFIG_EHCI_HCD_INIT_AFTER_RESET
+     #define CONFIG_SUPPORT_VFAT
++    
++    #define CONFIG_CMD_ASKENV    
+ 
+ #ifdef CONFIG_CMD_NET
+     #define CONFIG_LIPP_6300ETH
+@@ -231,8 +233,8 @@
+  */
+ #define CONFIG_CMD_SAVEENV
+ #define CONFIG_ENV_IS_IN_FLASH
+-#define CONFIG_ENV_ADDR         SSBOOT_ENV_FLASH_OFFSET
+-#define CONFIG_ENV_OFFSET      SSBOOT_ENV_FLASH_OFFSET
++#define CONFIG_ENV_ADDR         0x00180000
++#define CONFIG_ENV_OFFSET       0x00180000
+ #define CONFIG_ENV_IS_IN_NAND
+ #define CONFIG_ENV_IS_IN_SFC
+ 
+@@ -267,8 +269,8 @@
+ #endif
+ 
+ #define CONFIG_EXTRA_ENV_SETTINGS                   \
+-    "norparts=mtdparts=nx_2016:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
+-    "norids=nor0=nx_2016\0" \
++    "mtdparts=mtdparts=nx_sfc:1024k@0k(uldr),512k@1024k(u-boot),128k@1536k(env),5m@1664k(kernel),-(extra);nx_2017:25m@0k(root),35m@25m(appfs),-(data)\0" \
++    "mtdids=sfc0=nx_sfc,nand0=nx_2017\0" \
+     "nandparts=mtdparts=nx_2017:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
+     "nandids=nand0=nx_2017\0" \
+     "sfcparts=mtdparts=nx_sfc:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),8m@7m(root),-(extra)\0" \
+@@ -278,14 +280,16 @@
+     "uboot=tftp 0x00008000 u-boot.bin; go 0x00008000\0"     \
+     "norboot=nor read 0x180000 0x500000; go 0x8000\0"    \
+     "nandboot=nand read 0x180000 0x500000; go 0x8000\0"    \
+-    "sfcboot=sfc read 0x180000 0x500000; go 0x8000\0"    \
+-    "bootcmd=run norboot;\0"
++    "sfcboot=sfc read 0x1a0000 0x500000; go 0x8000\0"    \
++    "uboot_cmdline=1\0"    \
++    "altflash=NAND\0"      \
++    "bootcmd=run sfcboot;\0"
+ 
+ #define CONFIG_BOOTARGS "noinitrd " \
+     "console=ttyS1,115200n8 "\
+-    "${mtdparts} " \
+-    "root=/dev/mtdblock3 rw " \
+-    "rootfstype=jffs2"
++    "mtdparts=nx_sfc:1024k@0k(uldr),512k@1024k(u-boot),128k@1536k(env),5m@1664k(kernel),-(extra);nx_2017:25m@0k(root),35m@25m(appfs),-(data) " \
++    "root=/dev/mtdblock1 rw " \
++    "rootfstype=jffs2 rootflags=noatime"
+ 
+   #define MTDIDS_DEFAULT	NULL
+ 

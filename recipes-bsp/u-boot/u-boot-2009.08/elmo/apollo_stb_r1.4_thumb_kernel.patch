@@ -1,0 +1,68 @@
+diff -Naurp u-boot-2009.08/common/cmd_boot.c u-boot-2009.08.new/common/cmd_boot.c
+--- u-boot-2009.08/common/cmd_boot.c	2010-11-30 00:46:06.000000000 -0600
++++ u-boot-2009.08.new/common/cmd_boot.c	2010-11-30 00:44:58.000000000 -0600
+@@ -71,8 +71,12 @@ int do_go (cmd_tbl_t *cmdtp, int flag, i
+ 		asm("LDR	r1, =0x85D") ;
+ 	//	asm("LDR	r4,=0xe06ead54") ;
+ 		asm("LDR	r2, =0x2000") ;
++#ifndef THUMB_MODE
+ 		asm("LDR	r3,=0x8000") ;
+-		asm("mov	pc, r3") ;
++#else
++		asm("LDR	r3,=0x8001") ;
++#endif
++		asm("bx         r3") ;
+ #else
+    patch_ataglist();
+ 	rc = do_go_exec ((void *)addr, 0x2000, MACH_TYPE);
+diff -Naurp u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/config.mk u-boot-2009.08.new/cpu/arm_cortexa8/pnx84xx/config.mk
+--- u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/config.mk	2010-11-30 00:46:08.000000000 -0600
++++ u-boot-2009.08.new/cpu/arm_cortexa8/pnx84xx/config.mk	2010-11-30 00:42:32.000000000 -0600
+@@ -29,6 +29,11 @@ else
+ PLATFORM_RELFLAGS += -msoft-float
+ endif
+ 
++ifeq ($(_TMMODE),thumb)
++PLATFORM_RELFLAGS += -DTHUMB_MODE
++PLATFORM_CPPFLAGS += -DTHUMB_MODE
++endif
++
+ # Make ARMv5 to allow more compilers to work, even though its v7a.
+ PLATFORM_CPPFLAGS += -march=armv5 -D__UBOOT__ -DSWCONFIG_INCL=1 
+ #PLATFORM_CPPFLAGS += -mcpu=cortex-a9 -mfpu=vfpv3-d16 -mfloat-abi=softfp -D__UBOOT__ -DSWCONFIG_INCL=1
+diff -Naurp u-boot-2009.08/lib_arm/bootm.c u-boot-2009.08.new/lib_arm/bootm.c
+--- u-boot-2009.08/lib_arm/bootm.c	2010-11-30 00:46:06.000000000 -0600
++++ u-boot-2009.08.new/lib_arm/bootm.c	2010-11-30 00:45:36.000000000 -0600
+@@ -119,13 +119,14 @@ int do_bootm_linux(int flag, int argc, c
+ 		//*((unsigned int*)0xe06ead54) = 0x2000 ;
+ 		
+ 		asm("mov	r0, #0x0") ;
+-		//asm("LDR	r4,=0xe06ead50") ;
+ 		asm("LDR	r1, =0x85D") ;
+-	//	asm("LDR	r4,=0xe06ead54") ;
+ 		asm("LDR	r2, =0x2000") ;
++#ifndef THUMB_MODE
+ 		asm("LDR	r3,=0x8000") ;
+-		asm("mov	pc, r3") ;
+-
++#else
++		asm("LDR	r3,=0x8001") ;
++#endif
++		asm("bx         r3") ;
+ 
+ 	/* we assume that the kernel is in place */
+ 	printf ("\nStarting kernel ...\n\n");
+diff -Naurp u-boot-2009.08/lib_arm/config.mk u-boot-2009.08.new/lib_arm/config.mk
+--- u-boot-2009.08/lib_arm/config.mk	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08.new/lib_arm/config.mk	2010-11-30 00:42:14.000000000 -0600
+@@ -46,6 +46,10 @@ PLATFORM_CPPFLAGS += $(call cc-option,\
+ 				) $(call cc-option,-mno-thumb-interwork,)\
+ 			)
+ 
++ifeq ($(_TMMODE),thumb)
++PLATFORM_CPPFLAGS += -DTHUMB_MODE
++endif
++
+ # For EABI, make sure to provide raise()
+ ifneq (,$(findstring -mabi=aapcs-linux,$(PLATFORM_CPPFLAGS)))
+ # This file is parsed several times; make sure to add only once.

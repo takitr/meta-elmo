@@ -1,0 +1,10 @@
+--- u-boot-2009.08/drivers/mtd/nand/nand_ids.c	2011-07-21 11:16:25.000000000 +0800
++++ u-boot-2009.08-new/drivers/mtd/nand/nand_ids.c	2011-07-28 14:27:21.000000000 +0800
+@@ -93,6 +93,7 @@
+  	{"NAND 128MiB 3,3V 8-bit",      0xD1, 0, 128, 0, LP_OPTIONS},
+ 	{"NAND 128MiB 1,8V 16-bit",	0xB1, 0, 128, 0, LP_OPTIONS16},
+ 	{"NAND 128MiB 3,3V 16-bit",	0xC1, 0, 128, 0, LP_OPTIONS16},
++	{"NAND 128MiB 3,3V 8-bit",	0xD1, 0, 128, 0, LP_OPTIONS | NAND_CACHEDREAD | NAND_SKIP_BBTSCAN},
+ 	{"NAND 128MiB 1,8V 16-bit",     0xAD, 0, 128, 0, LP_OPTIONS16},
+ 
+ 	/* 2 Gigabit */

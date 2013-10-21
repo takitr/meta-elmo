@@ -1,0 +1,21 @@
+diff --git a/include/configs/vpe_apollo.h b/include/configs/vpe_apollo.h
+index ccbdb1d..b03b3f6 100755
+--- a/include/configs/vpe_apollo.h
++++ b/include/configs/vpe_apollo.h
+@@ -238,6 +238,7 @@
+ #define CONFIG_ENV_OFFSET      SSBOOT_ENV_FLASH_OFFSET
+ #define CONFIG_ENV_IS_IN_NAND
+ #define CONFIG_ENV_IS_IN_SFC
++#define CONFIG_ENV_RANGE		SSBOOT_ENV_FLASH_RANGE
+ 
+ #if defined(CFG_ONENAND)
+ #undef  CONFIG_ENV_IS_NOWHERE
+@@ -279,7 +280,7 @@
+     "uboot_macaddr=1\0"    \
+     "uboot_cmdline=1\0"		\
+     "bootcmd=run nandboot\0"	\
+-    "ldver=1\0"	\
++    "ldver=2\0"	\
+     "hwver=1\0"	\
+     "videomode=PAL\0"
+ #if 0

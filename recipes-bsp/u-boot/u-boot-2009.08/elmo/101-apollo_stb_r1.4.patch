@@ -1,0 +1,48 @@
+diff -Naur u-boot-2009.08/drivers/net/Makefile u-boot-2009.08.new/drivers/net/Makefile
+--- u-boot-2009.08/drivers/net/Makefile	2009-11-05 12:33:34.000000000 -0600
++++ u-boot-2009.08.new/drivers/net/Makefile	2009-11-05 12:17:52.000000000 -0600
+@@ -25,6 +25,8 @@
+ 
+ LIB	:= $(obj)libnet.a
+ 
++$(shell mkdir -p $(obj)/lipp_6300eth)
++
+ COBJS-$(CONFIG_DRIVER_3C589) += 3c589.o
+ COBJS-$(CONFIG_PPC4xx_EMAC) += 4xx_enet.o
+ COBJS-$(CONFIG_DRIVER_AX88180) += ax88180.o
+diff -Naur u-boot-2009.08/lib_arm/board.c u-boot-2009.08.new/lib_arm/board.c
+--- u-boot-2009.08/lib_arm/board.c	2009-11-05 12:33:34.000000000 -0600
++++ u-boot-2009.08.new/lib_arm/board.c	2009-11-05 11:12:03.000000000 -0600
+@@ -128,23 +128,23 @@
+  * May be supplied by boards if desired
+  */
+ void inline __coloured_LED_init (void) {}
+-void inline coloured_LED_init (void) __attribute__((weak, alias("__coloured_LED_init")));
++void coloured_LED_init (void) __attribute__((weak, alias("__coloured_LED_init")));
+ void inline __red_LED_on (void) {}
+-void inline red_LED_on (void) __attribute__((weak, alias("__red_LED_on")));
++void red_LED_on (void) __attribute__((weak, alias("__red_LED_on")));
+ void inline __red_LED_off(void) {}
+-void inline red_LED_off(void)	     __attribute__((weak, alias("__red_LED_off")));
++void red_LED_off(void)	     __attribute__((weak, alias("__red_LED_off")));
+ void inline __green_LED_on(void) {}
+-void inline green_LED_on(void) __attribute__((weak, alias("__green_LED_on")));
++void green_LED_on(void) __attribute__((weak, alias("__green_LED_on")));
+ void inline __green_LED_off(void) {}
+-void inline green_LED_off(void)__attribute__((weak, alias("__green_LED_off")));
++void green_LED_off(void)__attribute__((weak, alias("__green_LED_off")));
+ void inline __yellow_LED_on(void) {}
+-void inline yellow_LED_on(void)__attribute__((weak, alias("__yellow_LED_on")));
++void yellow_LED_on(void)__attribute__((weak, alias("__yellow_LED_on")));
+ void inline __yellow_LED_off(void) {}
+-void inline yellow_LED_off(void)__attribute__((weak, alias("__yellow_LED_off")));
++void yellow_LED_off(void)__attribute__((weak, alias("__yellow_LED_off")));
+ void inline __blue_LED_on(void) {}
+-void inline blue_LED_on(void)__attribute__((weak, alias("__blue_LED_on")));
++void blue_LED_on(void)__attribute__((weak, alias("__blue_LED_on")));
+ void inline __blue_LED_off(void) {}
+-void inline blue_LED_off(void)__attribute__((weak, alias("__blue_LED_off")));
++void blue_LED_off(void)__attribute__((weak, alias("__blue_LED_off")));
+ 
+ /************************************************************************
+  * Init Utilities							*

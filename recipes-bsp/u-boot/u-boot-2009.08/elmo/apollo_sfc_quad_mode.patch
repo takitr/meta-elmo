@@ -1,0 +1,337 @@
+diff -Naur u-boot-2009.08/drivers/mtd/sfc/nx_sfc.c u-boot-2009.08_new/drivers/mtd/sfc/nx_sfc.c
+--- u-boot-2009.08/drivers/mtd/sfc/nx_sfc.c	2010-12-16 17:29:18.292150000 +0530
++++ u-boot-2009.08_new/drivers/mtd/sfc/nx_sfc.c	2010-12-16 16:58:55.648618000 +0530
+@@ -42,6 +42,9 @@
+ #define OPCODE_CHIP_ERASE   0xc7    /* Erase whole flash chip */
+ #define OPCODE_SE           0xd8    /* Sector erase (usually 64KiB) */
+ #define OPCODE_RDID         0x9f    /* Read JEDEC ID */
++#ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++#define OPCODE_QUADIO_READ 0xeb  /* fast read quad I/O */
++#endif
+ 
+ /* Status Register bits. */
+ #define SR_WIP              1   /* Write in progress */
+@@ -58,8 +61,8 @@
+ 
+ #define CMD_SIZE            4
+ 
+-#ifdef CONFIG_M25PXX_USE_FAST_READ
+-#define OPCODE_READ     OPCODE_FAST_READ
++#ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++#define OPCODE_READ  OPCODE_QUADIO_READ
+ #define FAST_READ_DUMMY_BYTE 1
+ #else
+ #define OPCODE_READ     OPCODE_NORM_READ
+@@ -95,6 +98,72 @@
+ /* IP2070 GCS: SFC Routines                                                 */
+ /****************************************************************************/
+ 
++/*
++  * for fast read quad I/O operations
++  */
++#ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++ssize_t nx_sfc_read_quad(struct nx_sfc_ctrl *flash)
++{
++	u32 cnt, round_len =0; 
++	unsigned long *buf_base, buf_store;
++	u8 *buf_ptr =flash->cd.buffer;
++	u8 *mem_buf_ptr = (u8*)&buf_store;
++
++	/* Program the Pin Configuration Register */
++ 	writel( SFC_PIN_CONFIG_QUAD_READ, flash->mmio_base+IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_REG); 
++
++	round_len = flash->cd.length % 4;
++	if(round_len)
++	{
++	      round_len = flash->cd.length + (4 - round_len);
++	      writel(round_len,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++	}
++	else
++		writel(flash->cd.length,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++
++	if ((flash->cd.offset >= SZ_16M) && (flash->info.jedec_id == 0xc22019))
++	{
++	      nx_sfc_32b_en(flash);
++	}
++	else
++	{	 /* Program the protocol delay regsister */
++		writel( SFC_PROTCOL_DELAY_QUADRD, flash->mmio_base+IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG); 
++	}
++	writel( SFC_CSR_QUAD_READ, flash->mmio_base+IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++	/* Program the SPI Clock Configuration Register */
++       writel(0x0, flash->mmio_base+ IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_REG); 	
++	/* Program the Device Command Register with Quad read command */
++	writel( SFC_DEV_CMD_QUAD_READ, flash->mmio_base+IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++  
++	buf_base = (( unsigned long *)(flash->io_base+flash->cd.offset));
++	for (cnt=0;cnt<flash->cd.length/4; cnt++)
++	{
++		buf_store=readl(buf_base);
++		memcpy(buf_ptr, mem_buf_ptr, 4);
++		buf_base++;
++		buf_ptr +=0x04;
++	}
++
++	if(flash->cd.length%4)
++	{
++		buf_store = readl(buf_base);
++		memcpy(buf_ptr, mem_buf_ptr, flash->cd.length%4);
++	}
++	/* Set the default settings */
++	writel( SFC_PIN_CONFIG_DEFAULT, flash->mmio_base+IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_REG); 
++       writel(0x01, flash->mmio_base+ IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_REG); 	
++    	if((flash->cd.offset >= SZ_16M) && (flash->info.jedec_id == 0xc22019))
++    	{
++      		nx_sfc_32b_dis(flash);
++    	}
++	else
++	{
++ 		writel( SFC_PROTOCOL_DELAY_VAL_24B, flash->mmio_base+IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);		
++	}   	   
++	return flash->cd.length;
++
++}
++#endif
+ ssize_t nx_sfc_prefetch_read(struct nx_sfc_ctrl *flash) 
+ {
+ 
+@@ -295,7 +364,11 @@
+     writel(0xB70D0203, flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
+     nx_sfc_wait(flash->mmio_base);
+     status = nx_sfc_read_RSCUR(flash->mmio_base);
++   #ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++   writel(SFC_PROTOCOL_DELAY_QUADVAL_32B,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++   #else
+     writel(SFC_PROTOCOL_DELAY_VAL_32B,flash->mmio_base + IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++   #endif
+ }
+ 
+ void nx_sfc_32b_dis(struct nx_sfc_ctrl *flash)
+@@ -355,6 +428,25 @@
+     return status;
+ }
+ 
++/*
++ *nx_sfc_status2_read : to read status register 2 for Winbond serial flash
++ */
++
++#if 0  
++u32 nx_sfc_status2_read(void __iomem *sfc_regs)
++{	
++	u32 status=0;
++	writel( 0xa900001b, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_PIN_CONFIG_REG); 
++	writel( 0x10008000, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG); 
++	writel(0x00000007, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++	writel(0x01, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++	writel(0x350D0203, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++	nx_sfc_wait(sfc_regs);
++	status= readl(sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR0_DATA_REG);
++	return status;		
++}
++
++#endif
+ void nx_sfc_write_sr(void __iomem * sfc_regs)
+ {
+ 
+@@ -379,6 +471,45 @@
+     while (status & 0x10000);
+ }
+ 
++
++void nx_sfc_reset(void __iomem * sfc_regs)
++{
++   u32 tmp=100;	
++   writel(0x80000000,sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG); 
++   do{
++   	tmp=tmp-1;	
++   }
++   while(tmp>0);
++   writel(0x00000000,sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_CSR_REG); 
++   return;
++}
++
++void nx_sfc_set_quad_bit(void __iomem *sfc_regs)
++{
++	nx_sfc_write_en(sfc_regs);
++	writel(0x00020005, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++	writel(0x10000000, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++	writel(0x00002000, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++	writel(0x00000200, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR0_DATA_REG);
++	writel(0x00000000, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR1_DATA_REG);
++	writel(0x010D0203, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++	nx_sfc_wait(sfc_regs);
++}
++
++
++void nx_sfc_reset_quad_bit(void __iomem *sfc_regs)
++{
++	nx_sfc_reset(sfc_regs);
++	nx_sfc_write_en(sfc_regs);
++	writel(0x00020005, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_CSR_REG);
++	writel(0x10000000, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_PROTOCOL_DELAY_REG);
++	writel(0x00002000, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_TX_RX_DATA_CNT_REG);
++	writel(0x00000000, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR0_DATA_REG);
++	writel(0x00000000, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_SP_CMD_RD_WR1_DATA_REG);
++	writel(0x010D0203, sfc_regs+IPBGCSFLSHNTWK_SFC_SFC_DEVICE_CMD_REG);
++	nx_sfc_wait(sfc_regs);
++}
++
+ void nx_sfc_init(void __iomem * sfc_regs)
+ {  
+     u32 mask;
+@@ -392,6 +523,9 @@
+ 
+     writel(IPBGCSFLSHNTWK_SFC_SFC_CSR_SPI_EN_RW,
+             sfc_regs + IPBGCSFLSHNTWK_SFC_SFC_SCK_CSR_REG); 
++    #ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++    nx_sfc_set_quad_bit(sfc_regs);
++    #endif
+     return;
+ }
+ 
+@@ -647,12 +781,16 @@
+     }
+     else
+     {
++       #ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++		nx_sfc_read_quad(flash);
++	#else
+ #ifdef SFC_DMAC_ENABLE
+         if (page_size == FLASH_PAGESIZE)
+             nx_sfc_read(flash);
+         else
+ #endif
+             nx_sfc_prefetch_read(flash);
++	#endif
+     }
+ }
+ /*
+@@ -701,6 +839,17 @@
+     /* Set up the write data buffer. */
+     flash->cd.command[0] = OPCODE_READ;
+ 
++#ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++    for (i = 0, pgoffset = 0; i < len; i += page_size, pgoffset += page_size) 
++   {
++      page_size = len - i;
++
++      if (page_size > FLASH_PAGESIZE)
++         page_size = FLASH_PAGESIZE;
++
++      sfc_sync(flash, from, buf, page_size, pgoffset, 0);
++   }
++#else
+     /* write everything in PAGESIZE chunks */
+     for (i = 0, pgoffset = 0; i < len; i += page_size, pgoffset += page_size) 
+     {
+@@ -711,6 +860,7 @@
+ 
+         sfc_sync(flash, from, buf, page_size, pgoffset, 0);
+     }
++#endif
+ 
+     if (retlen)
+         *retlen = len;
+@@ -940,6 +1090,9 @@
+     struct sfc_flash_info   *info;
+     unsigned        i;
+     //      int err;
++#ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++   void __iomem *io_regs =NULL;
++#endif
+     void __iomem *mmio_regs = NULL;
+ 
+     /* Get MMIO registers resource */
+@@ -953,6 +1106,9 @@
+         }
+     }
+     mmio_regs = (void __iomem *) KSEG1ADDR(PNX8XXX_SFC_BASE);
++	#ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++    io_regs = (void __iomem *) KSEG1ADDR(NX_GCS_SFC_DCSN_BASE);
++	#endif
+     nx_sfc_init(mmio_regs);
+     sfc->nx_sfc = flash;
+ #ifdef SFC_DMAC_ENABLE
+@@ -971,6 +1127,9 @@
+     flash->mtd.read = nx_sfc_mtd_read;
+     flash->mtd.write = nx_sfc_mtd_write;
+     flash->mmio_base = mmio_regs;
++    #ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++    flash->io_base = io_regs;
++    #endif
+     flash->mtd.priv = sfc;
+ 
+ 
+diff -Naur u-boot-2009.08/drivers/mtd/sfc/nx_sfc.h u-boot-2009.08_new/drivers/mtd/sfc/nx_sfc.h
+--- u-boot-2009.08/drivers/mtd/sfc/nx_sfc.h	2010-12-16 17:29:18.295149000 +0530
++++ u-boot-2009.08_new/drivers/mtd/sfc/nx_sfc.h	2010-12-16 15:33:06.834327000 +0530
+@@ -1,6 +1,7 @@
+ #ifndef NX_SFC_FLASH_H
+ #include "ldr_types.h"
+ 
++#define NX_GCS_SFC_DCSN_BASE	(0xc0000000)
+ #define NX_SFC_FLASH_H
+ #define PNX8XXX_SFC_BASE        (PNX84XX_GCS_BASE + PNX84XX_GCS_SPI_OFSET )
+ #define IPBGCSFLSHNTWK_BASE 0x0
+@@ -384,11 +385,16 @@
+ #define IPBGCSFLSHNTWK_SFC_MODULE_ID_REG  (0xfc)
+ 
+ //#define SFC_PROTCOL_DELAY_READ    0x10008000
++#define SFC_PROTCOL_DELAY_QUADRD 	0x10008006
+ //#define SFC_PROTOCL_DELAY_WRITE   0x10038000
++#define SFC_PIN_CONFIG_DEFAULT       0xa900001b
++#define SFC_PIN_CONFIG_QUAD_READ  0xa9001a1b
+ #define SFC_PROTOCOL_DELAY_VAL_16B  0x00038000
+ #define SFC_PROTOCOL_DELAY_VAL_24B  0x10038000
+ #define SFC_PROTOCOL_DELAY_VAL_32B  0x20038000
++#define SFC_PROTOCOL_DELAY_QUADVAL_32B  0x20038006
+ #define SFC_CSR_READ                0x0000027
++#define SFC_CSR_QUAD_READ     0x000000e7
+ #define SFC_CSR_WRITE               0x00420001
+ #define SFC_CSR_ERASE               0x20001
+ #define SFC_CSR_WREN                0x67
+@@ -396,6 +402,7 @@
+ #define SFC_CSR_READ_STATUS         0x7
+ #define SFC_CSR_WRITE_STATUS        0x20001
+ #define SFC_DEV_CMD_READ            0x03850203 
++#define SFC_DEV_CMD_QUAD_READ 0x000c02eb
+ #define SFC_DEV_CMD_WRITE           0x02810203
+ #define SFC_DEV_CMD_ERASE           0xD8810203
+ #define SFC_DEV_CMD_WREN            0x060D0203
+@@ -455,6 +462,9 @@
+     u8                      erase_opcode;
+     struct cmd_data         cd;
+     void __iomem        *mmio_base;
++	#ifdef CONFIG_MTD_NX_SFC_QUAD_MODE
++   	void __iomem		*io_base;
++   	#endif
+ };
+ 
+ struct nx_sfc_drv{
+diff -Naur u-boot-2009.08/lib_arm/ip2070gcs.c u-boot-2009.08_new/lib_arm/ip2070gcs.c
+--- u-boot-2009.08/lib_arm/ip2070gcs.c	2010-12-16 17:29:18.265160000 +0530
++++ u-boot-2009.08_new/lib_arm/ip2070gcs.c	2010-12-16 17:06:29.585889000 +0530
+@@ -101,6 +101,8 @@
+                      writel(NX_GCS_SFC_AHB_BUF, IPBGCSFLSHNTWK_AHB_DMA_SFC_BASE_ADDR_REG);
+                      writel(NX_GCS_NOR_AHB_BUF, IPBGCSFLSHNTWK_AHB_DMA_NOR_BASE_ADDR_REG);
+                      writel(CSn, IPBGCSFLSHNTWK_SFC_CS_ROUTE_REG);
++					 writel(NX_GCS_SFC_DCSN_BASE, IPBGCSFLSHNTWK_AHB_DSCN_SFC_BASE_ADDR_REG);
++					 writel(NX_GCS_ISA_DCSN_BASE, IPBGCSFLSHNTWK_AHB_DSCN_ISA_BASE_ADDR_REG);
+ #ifdef SPI_CS2
+                      writel(GCS_SPI_CSROUTE_CS2, IPBGCSFLSHNTWK_NOR_CS_ROUTE_REG);
+ #endif
+diff -Naur u-boot-2009.08/lib_arm/ip2070gcs.h u-boot-2009.08_new/lib_arm/ip2070gcs.h
+--- u-boot-2009.08/lib_arm/ip2070gcs.h	2010-12-16 17:29:18.268162000 +0530
++++ u-boot-2009.08_new/lib_arm/ip2070gcs.h	2010-12-16 17:06:49.950275000 +0530
+@@ -82,9 +82,11 @@
+ #define NX_GCS_NAND_APERTURE        (0x3FFFFFFF)
+ 
+ #define NX_GCS_ISA_CS_ROUTE        (0x5C)
++#define NX_GCS_ISA_DCSN_BASE	(0xc8000000)
+ 
+ /* SFC */
+ #define NX_GCS_SFC_AHB_BUF   (0x80000000) /* Use this AHD address when doing DMA */
++#define NX_GCS_SFC_DCSN_BASE	(0xc0000000)
+ 
+ typedef struct _gcs_global_info {
+ 	devicetype_t  flashBootDev;

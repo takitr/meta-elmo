@@ -1,0 +1,350 @@
+diff --git a/board/nxp/vpe_apollo/vpe_apollo.c b/board/nxp/vpe_apollo/vpe_apollo.c
+index f4e2254..b84a2a9 100755
+--- a/board/nxp/vpe_apollo/vpe_apollo.c
++++ b/board/nxp/vpe_apollo/vpe_apollo.c
+@@ -115,7 +115,7 @@ u32 temp2;
+ u32 temp3;
+ u32 temp4;
+ 
+-
++#ifndef UPDATE_MODE
+ static u32 osg_palette[256]={
+         0x00000000, //   0   0   0 
+         0x00FFFFFF, // 255 255 255 
+@@ -1605,6 +1605,7 @@ void test_osd_showlogo(u32 i)
+ 	CSBL_OSD_SetPalette(128,0xff,0x00,00);
+ 	CSBL_OSD_Init(i,header_data,0);
+ }
++#endif
+ 
+ void board_config();
+ void SetWatchDogTime(int bEnable,int sec);
+@@ -2410,9 +2411,10 @@ int check_nand_update()
+ 	struct part_info *part;
+ 	nand_info_t *nand;
+ 	const char *fit_uname = NULL;
+-	
++	int len = 0;	
+ 	ulong size=1048640;
+ 	u8 pnum;
++	nand_erase_options_t opts;
+ 
+ 	if ((mtdparts_init() == 0) && (find_dev_and_part("update", &dev, &pnum, &part) == 0))
+ 	{
+@@ -2428,17 +2430,26 @@ int check_nand_update()
+ 	image_header_t	*hdr;
+ 
+ 	hdr = (image_header_t *)addr;
+-
+ 	if (!image_check_magic (hdr)) 
+ 	{
+-		puts ("Bad magic number\n");
++		puts ("Bad magic number! \n");
+ 		return -1;
+ 	}
+ 	if (!image_check_hcrc (hdr)) {
+-		puts ("Bad header crc\n");
++		puts ("Bad header crc! \n");
++		return -1;
++	}
++	len = image_get_data_size (hdr) + image_get_header_size();
++
++	nand_read_skip_bad(nand, part->offset, &len,(u_char *)addr);
++	if (!image_check_dcrc (hdr)) {
++		puts ("Bad Data CRC! \n Erase update data\n");
++		memset(&opts, 0, sizeof(opts));
++		opts.offset = part->offset;
++		opts.length = len;
++		nand_erase_opts(nand, &opts);
+ 		return -1;
+ 	}
+-	
+ 	writeVFD("Update   ");
+ 	SetWatchDogTime(FALSE,0);
+ 	source(0x8040,fit_uname);
+diff --git a/tools/mkupdateimage.c b/tools/mkupdateimage.c
+index 3aa1aa1..a7252cf 100644
+--- a/tools/mkupdateimage.c
++++ b/tools/mkupdateimage.c
+@@ -9,42 +9,18 @@
+ 
+ #include "mkupdateimage.h"
+ #include <image.h>
+-#include <stdio.h>
+-#include <string.h>
+-#include <sys/types.h>
+-#include <sys/stat.h>
+-#include <dirent.h>
+-#include <stdlib.h>
+-#include <unistd.h>
+-#include <time.h>
+-#include <term.h>
++
+ 
+ extern	unsigned long	crc32 (unsigned long crc, const char *buf, unsigned int len);
+ static	void		copy_file (int, const char *);
+ static	void		usage (void);
+ 
+-#define FILENAME_SIZE	256
+ #define PATH_LENGTH 200
+-#define FILEINFO 	struct file_info
+ 
+ int opt_os   = IH_OS_LINUX;
+ int opt_arch = IH_ARCH_PPC;
+-int opt_type = IH_TYPE_KERNEL;
+-int opt_comp = IH_COMP_GZIP;
+-
+-struct file_info{
+-	char filename[FILENAME_SIZE+1];
+-	unsigned long inode;
+-	unsigned long mode;
+-	unsigned long nlink;
+-	unsigned long uid;
+-	unsigned long gid;
+-	unsigned long size;
+-	unsigned long offset;
+-	time_t atime;
+-	unsigned long blocks;
+-	struct file_info *next;
+-};
++int opt_type = IH_TYPE_MULTI;
++int opt_comp = IH_COMP_NONE;
+ 
+ char	*imagefile="update.img";
+ char	*cmdname;
+@@ -96,13 +72,6 @@ main (int argc, char **argv)
+ 	while (--argc > 0 && **++argv == '-') {
+ 		while (*++*argv) {
+ 			switch (**argv) {
+-			case 'd' :
+-			{
+-				if (--argc <= 0)
+-					usage();
+-				strncpy(path,*++argv,PATH_LENGTH-1);
+-				seek_dir(path);
+-			}
+ 			case 'i' :
+ 			{
+ 				if (--argc <= 0)
+@@ -119,7 +88,10 @@ main (int argc, char **argv)
+ 				merge_script(ifd, file_name);
+ 				goto NXTARG;
+ 			}
+-
++			default :
++				printf("\ninvalid option. \n");
++				usage();
++				break;
+ 			}
+ 		}
+ NXTARG:		;
+@@ -186,209 +158,6 @@ NXTARG:		;
+ 
+ 	exit (EXIT_SUCCESS);	
+ }
+-
+-void save_long(FILEINFO **list_head,struct stat *cur_stat,struct dirent *cur_dir)
+-{
+-	FILEINFO *cur_list=(*list_head);
+-	
+-	if( *list_head != NULL)
+-		while( cur_list->next != NULL)
+-			cur_list = cur_list->next;
+-        
+-			if( (*list_head) == NULL){
+-                cur_list = (FILEINFO *)malloc(sizeof(FILEINFO));
+-                cur_list->next = NULL;
+-                *list_head = cur_list;
+-			}else{
+-                cur_list->next = (FILEINFO *)malloc(sizeof(FILEINFO));
+-				cur_list = cur_list->next;
+-                cur_list->next = NULL;
+-			}
+-			
+-			
+-			cur_list->inode = cur_stat->st_ino;
+-			cur_list->mode = cur_stat->st_mode;
+-			strcpy(cur_list->filename ,cur_dir->d_name);
+-			
+-			//hard-link
+-			cur_list->nlink = cur_stat->st_nlink;
+-			
+-			//User ID  
+-			cur_list->uid = cur_stat->st_uid;
+-			
+-			//Group ID
+-			cur_list->gid = cur_stat->st_gid;
+-			
+-			//File Size 
+-			cur_list->size = cur_stat->st_size;
+-			
+-			cur_list->atime = cur_stat->st_atime;
+-			
+-			cur_list->blocks = cur_stat->st_blocks;
+-}               
+-
+-void print_long(FILEINFO *list_head)
+-{
+-	FILEINFO *cur_list;
+-	unsigned long tmp_perm;
+-	struct tm *tm_ptr;
+-	int i;
+-	
+-	cur_list = list_head;
+-	
+-	while(cur_list != NULL){
+-		tmp_perm = cur_list->mode;
+-		
+-		if(S_ISREG(cur_list->mode)){
+-			if(cur_list->mode & 01001001)
+-				printf("%c[1;32m",27);
+-			else
+-				printf("%c[0m",27);
+-			
+-			printf("REG  ");
+-		}else if(S_ISDIR(cur_list->mode)){
+-			printf("%c[1;34m",27);
+-			printf("DIR  ");
+-		}else if(S_ISCHR(cur_list->mode)){
+-			printf("%c[1;37m",27);
+-			printf("CHR  ");
+-		}else if(S_ISBLK(cur_list->mode)){
+-			printf("%c[1;33m",27);
+-			printf("BLK  ");
+-		}else if(S_ISFIFO(cur_list->mode)){
+-			printf("%c[1;37m",27);		
+-			printf("FIFO ");
+-		}else if(S_ISLNK(cur_list->mode)){
+-			printf("%c[1;36m",27);
+-			printf("LNK  ");
+-		}else if(S_ISSOCK(cur_list->mode)){
+-			printf("%c[1;35m",27);
+-			printf("SOCK ");
+-		}
+-	
+-		//Permission
+-		for(i=0;i<3;i++)
+-		{
+-			if(tmp_perm & S_IRUSR)
+-				printf("r");
+-			else
+-				printf("-");
+-			
+-			if(tmp_perm & S_IWUSR)
+-				printf("w");
+-			else
+-				printf("-");
+-			
+-			if(tmp_perm & S_IXUSR)
+-				printf("x");
+-			else
+-				printf("-");
+-			
+-			tmp_perm <<=3;
+-		}
+-		
+-		//hard-link
+-		printf(" %2u",(unsigned int)cur_list->nlink);
+-		
+-		//User ID
+-		printf(" %5u",(unsigned int)cur_list->uid);
+-		
+-		//Group ID
+-		printf(" %5u",(unsigned int)cur_list->gid);
+-		
+-		//File Size
+-		printf(" %12u",(unsigned int)cur_list->size);
+-		
+-		tm_ptr = gmtime(&cur_list->atime);
+-		printf(" %02d/%02d/%2d %02d:%02d",tm_ptr->tm_year%100,tm_ptr->tm_mon,tm_ptr->tm_mday,tm_ptr->tm_hour,tm_ptr->tm_min);
+-		
+-		printf("%5u",(unsigned int)cur_list->blocks);
+-		
+-		printf(" %s",cur_list->filename);
+-		
+-		printf("\n");
+-		cur_list = cur_list->next;
+-	}
+-}
+-
+-void free_list(FILEINFO *list_head){
+-	FILEINFO *tmp_list;
+-	
+-	while(list_head != NULL){
+-		tmp_list = list_head;
+-		list_head = list_head->next;
+-		free(tmp_list);
+-	}
+-}
+-
+-void sort_list(FILEINFO *list_head){	
+-	FILEINFO *tmp_list_left;
+-	FILEINFO *tmp_list_right;
+-	
+-	FILEINFO tmp_list;
+-	FILEINFO *tmp_listp;
+-	
+-	
+-	if( list_head == NULL )
+-		return ;
+-	
+-	if( list_head->next == NULL)
+-		return ;
+-	
+-	tmp_list_left = list_head;
+-	tmp_list_right = list_head->next;
+-	
+-	
+-	while( tmp_list_left->next != NULL){
+-		
+-		while(tmp_list_right != NULL){
+-			
+-			if( strcmp(tmp_list_left->filename,tmp_list_right->filename) >0 ){	
+-				memcpy(&tmp_list , tmp_list_left,sizeof(FILEINFO));
+-				memcpy(tmp_list_left , tmp_list_right,sizeof(FILEINFO));
+-				memcpy(tmp_list_right , &tmp_list,sizeof(FILEINFO));
+-				tmp_listp = tmp_list_left->next;
+-				tmp_list_left->next = tmp_list_right->next;
+-				tmp_list_right->next = tmp_listp;
+-			}
+-			
+-			tmp_list_right = tmp_list_right->next;
+-		}
+-		tmp_list_left = tmp_list_left->next;
+-		tmp_list_right = tmp_list_left->next;
+-	}
+-}
+-
+-
+-
+-void
+-seek_dir(char * dir)
+-{
+-	DIR *dp;
+-	struct dirent *entry;
+-	struct stat tmp_stat;
+-	FILEINFO *tmp_list;
+-	FILEINFO *list_head;
+-	list_head = NULL;
+-
+-	if((dp = opendir(dir)) == NULL)
+-	{
+-		fprintf(stderr,"directory open error: %s\n",dir);
+-		return;
+-	}
+-	while((entry = readdir(dp)) != NULL)
+-	{
+-		lstat(entry->d_name, &tmp_stat);
+-		save_long(&list_head,&tmp_stat,entry);
+-	}	
+-	sort_list(list_head);
+-	print_long(list_head);
+-	tmp_list = list_head;
+-	chdir("..");
+-	
+-	closedir(dp);
+-	free_list(list_head);
+-}
+ static void
+ copy_file (int ifd, const char *datafile)
+ {

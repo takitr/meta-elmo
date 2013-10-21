@@ -1,0 +1,203 @@
+diff -Naupr u-boot-2009.08.orig/drivers/mtd/nand/nx_nand_ip2070.c u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c
+--- u-boot-2009.08.orig/drivers/mtd/nand/nx_nand_ip2070.c	2011-01-20 11:09:58.957688223 -0600
++++ u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c	2011-01-20 18:24:35.373420494 -0600
+@@ -48,7 +48,6 @@ extern gcs_global_info gFlashInfo;
+ #define DBG_PRINT(x)
+ #endif
+ 
+-
+ /**
+  *      OOB structure
+  */
+@@ -602,27 +601,6 @@ static void nand_write_page(struct mtd_i
+  * NAND chip specific functions
+  --------------------------------------------------------------------------------------*/
+ /**
+- * nx_nand_select_chip - Enable or Disable chip
+- * @mtd: MTD information structure
+- * @chipnr: Chip number
+- *
+- * Enable the chip if it chipnr >= 0, else disable the chip
+- */
+-static void nx_nand_select_chip(struct mtd_info *mtd, int chipnr)
+-{
+-    struct nand_chip *chip= mtd->priv;
+-    struct nx_nand_ctrl *nc = chip->priv;
+-
+-    if (chipnr == -1) {
+-        return;
+-    }
+-
+-    /* Store the value in nand control structure
+-     * Chip enable/disable done in command function */
+-    nc->slotid = chipnr;
+-}
+-
+-/**
+  * nx_nand_dev_ready - Check device ready
+  * @mtd: MTD information structure
+  *
+@@ -983,6 +961,69 @@ static void nx_nand_command_lp(struct mt
+ }
+ 
+ /**
++ * nx_nand_select_chip - Enable or Disable chip
++ * @mtd: MTD information structure
++ * @chipnr: Chip number
++ *
++ * Enable the chip if it chipnr >= 0, else disable the chip
++ */
++static void nx_nand_select_chip(struct mtd_info *mtd, int chipnr)
++{
++    static int initted = 0;
++    struct nand_chip *chip= mtd->priv;
++    struct nx_nand_ctrl *nc = chip->priv;
++    int page, oob;
++
++    if ((initted == 0) && (mtd->writesize != 0)) {
++        switch (mtd->writesize) {
++        case 512:
++            page = 512;
++            oob = 16;
++            nx_nc->lb_chip = 0;
++            chip->cmdfunc = nx_nand_command;
++            chip->ecc.layout = &nx_nand_oob_16;
++            writel(0x00000000, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++            break;
++
++        case 2048:
++            page = 2048;
++            oob = 64;
++            nx_nc->lb_chip = 1;
++            chip->cmdfunc = nx_nand_command_lp;
++            chip->ecc.layout = &nx_nand_oob_64;
++            writel(0x00000010, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++            break;
++
++        case 4096:
++            page = 4096;
++            oob = 128;
++            nx_nc->lb_chip = 1;
++            chip->cmdfunc = nx_nand_command_lp;
++            chip->ecc.layout = &nx_nand_oob_128;
++            writel(0x00000020, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++            break;
++
++        default:
++            printf("Invalid page configuration %d\n", mtd->writesize);
++            return;
++        }
++
++        nx_nc->num_blks = page >> 9;
++        nx_nc->page_size = page;
++        nx_nc->oob_size = oob;
++
++        initted = 1;
++    }
++    if (chipnr == -1) {
++        return;
++    }
++
++    /* Store the value in nand control structure
++     * Chip enable/disable done in command function */
++    nc->slotid = chipnr;
++}
++
++/**
+  * nx_nand_block_bad - Read bad block marker from the chip
+  * @mtd:        MTD device structure
+  * @ofs:        offset from device start
+@@ -1065,7 +1106,7 @@ static int nx_nand_verify_buf(struct mtd
+  */
+ int board_nand_init(struct nand_chip *chip)
+ {
+-    uint32_t mod_config, dev_type, page_size;
++    uint32_t mod_config, dev_type;
+     uint32_t type0;
+     int page, oob;
+     int ret;
+@@ -1083,36 +1124,6 @@ int board_nand_init(struct nand_chip *ch
+     nx_nc->ctrl_base = (void __iomem *) KSEG1ADDR(PNX8XXX_EFM_BASE);
+ 
+ #ifdef  CONFIG_PNX84XX
+-    /* Configure controller timing */
+-    switch (gFlashInfo.configstrap & RGU_CNFG_TRAPS_BOOT_DEV_SEL) {
+-    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_SMALL_3CYCLE:
+-    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_SMALL_4CYCLE:
+-    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_SMALL_5CYCLE:
+-    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_SMALL_3CYCLE:
+-    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_SMALL_4CYCLE:
+-    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_SMALL_5CYCLE:
+-        /* 512 byte page size */
+-        writel(0x00000000, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
+-        break;
+-
+-    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_LARGE_4CYCLE:
+-    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X8_LARGE_5CYCLE:
+-    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_LARGE_4CYCLE:
+-    case RGU_CNFG_TRAPS_BOOT_DEV_NAND_X16_LARGE_5CYCLE:
+-        /* 2048 byte page size */
+-        writel(0x00000010, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
+-        break;
+-
+-    default:
+-        printf("Unknown NAND page size - configstrap = 0x%x\n",
+-               (int)gFlashInfo.configstrap);
+-
+-        /* Default to 2K page size if none is specified */
+-    writel(0x00000010, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
+-        break;
+-    }
+-
+-
+     writel(0x02644448, (nx_nc->ctrl_base + DEV_TIMING0_OFFSET));
+     writel(0x01008444, (nx_nc->ctrl_base + DEV_TIMING1_OFFSET));
+ #endif
+@@ -1149,38 +1160,15 @@ int board_nand_init(struct nand_chip *ch
+         chip->read_byte = nx_nand_read_byte;
+     }
+ 
+-    /* Page & OOB size calculation */
+-    page_size = (type0 & DEV_TYPE0_PAGE_SIZE_MASK) >> DEV_TYPE0_PAGE_SIZE_POS;
+-    switch (page_size) {
+-    case 0:
+-        page = 512;
+-        oob = 16;
+-        nx_nc->lb_chip = 0;
+-        chip->cmdfunc = nx_nand_command;
+-        chip->ecc.layout = &nx_nand_oob_16;
+-        break;
+-
+-    case 1:
+-        page = 2048;
+-        oob = 64;
+-        nx_nc->lb_chip = 1;
+-        chip->cmdfunc = nx_nand_command_lp;
+-        chip->ecc.layout = &nx_nand_oob_64;
+-        break;
+-
+-    case 2:
+-        page = 4096;
+-        oob = 128;
+-        nx_nc->lb_chip = 1;
+-        chip->cmdfunc = nx_nand_command_lp;
+-        chip->ecc.layout = &nx_nand_oob_128;
+-        break;
+-
+-    default:
+-        printf("Invalid page configuration %d\n", page_size);
+-        ret = -ENXIO;
+-        goto out;
+-    }
++    /*
++     * We set this to minimum and once u-boot detects actual
++     * flash configuration, we update it.
++     */
++    page = 512;
++    oob = 16;
++    nx_nc->lb_chip = 0;
++    chip->cmdfunc = nx_nand_command;
++    chip->ecc.layout = &nx_nand_oob_16;
+ 
+     chip->ecc.read_page = nx_nand_read_page;
+     chip->ecc.read_page_raw = nx_nand_read_page_raw;

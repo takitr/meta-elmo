@@ -1,0 +1,22 @@
+diff -Naurp u-boot-2009.08/board/nxp/vpe_apollo/vpe_apollo.c u-boot-2009.08.boot/board/nxp/vpe_apollo/vpe_apollo.c
+--- u-boot-2009.08/board/nxp/vpe_apollo/vpe_apollo.c	2010-10-24 13:30:07.000000000 -0500
++++ u-boot-2009.08.boot/board/nxp/vpe_apollo/vpe_apollo.c	2010-10-24 13:28:30.000000000 -0500
+@@ -29,6 +29,9 @@
+ #include <asm/arch/sys_proto.h>
+ #include <asm/mach-types.h>
+ #include "vpe_apollo.h"
++#include "stbcfg.h"
++
++#define CLK_MVD_MALONE_CTL_REG  (CGU_BASE + 0x568)
+ 
+ /******************************************************************************
+  * Routine: board_init
+@@ -38,6 +41,8 @@ int board_init(void)
+ {
+ 	DECLARE_GLOBAL_DATA_PTR;
+ 
++        writel(CLK_MVD_MALONE_CTL_VAL, (unsigned long *)(CLK_MVD_MALONE_CTL_REG));
++
+ 	//gcs_init(); /* in SRAM or SDRAM, finish GCS */
+ 	/* board id for Linux */
+ 	gd->bd->bi_arch_number = MACH_TYPE_APOLLO;
