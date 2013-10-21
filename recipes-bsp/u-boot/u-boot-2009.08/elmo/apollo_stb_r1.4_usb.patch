@@ -1,0 +1,205 @@
+diff -Naur u-boot-2009.08/common/Makefile u-boot-2009.08_usb/common/Makefile
+--- u-boot-2009.08/common/Makefile	2010-11-29 12:19:58.837964000 +0530
++++ u-boot-2009.08_usb/common/Makefile	2010-11-29 12:11:50.111978000 +0530
+@@ -147,7 +147,7 @@
+ COBJS-$(CONFIG_CMD_UNIVERSE) += cmd_universe.o
+ ifdef CONFIG_CMD_USB
+ COBJS-y += cmd_usb.o
+-COBJS-y += cmd_sari.o
++#COBJS-y += cmd_sari.o
+ COBJS-y += usb.o
+ COBJS-$(CONFIG_USB_STORAGE) += usb_storage.o
+ COBJS-$(CONFIG_USB_NETWORK) += usb_network.o
+diff -Naur u-boot-2009.08/common/usb_storage.c u-boot-2009.08_usb/common/usb_storage.c
+--- u-boot-2009.08/common/usb_storage.c	2009-08-31 23:27:42.000000000 +0530
++++ u-boot-2009.08_usb/common/usb_storage.c	2010-11-29 12:18:47.316788000 +0530
+@@ -1235,6 +1235,13 @@
+ 	     */
+ 	    (dev->descriptor.idVendor == 0x0781 &&
+ 	     dev->descriptor.idProduct == 0x5406)
++            ||
++            /*
++             * Standard Disk Drives
++             * USB Flash Memory
++             */
++            (dev->descriptor.idVendor == 0x0204 &&
++             dev->descriptor.idProduct == 0x6025)
+ 	    )
+ 		USB_STOR_PRINTF("usb_stor_get_info: skipping RESET..\n");
+ 	else
+diff -Naur u-boot-2009.08/drivers/usb/host/ehci-pnx84xx.c u-boot-2009.08_usb/drivers/usb/host/ehci-pnx84xx.c
+--- u-boot-2009.08/drivers/usb/host/ehci-pnx84xx.c	1970-01-01 05:30:00.000000000 +0530
++++ u-boot-2009.08_usb/drivers/usb/host/ehci-pnx84xx.c	2010-11-29 12:11:50.115982000 +0530
+@@ -0,0 +1,59 @@
++/*
++ * (C) Copyright 2010 Trident MicroSystems
++ *
++ * Author: Debashish Rath
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++
++#include <common.h>
++#include <pci.h>
++#include <usb.h>
++#include <asm/io.h>
++#include <usb/ehci-pnx84xx.h>
++
++#include "ehci.h"
++#include "ehci-core.h"
++
++/*
++ * Create the appropriate control structures to manage
++ * a new EHCI host controller.
++ */
++int ehci_hcd_init(void)
++{
++    struct usb_ehci *ehci;
++    unsigned int data;
++
++    ehci = (struct usb_ehci *)CONFIG_SYS_USB21_ADDR;
++    hccr = (struct ehci_hccr *)((uint32_t)&ehci->caplength);
++    hcor = (struct ehci_hcor *)((uint32_t) hccr + HC_LENGTH(ehci_readl(&hccr->cr_capbase)));
++
++    /* Set to Host mode */
++    data = readl(&ehci->usbmode);
++    data |= CM_HOST;
++    writel( data, &ehci->usbmode);
++
++    return 0;
++}
++
++/*
++ * Destroy the appropriate control structures corresponding
++ * the the EHCI host controller.
++ */
++int ehci_hcd_stop(void)
++{
++	return 0;
++}
+diff -Naur u-boot-2009.08/drivers/usb/host/Makefile u-boot-2009.08_usb/drivers/usb/host/Makefile
+--- u-boot-2009.08/drivers/usb/host/Makefile	2009-08-31 23:27:42.000000000 +0530
++++ u-boot-2009.08_usb/drivers/usb/host/Makefile	2010-11-29 12:11:50.118981000 +0530
+@@ -40,6 +40,7 @@
+ COBJS-$(CONFIG_USB_EHCI_KIRKWOOD) += ehci-kirkwood.o
+ COBJS-$(CONFIG_USB_EHCI_PCI) += ehci-pci.o
+ COBJS-$(CONFIG_USB_EHCI_VCT) += ehci-vct.o
++COBJS-$(CONFIG_USB_EHCI_PNX84XX) += ehci-pnx84xx.o
+ 
+ COBJS	:= $(COBJS-y)
+ SRCS	:= $(COBJS:.o=.c)
+diff -Naur u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08_usb/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-11-29 12:19:59.029961000 +0530
++++ u-boot-2009.08_usb/include/configs/vpe_apollo.h	2010-11-29 12:11:50.122977000 +0530
+@@ -193,7 +193,14 @@
+     #define CONFIG_CMD_SARI     /* Simple arithmetic operations */
+ /*  #define CONFIG_CMD_SDRAM    *//* SDRAM DIMM SPD info printout */
+ /*  #define CONFIG_CMD_UBIFS    *//* UBIFS Support      */
+-/*  #define CONFIG_CMD_USB      *//* USB Support            */\
++
++    /*USB Support*/
++    #define CONFIG_CMD_USB
++    #define CONFIG_USB_STORAGE
++    #define CONFIG_USB_EHCI
++    #define CONFIG_USB_EHCI_PNX84XX
++    #define CONFIG_EHCI_HCD_INIT_AFTER_RESET
++    #define CONFIG_SUPPORT_VFAT
+ 
+ #ifdef CONFIG_CMD_NET
+     #define CONFIG_LIPP_6300ETH
+diff -Naur u-boot-2009.08/include/usb/ehci-pnx84xx.h u-boot-2009.08_usb/include/usb/ehci-pnx84xx.h
+--- u-boot-2009.08/include/usb/ehci-pnx84xx.h	1970-01-01 05:30:00.000000000 +0530
++++ u-boot-2009.08_usb/include/usb/ehci-pnx84xx.h	2010-11-29 12:11:50.130982000 +0530
+@@ -0,0 +1,79 @@
++/*
++ * Copyright (c) 2010, Trident Microsystems
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++
++#ifndef _EHCI_PNX84XX_H
++#define _EHCI_PNX84XX_H
++
++#include <asm/processor.h>
++
++/* USBMODE Register bits */
++#define CM_IDLE			(0 << 0)
++#define CM_RESERVED		(1 << 0)
++#define CM_DEVICE		(2 << 0)
++#define CM_HOST			(3 << 0)
++
++#define CONFIG_SYS_USB21_ADDR 0xE066D000
++
++/*
++ * USB Registers
++ */
++struct usb_ehci {
++	u8	res1[0x100];
++	u16	caplength;	/* 0x100 - Capability Register Length */
++	u16	hciversion;	/* 0x102 - Host Interface Version */
++	u32	hcsparams;	/* 0x104 - Host Structural Parameters */
++	u32	hccparams;	/* 0x108 - Host Capability Parameters */
++	u8	res2[0x14];
++	u32	dciversion;	/* 0x120 - Device Interface Version */
++	u32	dciparams;	/* 0x124 - Device Controller Params */
++	u8	res3[0x18];
++	u32	usbcmd;		/* 0x140 - USB Command */
++	u32	usbsts;		/* 0x144 - USB Status */
++	u32	usbintr;	/* 0x148 - USB Interrupt Enable */
++	u32	frindex;	/* 0x14C - USB Frame Index */
++	u8	res4[0x4];
++	u32	perlistbase;	/* 0x154 - Periodic List Base
++					 - USB Device Address */
++	u32	ep_list_addr;	/* 0x158 - Next Asynchronous List
++					 - End Point Address */
++	u8	res5[0x4];
++	u32	burstsize;	/* 0x160 - Programmable Burst Size */
++	u32	txfilltuning;	/* 0x164 - Host TT Transmit
++					   pre-buffer packet tuning */
++	u8	res6[0x8];
++	u32	ulpi_viewpoint;	/* 0x170 - ULPI Reister Access */
++	u8	res7[0xc];
++	u32	config_flag;	/* 0x180 - Configured Flag Register */
++	u32	portsc;		/* 0x184 - Port status/control */
++	u8	res8[0x20];
++	u32	usbmode;	/* 0x1a8 - USB Device Mode */
++	u32	epsetupstat;	/* 0x1ac - End Point Setup Status */
++	u32	epprime;	/* 0x1b0 - End Point Init Status */
++	u32	epflush;	/* 0x1b4 - End Point De-initlialize */
++	u32	epstatus;	/* 0x1b8 - End Point Status */
++	u32	epcomplete;	/* 0x1bc - End Point Complete */
++	u32	epctrl0;	/* 0x1c0 - End Point Control 0 */
++	u32	epctrl1;	/* 0x1c4 - End Point Control 1 */
++	u32	epctrl2;	/* 0x1c8 - End Point Control 2 */
++	u32	epctrl3;	/* 0x1cc - End Point Control 3 */
++	u32	epctrl4;	/* 0x1d0 - End Point Control 4 */
++	u32	epctrl5;	/* 0x1d4 - End Point Control 5 */
++};
++
++#endif /* _EHCI_PNX84XX_H */

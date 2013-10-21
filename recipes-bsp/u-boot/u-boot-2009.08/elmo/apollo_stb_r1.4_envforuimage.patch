@@ -1,0 +1,26 @@
+diff --git a/include/configs/vpe_apollo.h b/include/configs/vpe_apollo.h
+index bb3b06b..31c6338 100755
+--- a/include/configs/vpe_apollo.h
++++ b/include/configs/vpe_apollo.h
+@@ -223,7 +223,7 @@
+     #define CONFIG_BOOTFILE "vmlinux.bin"
+     #define	CONFIG_ETHADDR 00:00:de:ad:be:f0
+ 
+-    #define CONFIG_LOADADDR   0x00008000
++    #define CONFIG_LOADADDR   0x4400000
+ //    #define CONFIG_BOOTP_SERVERIP 10.0.0.9 //dummy
+ 
+ 
+@@ -275,10 +275,10 @@
+     "Image=tftp 0x00008000 Image; go 0x00008000\0"          \
+     "autoload=n\0"      \
+     "uboot=tftp 0x00008000 u-boot.bin; go 0x00008000\0"     \
+-    "nandboot=nand read kernel; go 0x8000\0"    \
++    "nandboot=nand read kernel; bootm 0x4400000\0"    \
+     "uboot_macaddr=1\0"    \
+     "uboot_cmdline=1\0"		\
+-    "bootcmd=run nandboot\0" 
++    "bootcmd=run nandboot\0"
+ #if 0
+ #define CONFIG_BOOTARGS "noinitrd " \
+     "console=ttyS1,115200n8 "\

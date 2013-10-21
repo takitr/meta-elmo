@@ -1,0 +1,11 @@
+diff -Naur u-boot-2009.08.orig/drivers/mtd/nand/nx_nand_ip2070.c u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c
+--- u-boot-2009.08.orig/drivers/mtd/nand/nx_nand_ip2070.c	2010-11-02 15:08:12.609989718 -0500
++++ u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c	2010-11-02 16:24:57.437738993 -0500
+@@ -710,7 +710,6 @@
+ 
+     /* Check ECC status */
+     if (nc->ecc_status & NX_NAND_INT_DEC_UNCOR) {
+-        printf("ECC failed\n");
+         mtd->ecc_stats.failed++;
+     } else {
+         /* Update ECC stats */

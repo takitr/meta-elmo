@@ -1,0 +1,175 @@
+diff -Naurp u-boot-2009.08/common/cmd_nand.c u-boot-2009.08_new/common/cmd_nand.c
+--- u-boot-2009.08/common/cmd_nand.c	2011-05-16 11:41:05.702195000 +0530
++++ u-boot-2009.08_new/common/cmd_nand.c	2011-05-16 11:38:32.452602000 +0530
+@@ -517,14 +517,16 @@ int do_nand(cmd_tbl_t * cmdtp, int flag,
+ 		if (arg_off_size(argc - 2, argv + 2, nand, &off, &size) != 0)
+ 			return 1;
+ 		s = strchr(cmd, '.');
+-		if (!s || !strcmp(s, ".jffs2") ||
++      if (!strcmp(s, ".ubi")) {
++         ret = nand_write_skip_bad(nand, off, &size, (u_char *)addr, WITH_DROP_FFS);
++      } else if (!s || !strcmp(s, ".jffs2") ||
+ 		    !strcmp(s, ".e") || !strcmp(s, ".i")) {
+ 			if (read)
+ 				ret = nand_read_skip_bad(nand, off, &size,
+ 							 (u_char *)addr);
+ 			else
+ 		      		ret = nand_write_skip_bad(nand, off, &size,
+-							  (u_char *)addr);
++							  (u_char *)addr, 0);
+ 		} else if (!strcmp(s, ".oob")) {
+ 			/* out-of-band data */
+ 			mtd_oob_ops_t ops = {
+@@ -623,25 +625,30 @@ usage:
+ }
+ 
+ U_BOOT_CMD(nand, CONFIG_SYS_MAXARGS, 1, do_nand,
+-	"NAND sub-system",
+-	"info - show available NAND devices\n"
+-	"nand device [dev] - show or set current device\n"
+-	"nand read - addr off|partition size\n"
+-	"nand write - addr off|partition size\n"
+-	"    read/write 'size' bytes starting at offset 'off'\n"
+-	"    to/from memory address 'addr', skipping bad blocks.\n"
+-	"nand erase [clean] [off size] - erase 'size' bytes from\n"
+-	"    offset 'off' (entire device if not specified)\n"
+-	"nand bad - show bad blocks\n"
+-	"nand dump[.oob] off - dump page\n"
+-	"nand scrub - really clean NAND erasing bad blocks (UNSAFE)\n"
+-	"nand markbad off [...] - mark bad block(s) at offset (UNSAFE)\n"
+-	"nand biterr off - make a bit error at offset (UNSAFE)"
++   "NAND sub-system",
++   "info - show available NAND devices\n"
++   "nand device [dev] - show or set current device\n"
++   "nand read - addr off|partition size\n"
++   "nand write - addr off|partition size\n"
++   "    read/write 'size' bytes starting at offset 'off'\n"
++   "    to/from memory address 'addr', skipping bad blocks.\n"
++   "nand write.ubi - addr off|partition size\n"
++   "    write 'size' bytes starting at offset 'off'\n"
++   "    from memory address 'addr', skipping bad blocks and "
++   "dropping any pages at the\n"
++   "    end of eraseblocks that contain only 0xFF\n"
++   "nand erase [clean] [off size] - erase 'size' bytes from\n"
++   "    offset 'off' (entire device if not specified)\n"
++   "nand bad - show bad blocks\n"
++   "nand dump[.oob] off - dump page\n"
++   "nand scrub - really clean NAND erasing bad blocks (UNSAFE)\n"
++   "nand markbad off [...] - mark bad block(s) at offset (UNSAFE)\n"
++   "nand biterr off - make a bit error at offset (UNSAFE)"
+ #ifdef CONFIG_CMD_NAND_LOCK_UNLOCK
+-	"\n"
+-	"nand lock [tight] [status]\n"
+-	"    bring nand to lock state or display locked pages\n"
+-	"nand unlock [offset] [size] - unlock section"
++   "\n"
++   "nand lock [tight] [status]\n"
++   "    bring nand to lock state or display locked pages\n"
++   "nand unlock [offset] [size] - unlock section"
+ #endif
+ );
+ 
+diff -Naurp u-boot-2009.08/drivers/mtd/nand/nand_util.c u-boot-2009.08_new/drivers/mtd/nand/nand_util.c
+--- u-boot-2009.08/drivers/mtd/nand/nand_util.c	2011-05-16 11:41:04.943218000 +0530
++++ u-boot-2009.08_new/drivers/mtd/nand/nand_util.c	2011-05-16 11:28:45.974052000 +0530
+@@ -464,6 +464,34 @@ static size_t get_len_incl_bad (nand_inf
+ }
+ 
+ /**
++ * drop_ffs:
++ *
++ * Calculating the write length by skipping the pages with FFs in the trailing
++ * pages of the erase block and aligning it to the page boundary.
++ *
++ * @param nand    NAND devic
++ * @param buf     buffer to read from
++ * @param len     buffer length
++ */
++
++static size_t drop_ffs(const nand_info_t *nand, const u_char *buf,
++         const size_t *len)
++{
++   size_t i, l = *len;
++
++   for (i = l - 1; i >= 0; i--)
++      if (((const uint8_t *)buf)[i] != 0xFF)
++         break;
++
++   /* The resulting length must be aligned to the minimum flash I/O size */
++   l = i + 1;
++   l = (l + nand->writesize - 1) / nand->writesize;
++   l *=  nand->writesize;
++   return l;
++}
++
++
++/**
+  * nand_write_skip_bad:
+  *
+  * Write image to NAND flash.
+@@ -475,10 +503,11 @@ static size_t get_len_incl_bad (nand_inf
+  * @param offset	offset in flash
+  * @param length	buffer length
+  * @param buf           buffer to read from
++ * @param flags   flag to specify if FFs to be dropped
+  * @return		0 in case of success
+  */
+ int nand_write_skip_bad(nand_info_t *nand, loff_t offset, size_t *length,
+-			u_char *buffer)
++			u_char *buffer, int flags)
+ {
+ 	int rval;
+ 	size_t left_to_write = *length;
+@@ -500,7 +529,7 @@ int nand_write_skip_bad(nand_info_t *nan
+ 		return -EINVAL;
+ 	}
+ 
+-	if (len_incl_bad == *length) {
++	if ((len_incl_bad == *length)&& !(flags & WITH_DROP_FFS)) {
+ 		rval = nand_write (nand, offset, length, buffer);
+ 		if (rval != 0)
+ 			printf ("NAND write to offset %llx failed %d\n",
+@@ -511,7 +540,7 @@ int nand_write_skip_bad(nand_info_t *nan
+ 
+ 	while (left_to_write > 0) {
+ 		size_t block_offset = offset & (nand->erasesize - 1);
+-		size_t write_size;
++		size_t write_size,truncated_write_size;
+ 
+ 		WATCHDOG_RESET ();
+ 
+@@ -529,7 +558,12 @@ int nand_write_skip_bad(nand_info_t *nan
+ 		else
+ 			write_size = nand->erasesize - block_offset;
+ 
+-		rval = nand_write (nand, offset, &write_size, p_buffer);
++      if (flags & WITH_DROP_FFS)
++         truncated_write_size = drop_ffs(nand, p_buffer, &write_size);
++      else
++         truncated_write_size = write_size;
++      
++      rval = nand_write(nand, offset, &truncated_write_size, p_buffer);
+ 		if (rval != 0) {
+ 			printf ("NAND write to offset %llx failed %d\n",
+ 				offset, rval);
+diff -Naurp u-boot-2009.08/include/nand.h u-boot-2009.08_new/include/nand.h
+--- u-boot-2009.08/include/nand.h	2009-08-31 23:27:42.000000000 +0530
++++ u-boot-2009.08_new/include/nand.h	2011-05-16 11:12:41.960060000 +0530
+@@ -30,6 +30,8 @@ extern void nand_init(void);
+ #include <linux/mtd/mtd.h>
+ #include <linux/mtd/nand.h>
+ 
++#define WITH_DROP_FFS   (1 << 1) /* drop trailing all-0xff pages */
++
+ extern int board_nand_init(struct nand_chip *nand);
+ 
+ typedef struct mtd_info nand_info_t;
+@@ -112,7 +114,7 @@ typedef struct nand_erase_options nand_e
+ int nand_read_skip_bad(nand_info_t *nand, loff_t offset, size_t *length,
+ 		       u_char *buffer);
+ int nand_write_skip_bad(nand_info_t *nand, loff_t offset, size_t *length,
+-			u_char *buffer);
++			u_char *buffer, int flags);
+ int nand_erase_opts(nand_info_t *meminfo, const nand_erase_options_t *opts);
+ 
+ #define NAND_LOCK_STATUS_TIGHT	0x01

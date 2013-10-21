@@ -1,0 +1,25 @@
+diff -Naurp u-boot-2009.08.new/cpu/arm_cortexa8/pnx84xx/timer.c u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/timer.c
+--- u-boot-2009.08.new/cpu/arm_cortexa8/pnx84xx/timer.c	2010-11-29 11:43:15.000000000 -0600
++++ u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/timer.c	2010-12-14 22:51:21.000000000 -0600
+@@ -75,7 +75,7 @@ int timer_init(void)
+ 	/* start the counter ticking up, reload value on overflow */
+ 	writel(TIMER_LOAD_VAL, &timer_base->tldr);
+ 	/* enable timer */
+-	writel((TIMER_PRESCALE_VAL << 8) | TCLR_AI | TCLR_TE,
++	writel((TIMER_PRESCALE_VAL << 8) | TCLR_AR | TCLR_TE,
+ 		&timer_base->tclr);
+ 
+ 	reset_timer_masked();	/* init the timestamp and lastinc value */
+diff -Naurp u-boot-2009.08.new/include/asm-arm/arch-pnx84xx/cpu.h u-boot-2009.08/include/asm-arm/arch-pnx84xx/cpu.h
+--- u-boot-2009.08.new/include/asm-arm/arch-pnx84xx/cpu.h	2010-11-29 11:43:15.000000000 -0600
++++ u-boot-2009.08/include/asm-arm/arch-pnx84xx/cpu.h	2010-12-14 22:51:11.000000000 -0600
+@@ -263,7 +263,8 @@ typedef struct gptimer {
+ #endif /* __ASSEMBLY__ */
+ 
+ #define TCLR_TE			(0x1 << 0)   /* timer enable */
+-#define TCLR_AI			(0x1 << 3)   /* Auto Increment */
++#define TCLR_AR			(0x1 << 1)   /* Auto reload */
++#define TCLR_IRQ		(0x1 << 2)   /* Timer IRQ enable */
+ #define TCLR_PRE		(0x1 << 8)
+ 
+ /* enable sys_clk NO-prescale /1 */

@@ -1,0 +1,56 @@
+diff -Naupr u-boot-2009.08.orig/drivers/mtd/cfi_flash.c u-boot-2009.08/drivers/mtd/cfi_flash.c
+--- u-boot-2009.08.orig/drivers/mtd/cfi_flash.c	2010-12-03 16:35:00.837520375 -0600
++++ u-boot-2009.08/drivers/mtd/cfi_flash.c	2010-12-05 21:11:22.637453173 -0600
+@@ -1389,15 +1389,33 @@ int flash_real_protect (flash_info_t * i
+ 		case CFI_CMDSET_INTEL_PROG_REGIONS:
+ 		case CFI_CMDSET_INTEL_STANDARD:
+ 		case CFI_CMDSET_INTEL_EXTENDED:
+-			flash_write_cmd (info, sector, 0,
+-					 FLASH_CMD_CLEAR_STATUS);
+-			flash_write_cmd (info, sector, 0, FLASH_CMD_PROTECT);
+-			if (prot)
+-				flash_write_cmd (info, sector, 0,
+-					FLASH_CMD_PROTECT_SET);
+-			else
++			/*
++			 * see errata called
++			 * "Numonyx Axcell P33/P30 Specification Update" :)
++			 */
++			flash_write_cmd (info, sector, 0, FLASH_CMD_READ_ID);
++			if (!flash_isequal (info, sector, FLASH_OFFSET_PROTECT,
++					    prot)) {
++				/*
++				 * cmd must come before FLASH_CMD_PROTECT + 20us
++				 * Disable interrupts which might cause a timeout here.
++				 */
++				int flag = disable_interrupts ();
++				unsigned short cmd;
++
++				if (prot)
++					cmd = FLASH_CMD_PROTECT_SET;
++				else
++					cmd = FLASH_CMD_PROTECT_CLEAR;
++
+ 				flash_write_cmd (info, sector, 0,
+-					FLASH_CMD_PROTECT_CLEAR);
++					FLASH_CMD_PROTECT);
++				flash_write_cmd (info, sector, 0, cmd);
++				/* re-enable interrupts if necessary */
++				if (flag)
++					enable_interrupts ();
++			}
++
+ 			break;
+ 		case CFI_CMDSET_AMD_EXTENDED:
+ 		case CFI_CMDSET_AMD_STANDARD:
+diff -Naupr u-boot-2009.08.orig/include/configs/vpe_apollo.h u-boot-2009.08/include/configs/vpe_apollo.h
+--- u-boot-2009.08.orig/include/configs/vpe_apollo.h	2010-12-03 16:35:01.169451846 -0600
++++ u-boot-2009.08/include/configs/vpe_apollo.h	2010-12-05 21:12:56.753453466 -0600
+@@ -358,6 +358,7 @@
+  * NAND flash configuration
+  */
+ 
++#define CONFIG_SYS_FLASH_PROTECTION 1  /* use hardware flash protection */
+ #define CONFIG_SYS_FLASH_BASE       0xC0000000
+ #define CONFIG_SYS_SFC_FLASH_BASE 0xD0000000
+ #define CONFIG_SYS_MONITOR_BASE     0x04000000

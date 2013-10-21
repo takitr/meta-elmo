@@ -1,0 +1,505 @@
+diff -Naurp u-boot-2009.08.org/common/cmd_gcs.c u-boot-2009.08/common/cmd_gcs.c
+--- u-boot-2009.08.org/common/cmd_gcs.c	2010-11-04 13:02:38.000000000 -0500
++++ u-boot-2009.08/common/cmd_gcs.c	2010-11-04 14:20:56.000000000 -0500
+@@ -107,20 +107,20 @@ int gcs_flash_sel(const char * altflash)
+ 
+    if (strcmp(altflash, "NOR")  == 0){
+       if (gFlashInfo.flashtype == FLASH_TYPE_NOR){
+-	      puts("BootDev is NOR Flash, Alt Flash can't be Boot Device\r\n");	
++	      puts("BootDev is NOR Flash, Alt Flash can't be same as Boot Device\r\n");	
+          return -1;
+       }
+       gFlashInfo.altflashtype1 = FLASH_TYPE_NOR;
+       config_strap = gFlashInfo.configstrap & (~RGU_CNFG_TRAPS_BOOT_DEV_SEL);
+       config_strap |= (CFG_NOR_FLASH_TYPE << 1);
+       /* Configuring NOR Flash device on CS2 */
+-      writel(config_strap, 0xE06E6030); /* Configure IOA26, IOA21 and IOA22 */
++      writel(config_strap, RESET_RST_CONFIG_REG_REG1); /* Configure IOA26, IOA21 and IOA22 */
+       nx_gcs_init(CFG_NOR_FLASH_TYPE, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
+       flash_init();
+    }
+    else if (strcmp(altflash, "NAND")  == 0){
+          if (gFlashInfo.flashtype == FLASH_TYPE_NAND){
+-	      puts("BootDev is NAND Flash, Alt Flash can't be Boot Device\r\n");	
++	      puts("BootDev is NAND Flash, Alt Flash can't be same as Boot Device\r\n");	
+          return -1;
+       }
+       gFlashInfo.altflashtype1 = FLASH_TYPE_NAND;
+@@ -130,7 +130,7 @@ int gcs_flash_sel(const char * altflash)
+    }
+    else if (strcmp(altflash, "SFC")  == 0){
+       if (gFlashInfo.flashtype == FLASH_TYPE_SFC){
+-	      puts("BootDev is SFC Flash, Alt Flash can't be Boot Device\r\n");	
++	      puts("BootDev is SFC Flash, Alt Flash can't be same as Boot Device\r\n");	
+          return -1;
+       }
+       gFlashInfo.altflashtype1 = FLASH_TYPE_SFC;
+@@ -141,7 +141,7 @@ int gcs_flash_sel(const char * altflash)
+    else
+    {
+       return -1;
+-      /* Throw error trace */	  
++      /* Throw error trace */
+       puts("None Alt Flash Device selected.\r\n") ;	  
+    }
+  
+diff -Naurp u-boot-2009.08.org/common/env_flash.c u-boot-2009.08/common/env_flash.c
+--- u-boot-2009.08.org/common/env_flash.c	2010-11-04 13:02:38.000000000 -0500
++++ u-boot-2009.08/common/env_flash.c	2010-11-04 13:10:21.000000000 -0500
+@@ -71,6 +71,7 @@ extern env_t *env_ptr ; //= (env_t *)((u
+ #ifdef CMD_SAVEENV
+ extern env_t *flash_addr; 
+ //static env_t *flash_addr = (env_t *)(CONFIG_ENV_ADDR);
++static void use_default(void);
+ #endif
+ 
+ #endif /* ENV_IS_EMBEDDED */
+@@ -260,7 +261,7 @@ int  env_init_nor(void)
+ 	}
+ 
+ 	gd->env_addr  = (ulong)&default_environment[0];
+-	gd->env_valid = 0;
++	gd->env_valid = 1;
+ 	return (0);
+ }
+ 
+@@ -384,6 +385,26 @@ void env_relocate_spec_nor (void)
+ #endif /* CONFIG_ENV_ADDR_REDUND */
+ #ifdef CMD_SAVEENV
+ 	memcpy (env_ptr, (void*)((ulong)flash_addr | CONFIG_SYS_FLASH_BASE), CONFIG_ENV_SIZE);
++	if (crc32(0, env_ptr->data, ENV_SIZE) != env_ptr->crc)
++		return use_default();	
+ #endif
+ #endif /* ! ENV_IS_EMBEDDED || CONFIG_ENV_ADDR_REDUND */
+ }
++
++#if !defined(ENV_IS_EMBEDDED)
++static void use_default(void)
++{
++    char *s;
++
++    puts ("*** Warning - bad CRC or NOR, using default environment\n\n");
++    set_default_env();
++    gd->env_addr = (ulong)&(env_ptr->data);
++
++    s = getenv ("norparts");
++    setenv("mtdparts",s);
++    s = getenv ("norids");
++    setenv("mtdids",s);
++    setenv("bootcmd","run norboot");
++}
++#endif
++
+diff -Naurp u-boot-2009.08.org/common/env_nand.c u-boot-2009.08/common/env_nand.c
+--- u-boot-2009.08.org/common/env_nand.c	2010-11-04 13:02:38.000000000 -0500
++++ u-boot-2009.08/common/env_nand.c	2010-11-04 13:10:46.000000000 -0500
+@@ -365,7 +365,17 @@ void env_relocate_spec_nand (void)
+ #if !defined(ENV_IS_EMBEDDED)
+ static void use_default()
+ {
+-	puts ("*** Warning - bad CRC or NAND, using default environment\n\n");
+-	set_default_env();
++    char *s;
++
++    puts ("*** Warning - bad CRC or NAND, using default environment\n\n");
++    set_default_env();
++    gd->env_addr = (ulong)&(env_ptr->data);
++
++    s = getenv ("nandparts");
++    setenv("mtdparts",s);
++    s = getenv ("nandids");
++    setenv("mtdids",s);
++    setenv("bootcmd","run nandboot");
++
+ }
+ #endif
+diff -Naurp u-boot-2009.08.org/common/env_sfc.c u-boot-2009.08/common/env_sfc.c
+--- u-boot-2009.08.org/common/env_sfc.c	2010-11-04 13:02:38.000000000 -0500
++++ u-boot-2009.08/common/env_sfc.c	2010-11-04 13:13:02.000000000 -0500
+@@ -31,14 +31,14 @@
+ #include <environment.h>
+ #include <linux/stddef.h>
+ #include <malloc.h>
+-#include "stbcfg.h"
++#include "stbcfg.h"
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+-#if defined(CONFIG_CMD_SAVEENV) && defined(CONFIG_CMD_SFC)
++#if defined(CONFIG_CMD_SAVEENV) && defined(CONFIG_CMD_SFC)
+ #define CMD_SAVEENV
+ #elif defined(CONFIG_ENV_ADDR_REDUND)
+-#error Cannot use CONFIG_ENV_ADDR_REDUND without CONFIG_CMD_SAVEENV & CONFIG_CMD_SFC
++#error Cannot use CONFIG_ENV_ADDR_REDUND without CONFIG_CMD_SAVEENV & CONFIG_CMD_SFC
+ #endif
+ 
+ #if defined(CONFIG_ENV_SIZE_REDUND) && (CONFIG_ENV_SIZE_REDUND < CONFIG_ENV_SIZE)
+@@ -51,7 +51,7 @@ DECLARE_GLOBAL_DATA_PTR;
+ # endif
+ #endif
+ 
+-char * env_name_spec_sfc = "SFC Flash";
++char * env_name_spec_sfc = "SFC Flash";
+ 
+ #ifdef ENV_IS_EMBEDDED
+ 
+@@ -92,12 +92,12 @@ uchar env_get_char_spec (int index)
+ {
+ 	return ( *((uchar *)(gd->env_addr + index)) );
+ }
+-#endif
+-
+-extern int sfc_flash_sect_erase(ulong flash_sect_addr, int len);
+-extern int sfc_flash_write(char *env_buffer, ulong flash_sect_addr, int len);
+-extern int sfc_flash_read(char *env_buffer, ulong flash_sect_addr, int len);
+-static void use_default(void);
++#endif
++
++extern int sfc_flash_sect_erase(ulong flash_sect_addr, int len);
++extern int sfc_flash_write(char *env_buffer, ulong flash_sect_addr, int len);
++extern int sfc_flash_read(char *env_buffer, ulong flash_sect_addr, int len);
++static void use_default(void);
+ 
+ #ifdef CONFIG_ENV_ADDR_REDUND
+ 
+@@ -252,26 +252,16 @@ Done:
+ 
+ #else /* ! CONFIG_ENV_ADDR_REDUND */
+ 
+-int  env_init_sfc(void)
++int  env_init_sfc(void)
+ {
+-  //long flash_sect_addr;
+- //  ulong len = ENV_SIZE;
+- //flash_sect_addr = ((ulong)flash_addr) & ~(CONFIG_ENV_SECT_SIZE-1);
+- #if 0
+-	if (crc32(0, env_ptr->data, len) == env_ptr->crc) {
+-		gd->env_addr  = (ulong)&(env_ptr->data);
+-		gd->env_valid = 1;
+-		return(0);
+-	}
+-#endif
+-	gd->env_addr  = (ulong)&default_environment[0];
+-	gd->env_valid = 1;
+-	return (0);
++    gd->env_addr  = (ulong)&default_environment[0];
++    gd->env_valid = 1;
++    return (0);
+ }
+ 
+ #ifdef CMD_SAVEENV
+ 
+-int saveenv_sfc(void)
++int saveenv_sfc(void)
+ {
+ 	int	len;
+ 	ulong	end_addr;
+@@ -283,7 +273,7 @@ int saveenv_sfc(void)
+ 	uchar *env_buffer = (uchar *)env_ptr;
+ #endif	/* CONFIG_ENV_SECT_SIZE */
+ 	int rcode = 0;
+-
++
+ #if defined(CONFIG_ENV_SECT_SIZE) && (CONFIG_ENV_SECT_SIZE > CONFIG_ENV_SIZE)
+ 
+ 	flash_offset    = ((ulong)flash_addr) & (CONFIG_ENV_SECT_SIZE-1);
+@@ -294,8 +284,8 @@ int saveenv_sfc(void)
+ 		flash_sect_addr, (ulong)flash_addr, flash_offset);
+ 
+ 	/* copy old contents to temporary buffer */
+-	//memcpy (env_buffer, (void *)(flash_sect_addr | CONFIG_SYS_SFC_FLASH_BASE), CONFIG_ENV_SECT_SIZE);
+-	sfc_flash_read((char *)env_buffer, flash_sect_addr, len);
++	//memcpy (env_buffer, (void *)(flash_sect_addr | CONFIG_SYS_SFC_FLASH_BASE), CONFIG_ENV_SECT_SIZE);
++	sfc_flash_read((char *)env_buffer, flash_sect_addr, len);
+ 
+ 	/* copy current environment to temporary buffer */
+ 	memcpy ((uchar *)((unsigned long)env_buffer),
+@@ -321,19 +311,19 @@ int saveenv_sfc(void)
+ #endif
+ 	debug ("Protect off %08lX ... %08lX\n",
+ 		(ulong)flash_sect_addr, end_addr);
+-
+-       if(sfc_flash_sect_erase(flash_sect_addr, len))
+-	   	return 1;
+-	if(sfc_flash_write((char *)env_buffer, flash_sect_addr, len))
+-		return 1;
+-	return rcode;
++
++       if(sfc_flash_sect_erase(flash_sect_addr, len))
++	   	return 1;
++	if(sfc_flash_write((char *)env_buffer, flash_sect_addr, len))
++		return 1;
++	return rcode;
+ }
+ 
+ #endif /* CMD_SAVEENV */
+ 
+ #endif /* CONFIG_ENV_ADDR_REDUND */
+ 
+-void env_relocate_spec_sfc (void)
++void env_relocate_spec_sfc (void)
+ {
+ #if !defined(ENV_IS_EMBEDDED) || defined(CONFIG_ENV_ADDR_REDUND)
+ #ifdef CONFIG_ENV_ADDR_REDUND
+@@ -378,21 +368,30 @@ void env_relocate_spec_sfc (void)
+ 		      "reading environment; recovered successfully\n\n");
+ #endif /* CONFIG_ENV_ADDR_REDUND */
+ #ifdef CMD_SAVEENV
+-	//memcpy (env_ptr, (void*)((ulong)flash_addr | CONFIG_SYS_SFC_FLASH_BASE), CONFIG_ENV_SIZE);
+-	sfc_flash_read((char *)env_ptr, (ulong)flash_addr, CONFIG_ENV_SIZE);
+-	if (crc32(0, env_ptr->data, ENV_SIZE) != env_ptr->crc)
+-		return use_default();
++    //memcpy (env_ptr, (void*)((ulong)flash_addr | CONFIG_SYS_SFC_FLASH_BASE), CONFIG_ENV_SIZE);
++    sfc_flash_read((char *)env_ptr, (ulong)flash_addr, CONFIG_ENV_SIZE);
++    if (crc32(0, env_ptr->data, ENV_SIZE) != env_ptr->crc)
++        return use_default();
+ #endif
+ #endif /* ! ENV_IS_EMBEDDED || CONFIG_ENV_ADDR_REDUND */
+-}
+-
++}
++
+ 
+ #if !defined(ENV_IS_EMBEDDED)
+-static void use_default(void)
++static void use_default(void)
+ {
+-	puts ("*** Warning - bad CRC or NAND, using default environment\n\n");
+-	set_default_env();
++    char *s;
++
++    puts ("*** Warning - bad CRC or SFC, using default environment\n\n");
++    set_default_env();
++    gd->env_addr = (ulong)&(env_ptr->data);
++
++    s = getenv ("sfcparts");
++    setenv("mtdparts",s);
++    s = getenv ("sfcids");
++    setenv("mtdids",s);
++    setenv("bootcmd","run sfcboot");
+ }
+-#endif
+-
+-
++#endif
++
++
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth.c u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth.c	2010-11-04 13:02:38.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c	2010-11-04 12:51:09.000000000 -0500
+@@ -82,9 +82,9 @@ void lipp_6300eth_initialize(void)
+ 
+     GMAC_DBG("Initialize:Start\n");
+ 
+-    gtmhwLIPP6100Eth_Base[0].baseAddress = MAC_BASE_ADDRESS;
++    gtmhwLIPP6100Eth_Base[0].baseAddress = GMAC_UNIT_BASE(0);
+ 
+-    GMAC_DBG("Ethernet MAC base address:%08x\n",MAC_BASE_ADDRESS);
++    GMAC_DBG("Ethernet MAC base address:%08x\n",GMAC_UNIT_BASE(0));
+ 
+     for(unitNum=0; unitNum < MAX_LIPP_6300ETH_UNITS; unitNum++)
+     {
+@@ -409,7 +409,7 @@ static int lipp_6300Eth_recv(struct eth_
+             ** rx buf as empty buf & copy buf as full buff. Invert the same.
+             */
+ 
+-//            GMAC_DBG("Next Rx DMA desc :%08x",*(UInt32*)(TMHW_LIPP6100ETH_PHY_MMIO_ADDRESS0+0x104C));
++//            GMAC_DBG("Next Rx DMA desc :%08x",*(UInt32*)(GMAC_UNIT_BASE(0)+0x104C));
+ 
+ //          flush_cache(pPriv->p_rx_descr,HW_DESCR_QUEUE_LEN_RX*sizeof(RX_DESCR_t));
+             ret_val = 1;
+@@ -423,8 +423,8 @@ static int lipp_6300Eth_recv(struct eth_
+             tmhwLIPP6100Eth_IntGetStatus(0,&intStat);
+             GMAC_DBG("Int Stat:%08x\n",intStat.dmaIntVal);
+ 
+-            GMAC_DBG("Current Rx DMA desc :%08x",*(UInt32*)(MAC_BASE_ADDRESS+0x104C));
+-            GMAC_DBG("Current Rx Buf:%08x",*(UInt32*)(MAC_BASE_ADDRESS+0x1054));
++            GMAC_DBG("Current Rx DMA desc :%08x",*(UInt32*)(GMAC_UNIT_BASE(0)+0x104C));
++            GMAC_DBG("Current Rx Buf:%08x",*(UInt32*)(GMAC_UNIT_BASE(0)+0x1054));
+ 
+             goto _err_drop_packet;
+ 
+@@ -432,7 +432,7 @@ static int lipp_6300Eth_recv(struct eth_
+ 
+         _err_drop_packet :
+ 
+-//		 GMAC_DBG("Current Rx DMA desc :%08x\n",*(UInt32*)(TMHW_LIPP6100ETH_PHY_MMIO_ADDRESS0+0x104C));
++//		 GMAC_DBG("Current Rx DMA desc :%08x\n",*(UInt32*)(GMAC_UNIT_BASE(0)+0x104C));
+ 
+ 		 /* Set back the own bit for this descriptor, use the same buffer */
+  //       pPriv->p_rx_descr[pPriv->rx_consume_index].RDES0 = RXDESC_RDES0_OWN_VAL;
+@@ -588,8 +588,8 @@ lipp_6300eth_transmit(struct eth_device 
+ #if 0
+         GMAC_DBG("Buff Len:%d",length);
+ 
+-        GMAC_DBG("Current Tx Desc:%08x",*(UInt32*)(TMHW_LIPP6100ETH_PHY_MMIO_ADDRESS0+0x1048));
+-        GMAC_DBG("Current Tx Buf:%08x",*(UInt32*)(TMHW_LIPP6100ETH_PHY_MMIO_ADDRESS0+0x1050));
++        GMAC_DBG("Current Tx Desc:%08x",*(UInt32*)(GMAC_UNIT_BASE(0)+0x1048));
++        GMAC_DBG("Current Tx Buf:%08x",*(UInt32*)(GMAC_UNIT_BASE(0)+0x1050));
+ 
+         GMAC_DBG("Virtual Addr:%08x",&pPriv->p_tx_descr[pPriv->tx_produce_index]);
+         GMAC_DBG("TDES0:%08x",pPriv->p_tx_descr[pPriv->tx_produce_index].TDES0);
+@@ -607,8 +607,8 @@ lipp_6300eth_transmit(struct eth_device 
+         GMAC_DBG("W$$W%WOWN not clred%%#$#\n\n");
+         GMAC_DBG("Buff Len:%d",length);
+ 
+-        GMAC_DBG("Current Tx Desc:%08x",*(UInt32*)(TMHW_LIPP6100ETH_PHY_MMIO_ADDRESS0+0x1048));
+-        GMAC_DBG("Current Tx Buf:%08x",*(UInt32*)(TMHW_LIPP6100ETH_PHY_MMIO_ADDRESS0+0x1050));
++        GMAC_DBG("Current Tx Desc:%08x",*(UInt32*)(GMAC_UNIT_BASE(0)+0x1048));
++        GMAC_DBG("Current Tx Buf:%08x",*(UInt32*)(GMAC_UNIT_BASE(0)+0x1050));
+ 
+         GMAC_DBG("Virtual Addr:%08x",&pPriv->p_tx_descr[pPriv->tx_produce_index]);
+         GMAC_DBG("TDES0:%08x",pPriv->p_tx_descr[pPriv->tx_produce_index].TDES0);
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth_common.h u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth_common.h
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth_common.h	2010-11-04 13:02:38.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth_common.h	2010-11-04 13:00:18.000000000 -0500
+@@ -3,8 +3,6 @@
+ 
+ #include <config.h> /* PHY & ethernet driver related macros are defined here */
+ 
+-#define MAC_BASE_ADDRESS ((PNX84XX_IO_BASE+0x7C000))
+-
+ #define ENABLE_CACHE 0
+ 
+ /* Speed of the ethernet link */
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyDP83848.c u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyDP83848.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyDP83848.c	2010-11-04 13:02:37.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyDP83848.c	2010-11-04 12:49:37.000000000 -0500
+@@ -271,7 +271,7 @@ tmbslPhyDP83848Init(
+     get_phy_out_of_rst();
+     #endif
+ 
+-    gEthContext[ethUnitId].pRegs = MAC_BASE_ADDRESS;
++    gEthContext[ethUnitId].pRegs = GMAC_UNIT_BASE(0);
+ 
+     GMAC_DBG("Base addr:%x",gEthContext[ethUnitId].pRegs);
+ 
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyEmu.c u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyEmu.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyEmu.c	2010-11-04 13:02:37.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyEmu.c	2010-11-04 12:49:34.000000000 -0500
+@@ -298,7 +298,7 @@ tmbslPhyEmuInit(
+ 
+ 
+ 
+-    gEthContext[ethUnitId].pRegs = MAC_BASE_ADDRESS;
++    gEthContext[ethUnitId].pRegs = GMAC_UNIT_BASE(0);
+ 
+     GMAC_DBG("Base addr:%x",gEthContext[ethUnitId].pRegs);
+ 
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.c u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.c	2010-11-04 13:02:37.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.c	2010-11-04 12:51:27.000000000 -0500
+@@ -51,7 +51,7 @@
+ /* Base addresses of GMAC 0*/
+ 
+ #ifndef TMHW_LIPP6100ETH_PHY_MMIO_ADDRESS0
+-#define TMHW_LIPP6100ETH_PHY_MMIO_ADDRESS0     ((0x1be00000+0x38000))
++#define TMHW_LIPP6100ETH_PHY_MMIO_ADDRESS0     ((GMAC_UNIT_BASE(0)))
+ #endif
+ 
+ 
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h	2010-11-04 13:02:38.000000000 -0500
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h	2010-11-04 14:17:47.000000000 -0500
+@@ -81,9 +81,7 @@ extern "C"
+ 
+ #ifdef CONFIG_PHY
+ #if (CFG_GMAC0 == PRESENT)
+-    #define GMAC_UNIT_BASE0           (0xe067c000)
+-    #define GMAC_UNIT_BASE1           (0xe06b8000)
+-    #define GMAC_UNIT_BASE(x)         ((x) == 0 ? GMAC_UNIT_BASE0 : GMAC_UNIT_BASE1)
++    #define GMAC_UNIT_BASE(x)         ((x) == 0 ? GMAC_BASE_UNIT1 : GMAC_BASE_UNIT2)
+     #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
+ #else
+ #endif
+diff -Naurp u-boot-2009.08.org/include/configs/vpe_apollo.h u-boot-2009.08/include/configs/vpe_apollo.h
+--- u-boot-2009.08.org/include/configs/vpe_apollo.h	2010-11-04 13:02:38.000000000 -0500
++++ u-boot-2009.08/include/configs/vpe_apollo.h	2010-11-04 12:55:49.000000000 -0500
+@@ -249,8 +249,8 @@
+ #endif
+ 
+ #define CONFIG_EXTRA_ENV_SETTINGS                   \
+-    "mtdparts=mtdparts=nx_2016:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
+-    "mtdids=nor0=nx_2016\0" \
++    "norparts=mtdparts=nx_2016:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
++    "norids=nor0=nx_2016\0" \
+     "nandparts=mtdparts=nx_2017:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
+     "nandids=nand0=nx_2017\0" \
+     "sfcparts=mtdparts=nx_sfc:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),8m@7m(root),-(extra)\0" \
+@@ -269,9 +269,9 @@
+     "root=/dev/mtdblock2 rw " \
+     "rootfstype=jffs2"
+ 
+-  #define MTDIDS_DEFAULT	"nor0=nx_2016"
++  #define MTDIDS_DEFAULT	NULL
+ 
+-  #define MTDPARTS_DEFAULT  "mtdparts=nx_2016:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)"
++  #define MTDPARTS_DEFAULT  NULL
+ 
+ /*
+  * Miscellaneous configurable options
+@@ -375,17 +375,18 @@
+ #endif
+ 
+ #define CONFIG_SYS_MAX_SFC_DEVICE  1         /* Max number of SFC devices       */
+-#define CONFIG_SYS_MAX_NAND_DEVICE  4      /* Max number of NAND devices       */
++#define CONFIG_SYS_MAX_NAND_DEVICE  1      /* Max number of NAND devices       */
+ #define CONFIG_SYS_NAND_MAX_CHIPS   1       /* TH nuber of chips in a device?)  */
+ //#define CONFIG_SYS_MAX_FLASH_SECT   (520)
+ #define CONFIG_SYS_MAX_FLASH_BANKS 1
+ #define CFG_NAND_QUIET          1
+ 
+-/* Note: NAND_BASE refers to the xio profiles, in board_nand_init the correct base
++/* This is specific to NAND IPA051, we don't need it
++   Note: NAND_BASE refers to the xio profiles, in board_nand_init the correct base
+    values are retreived from the xio profiles
+ */
+-#define CONFIG_SYS_NAND_BASE            0x814, 0x818, 0x81C, 0x834
+-//#define CONFIG_SYS_NAND_BASE            0x814, 0x818, 0x81C, 0x834, 0x838
++#define CONFIG_SYS_NAND_BASE            0x814 /* 0x818, 0x81C, 0x834 */
++
+ #define CONFIG_MTD_NAND_VERIFY_WRITE
+ #define NAND_MAX_FLOORS         1
+ #define NAND_MAX_CHIPS          1
+diff -Naurp u-boot-2009.08.org/lib_arm/board.c u-boot-2009.08/lib_arm/board.c
+--- u-boot-2009.08.org/lib_arm/board.c	2010-11-04 13:02:38.000000000 -0500
++++ u-boot-2009.08/lib_arm/board.c	2010-11-04 13:15:10.000000000 -0500
+@@ -296,10 +296,7 @@ init_fnc_t *init_sequence[] = {
+ 	interrupt_init,		/* set up exceptions */
+ #endif
+ 	timer_init,		/* initialize timer */
+-	gcs_init,
+-   env_init,		/* initialize environment */
+ #if defined(CONFIG_APOLLO)	
+-	
+ 	init_baudrate,		/* initialze baudrate settings */
+ 	serial_init,		/* serial communications setup */
+ 	console_init_f,		/* stage 1 init of console */
+@@ -395,10 +392,8 @@ void start_armboot (void)
+ 	}
+ #endif /* CONFIG_LCD */
+ 
+-#if defined(CONFIG_CMD_NAND)
+-	puts ("NAND:  ");
+-	nand_init();		/* go init the NAND */
+-#endif
++    gcs_init();
++    env_init(); /* initialize environment */
+ 
+ #if defined(CONFIG_CMD_ONENAND)
+ 	onenand_init();
+diff -Naurp u-boot-2009.08.org/lib_arm/flash.c u-boot-2009.08/lib_arm/flash.c
+--- u-boot-2009.08.org/lib_arm/flash.c	2010-11-04 13:02:38.000000000 -0500
++++ u-boot-2009.08/lib_arm/flash.c	2010-11-04 13:14:25.000000000 -0500
+@@ -219,7 +219,10 @@ int gcs_init(void)
+       		}
+ 	       else if (FLASH_TYPE_NAND == eFlashtype){ 
+ 			puts("Boot Device: NAND Flash\r\n");
+-			//nand_init();
++			#if defined(CONFIG_CMD_NAND)
++			puts ("NAND:  ");
++			nand_init();
++			#endif
+ 			env_ptr = (env_t *)((ulong)0x0);
+ 			env_name_spec = env_name_spec_nand;
+ 			gEnv.init = env_init_nand;

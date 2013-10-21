@@ -1,0 +1,121 @@
+diff -Naur u-boot-2009.08/common/cmd_nand.c u-boot-2009.08_bbt/common/cmd_nand.c
+--- u-boot-2009.08/common/cmd_nand.c	2010-11-12 11:54:11.000000000 -0600
++++ u-boot-2009.08_bbt/common/cmd_nand.c	2010-11-12 11:46:43.000000000 -0600
+@@ -41,6 +41,7 @@
+ int find_dev_and_part(const char *id, struct mtd_device **dev,
+ 		      u8 *part_num, struct part_info **part);
+ #endif
++extern int nand_default_block_markgood(struct mtd_info *mtd, loff_t ofs);
+ 
+ static int nand_dump(nand_info_t *nand, ulong off, int only_oob)
+ {
+@@ -423,6 +424,7 @@
+ 	    strncmp(cmd, "read", 4) != 0 && strncmp(cmd, "write", 5) != 0 &&
+ 	    strcmp(cmd, "scrub") != 0 && strcmp(cmd, "markbad") != 0 &&
+ 	    strcmp(cmd, "biterr") != 0 &&
++	    strcmp(cmd, "markgood") != 0 &&
+ 	    strcmp(cmd, "lock") != 0 && strcmp(cmd, "unlock") != 0 )
+ 		goto usage;
+ 
+@@ -553,7 +555,33 @@
+ 
+ 		return ret == 0 ? 0 : 1;
+ 	}
++	
++	if (strcmp(cmd, "markgood") == 0) {
++		argc -= 2;
++		argv += 2;
++
++		if (argc <= 0)
++			goto usage;
+ 
++		while (argc > 0) {
++			addr = simple_strtoul(*argv, NULL, 16);
++
++			if (nand_default_block_markgood(nand, addr)) {
++				printf("block 0x%08lx NOT marked "
++					"as good! ERROR %d\n",
++					addr, ret);
++				ret = 1;
++			} else {
++				printf("block 0x%08lx successfully "
++					"marked as good\n",
++					addr);
++			}
++			--argc;
++			++argv;
++		}
++		return ret;
++	}
++	
+ 	if (strcmp(cmd, "markbad") == 0) {
+ 		argc -= 2;
+ 		argv += 2;
+@@ -642,6 +670,7 @@
+ 	"nand dump[.oob] off - dump page\n"
+ 	"nand scrub - really clean NAND erasing bad blocks (UNSAFE)\n"
+ 	"nand markbad off [...] - mark bad block(s) at offset (UNSAFE)\n"
++	"nand markgood off [...] - mark block(s) good at offset (UNSAFE)\n"
+ 	"nand biterr off - make a bit error at offset (UNSAFE)"
+ #ifdef CONFIG_CMD_NAND_LOCK_UNLOCK
+ 	"\n"
+diff -Naur u-boot-2009.08/drivers/mtd/nand/nand_base.c u-boot-2009.08_bbt/drivers/mtd/nand/nand_base.c
+--- u-boot-2009.08/drivers/mtd/nand/nand_base.c	2010-11-12 11:54:11.000000000 -0600
++++ u-boot-2009.08_bbt/drivers/mtd/nand/nand_base.c	2010-11-12 11:45:55.000000000 -0600
+@@ -142,6 +142,8 @@
+ 			     struct mtd_oob_ops *ops);
+ static int nand_wait(struct mtd_info *mtd, struct nand_chip *this);
+ 
++int nand_default_block_markgood(struct mtd_info *mtd, loff_t ofs);
++
+ /*
+  * For devices which display every fart in the system on a separate LED. Is
+  * compiled away when LED support is disabled.
+@@ -466,6 +468,47 @@
+ }
+ 
+ /**
++ * nand_default_block_markgood - [DEFAULT] mark a block good 
++ * @mtd:	MTD device structure
++ * @ofs:	offset from device start
++ * This is used just for testing - Very Unsafe 
++*/
++
++int nand_default_block_markgood(struct mtd_info *mtd, loff_t ofs)
++{
++        struct nand_chip *chip = mtd->priv;
++        uint8_t buf[2] = { 0, 0 };
++        int block, ret;
++
++        /* Get block number */
++        block = (int)(ofs >> chip->bbt_erase_shift);
++        if (chip->bbt)
++                chip->bbt[block >> 2] &= ~(0x01 << ((block & 0x03) << 1));
++        //printk("BBT bit value after marking block %08x, is %08x\n", block, chip->bbt[block>>2]);
++        /* Do we have a flash based bad block table ? */
++        if (chip->options & NAND_USE_FLASH_BBT)
++                ret = nand_update_bbt(mtd, ofs);
++        else {
++                /* We write two bytes, so we dont have to mess with 16 bit
++                 * access
++                 */
++                nand_get_device(chip, mtd, FL_WRITING);
++                ofs += mtd->oobsize;
++                chip->ops.len = chip->ops.ooblen = 2;
++                chip->ops.datbuf = NULL;
++                chip->ops.oobbuf = buf;
++                chip->ops.ooboffs = chip->badblockpos & ~0x01;
++
++                ret = nand_do_write_oob(mtd, ofs, &chip->ops);
++                nand_release_device(mtd);
++        }
++        if (!ret)
++                mtd->ecc_stats.badblocks--;
++
++        return ret;
++}
++
++/**
+  * nand_check_wp - [GENERIC] check if the chip is write protected
+  * @mtd:	MTD device structure
+  * Check, if the device is write protected

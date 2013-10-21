@@ -1,0 +1,302 @@
+diff -Naurp u-boot-2009.08/common/hdcp.c u-boot-2009.08.all/common/hdcp.c
+--- u-boot-2009.08/common/hdcp.c	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08.all/common/hdcp.c	2010-09-28 10:04:02.000000000 -0500
+@@ -0,0 +1,257 @@
++
++#include <common.h>
++#include <linux/mtd/mtd.h>
++
++#include <command.h>
++#include <watchdog.h>
++#include <malloc.h>
++#include <asm/byteorder.h>
++#include "stbcfg.h"
++#include "ldr_types.h"
++
++#define SSP_KEY_LEN 336
++
++/*
++   convert two digits hex characters to integer 
++   For example : "1F"  -> 31
++*/
++static int conv_htoi(unsigned char *hex)
++{
++   int i, j, ret = 0;
++   unsigned char c;
++
++   for(i = 0; i<2; i++) {
++      c = *(hex + i);
++      if(c >= '0' && c <= '9') {
++         j = (int)c - (int)'0';
++      }
++      else if(c >= 'a' && c <= 'f') {
++         j = (int)c - (int)'a' + 10;
++      }
++      else if(c >= 'A' && c <= 'F') {
++         j = (int)c - (int)'A' + 10;
++      }
++      ret += j << (4 * (1 - i));
++   }
++
++   return ret;
++}
++
++static int conv_hdcp_txt_to_hex(unsigned char *src,unsigned char *dst,int len) 
++{
++   int i;
++   char count = 0;
++   
++   for(i = 0; i <len; i++) {
++      while(src[0] == '\r' || src[0] == '\n') {
++         src ++; 
++         count ++; 
++         /* Avoding running forver to check garbage data */
++         if(count > len * 2) return -1;
++      }
++      *dst = conv_htoi(src);
++      src += 2; dst++;
++   }
++
++   return 1;
++}
++
++static int encrypt_hdcp_key(unsigned char *clear_key,unsigned char *encrypted_key,unsigned long len)
++{
++   unsigned long status,timeout;
++   unsigned long key;
++   unsigned long desc[8];
++   unsigned long context[24];
++
++   key = readl(0xE062816c);
++   key = key & 0x600;
++   
++   /* Set up the Context Data */
++   if( key == 0)
++      context[0] = 0x00008043;
++   else if( key == 2)
++      context[0] = 0x00028043;
++   else
++      context[0] = 0x00038043;
++
++   context[1] = len; //src len 0x150
++   context[2] = 0x001E0000;
++   context[3] = 0x00000000;
++   context[4] = 0x00000000;
++   context[5] = 0x00000000;
++   context[6] = 0x00000000;
++   context[7] = 0x00000000;
++   context[8] = 0x00000000;
++   context[9] = 0x00000000;
++   context[10] = 0x00000000;
++   context[11] = 0x00000000;
++   context[12] = 0x00000000;
++   context[13] = 0x00000000;
++   context[14] = 0x00000000;
++   context[15] = 0x00000000;
++   context[16] = 0x00000000;
++   context[17] = 0x00000000;
++   context[18] = 0x00000000;
++   context[19] = 0x00000000;
++   context[20] = 0x00000000;
++   context[21] = 0x00000000;
++   context[22] = 0x00000000;
++   context[23] = 0x00000000;
++
++   /* Set up the descriptor */
++   desc[0] = (unsigned long)context;
++   desc[1] = 0x0;
++   desc[2] = 95; /* Context struct size */
++   desc[3] = 0x186; /* Context, no END, no int */
++   desc[4] = (unsigned long)clear_key;
++   desc[5] = (unsigned long)encrypted_key;
++   desc[6] = (((len-1) <<16) | (len-1)); //0x014F014F;
++   desc[7] = 0x000002AE ; /* Data, END, no int */
++
++   /* Set vsm dma */
++   *((LPREG)(0xE0624300)) = 0x1;  /* Reset */
++   *((LPREG)(0xE0624304)) = (int)desc;
++   *((LPREG)(0xE0624300)) = 0x12; /* Validate A and run */
++
++   /* set timeout*/
++   timeout = 10000;
++   
++   /* poll for status */
++   do
++   {
++      puts("\rPolling crypto status ......\r\n");
++      udelay(10 * 1000);
++      status = readl(0xE0624264);
++   }while((!(status & 0x2000009)) && (timeout--));
++
++   if(!(status & 0x2000009)) 
++   {
++      puts("\rCrypto HDCP enc op failed ......\r\n");
++      return -1;
++   }
++   else 
++   {
++      puts("\rCrypto HDCP encode ops successful ....\r\n");
++   }
++   /* clear status reg */
++   writel(0xffffffff,0xE0624264);
++
++   return 0;
++}
++
++int do_hdcp(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
++{
++    char *s;
++    int i=0;
++    unsigned char *clear_key, *clear_key_formatted;
++    unsigned char *clear_key_hex, *clear_key_hex_temp, *encrypted_key_aligned;
++    unsigned long src_addr;
++
++    /* allocating memory for storing keys */
++    if((clear_key = (unsigned char *)malloc(sizeof(unsigned char) * (SSP_KEY_LEN*2))) == 0) {
++       printf("hdcpkey - memory allocation error!\n");
++       return 1;
++    }
++
++    if((clear_key_hex_temp = (unsigned char *)malloc(sizeof(unsigned char) * (SSP_KEY_LEN ))) == 0) {
++       printf("hdcpkey - memory allocation error!\n");
++       return 1;
++    }
++
++    clear_key_hex = clear_key_hex_temp ;
++    
++    /* clear_key needs to be aligned to 32 bits */
++    clear_key_formatted = (unsigned char *)(((unsigned long)clear_key + 3) & 0xfffffffc);
++      
++    /* Get loaded clear key location and destnation address*/
++    s = getenv ("loadaddr");
++    src_addr = (int)simple_strtol(s, NULL, 10);
++
++    /* The output excrypted key will be at loadaddr */
++    encrypted_key_aligned = (unsigned char *)src_addr;
++    
++    /* Convert text format to hex form */
++    conv_hdcp_txt_to_hex((unsigned char *)src_addr, (unsigned char *)clear_key_hex, SSP_KEY_LEN);
++    
++#if 0 
++    printk("\n Clear key is \n");
++    printf("(clear_key_hex + %d) is %02x%02x%02x%02x%02x\n", 0, *(clear_key_hex+0),*(clear_key_hex+1),
++        *(clear_key_hex+2),*(clear_key_hex+3),*(clear_key_hex+4));
++    for(i = 5; i < 285; i+=7) 
++    {
++        printf("(clear_key_hex + %d) is %02x%02x%02x%02x%02x%02x%02x\n",i,*(clear_key_hex+i),
++            *(clear_key_hex+i+1),*(clear_key_hex+i+2),*(clear_key_hex+i+3),*(clear_key_hex+i+4),
++            *(clear_key_hex+i+5),*(clear_key_hex+i+6));
++    }
++#endif 
++
++    /* 8 bytes of zeros */
++    for (i = 0 ; i < 8 ; i++)
++       *(clear_key_formatted + 320 + i) = 0x00 ;
++
++    /* 40 bits of KSV at the last */
++    for (i= 0 ; i < 5 ; i++)
++       *(clear_key_formatted + 328 + i) = *(clear_key_hex+i);
++
++    /* Pad 3 bytes of 0 */
++    for(i=0 ; i < 3 ; i++)
++       *(clear_key_formatted + 333 + i) = 0x00;
++
++    clear_key_hex += 5;
++    
++    for (i=0 ; i < 40 ; i++)
++    {
++       /* Re-formatting 40 56-bit keys, 7 bytes becomes 
++          8 bytes as: abcdefg ---- dcba0gfe */
++       *(clear_key_formatted +(i*8))   = * (clear_key_hex +(i*7+3));
++       *(clear_key_formatted +(i*8)+1) = * (clear_key_hex +(i*7+2));
++       *(clear_key_formatted +(i*8)+2) = * (clear_key_hex +(i*7+1));
++       *(clear_key_formatted +(i*8)+3) = * (clear_key_hex +(i*7));
++       *(clear_key_formatted +(i*8)+4) = 0x00;
++       *(clear_key_formatted +(i*8)+5) = * (clear_key_hex +(i*7+6));
++       *(clear_key_formatted +(i*8)+6) = * (clear_key_hex +(i*7+5));
++       *(clear_key_formatted +(i*8)+7) = * (clear_key_hex +(i*7+4));
++    }
++
++#if 0
++    printk("\n Formatted key is \n");
++    for ( i =0 ; i < SSP_KEY_LEN ;i+=8)
++       {
++           printf("(clear_key_formatted + %d) is %02x%02x%02x%02x%02x%02x%02x%02x\n", i, 
++            *(clear_key_formatted+i),*(clear_key_formatted+i+1),*(clear_key_formatted+i+2),
++            *(clear_key_formatted+i+3),*(clear_key_formatted+i+4),*(clear_key_formatted+i+5),
++            *(clear_key_formatted+i+6),*(clear_key_formatted+i+7));
++       }
++#endif
++
++    /* Encrypt the hdcp key using SSP */
++    puts("Encrypting hdcp key ... \n");
++    encrypt_hdcp_key(clear_key_formatted, encrypted_key_aligned, SSP_KEY_LEN);
++
++#if 0
++    for(i = 0; i < SSP_KEY_LEN; i+=8) 
++    {
++        printf("(encrypted_key_aligned + %d) is %02x%02x%02x%02x%02x%02x%02x%02x\n", i, 
++            *(encrypted_key_aligned+i),*(encrypted_key_aligned+i+1),*(encrypted_key_aligned+i+2),
++            *(encrypted_key_aligned+i+3),*(encrypted_key_aligned+i+4),*(encrypted_key_aligned+i+5),
++            *(encrypted_key_aligned+i+6),*(encrypted_key_aligned+i+7));
++    }
++#endif
++
++    /* free the allocated memory */
++    free(clear_key);
++    free(clear_key_hex_temp);
++    puts("HDCP key Encryption complete ... \n");
++    
++    return 0 ;
++}
++
++U_BOOT_CMD(hdcp, CONFIG_SYS_MAXARGS, 1, do_hdcp,
++    "HDCP key generation - input/output uses loadaddr",
++    "info - HDCP Key generation command\n"
++    "The input clear key is read from location pointed by loadaddr env variable\n"    
++    "The encrypted key is output'd to location pointed by loadaddr\n"    
++    "cmd usage - \n"    
++    "hdcp\n"
++);
++
+diff -Naurp u-boot-2009.08/common/Makefile u-boot-2009.08.all/common/Makefile
+--- u-boot-2009.08/common/Makefile	2010-09-28 12:21:10.000000000 -0500
++++ u-boot-2009.08.all/common/Makefile	2010-09-27 14:32:11.000000000 -0500
+@@ -121,6 +121,7 @@ COBJS-$(CONFIG_CMD_NAND) += cmd_nand.o
+ COBJS-$(CONFIG_CMD_NOR) += cmd_nor.o
+ COBJS-$(CONFIG_CMD_SFC) += cmd_sfc.o
+ COBJS-$(CONFIG_CMD_GCS) += cmd_gcs.o
++COBJS-y 		+= hdcp.o
+ COBJS-$(CONFIG_CMD_UARTBOOT) += cmd_uartboot.o
+ COBJS-$(CONFIG_CMD_NET) += cmd_net.o
+ COBJS-$(CONFIG_CMD_ONENAND) += cmd_onenand.o
+diff -Naurp u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08.all/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-09-28 12:52:57.000000000 -0500
++++ u-boot-2009.08.all/include/configs/vpe_apollo.h	2010-09-28 12:18:33.000000000 -0500
+@@ -247,11 +247,11 @@
+ #endif
+ 
+ #define CONFIG_EXTRA_ENV_SETTINGS                   \
+-    "mtdparts=mtdparts=nx_2016:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
++    "mtdparts=mtdparts=nx_2016:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
+     "mtdids=nor0=nx_2016\0" \
+-    "nandparts=mtdparts=nx_2017:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
++    "nandparts=mtdparts=nx_2017:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)\0" \
+     "nandids=nand0=nx_2017\0" \
+-    "sfcparts=mtdparts=nx_sfc:1536k@0k(boot),5m@1536k(kernel),8m@7m(root),-(extra)\0" \
++    "sfcparts=mtdparts=nx_sfc:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),8m@7m(root),-(extra)\0" \
+     "sfcids=sfc0=nx_sfc\0" \
+     "Image=tftp 0x00008000 Image; go 0x00008000\0"          \
+     "autoload=n\0"      \
+@@ -267,9 +267,9 @@
+     "root=/dev/mtdblock2 rw " \
+     "rootfstype=jffs2"
+ 
+-  #define MTDIDS_DEFAULT		"nor0=nx_2016"
++  #define MTDIDS_DEFAULT	"nor0=nx_2016"
+ 
+-  #define MTDPARTS_DEFAULT  "mtdparts=nx_2016:1536k@0k(boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)"
++  #define MTDPARTS_DEFAULT  "mtdparts=nx_2016:1024k@0k(uldr),512k@1024k(u-boot),5m@1536k(kernel),32m@7m(root),32m@39m(appfs),-(extra)"
+ 
+ /*
+  * Miscellaneous configurable options

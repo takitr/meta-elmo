@@ -1,0 +1,41 @@
+diff -Naurp u-boot-2009.08.org/lib_arm/flash.c u-boot-2009.08/lib_arm/flash.c
+--- u-boot-2009.08.org/lib_arm/flash.c	2010-11-01 21:52:34.000000000 -0500
++++ u-boot-2009.08/lib_arm/flash.c	2010-11-01 21:51:30.000000000 -0500
+@@ -172,34 +172,16 @@ static void display_flash_config (ulong 
+ }
+ #endif /* CONFIG_SYS_NO_FLASH */
+ 
+-#define LOCK_CMD_REG  0xE06E6028
+-#define LOCK_STAT_REG 0xE06E602C
+-#define GRESET1_REG   0xe06e6010
+-#define GCS_MASK      0x200
+-
+ /* Initialize GCS - Called from the function table in start_armboot */
+-
+ int gcs_init(void)
+ {
+ 	devicetype_t  eBootDev;
+ 	flashtype_t  eFlashtype;
+ 	retcode_t ret;
+-  	u32 rst_val;
+-//   u32 config_strap;
+ 
+-       /* Reset GCS */
+-       writel(0xf8, LOCK_CMD_REG);
+-       writel(0x2b, LOCK_CMD_REG);
+-       writel(0x1, LOCK_STAT_REG);
+-     
+-       rst_val = readl((unsigned long *)(GRESET1_REG));
+-       rst_val |= GCS_MASK;
+-       writel(rst_val, (unsigned long *)(GRESET1_REG));
+-       rst_val &= ~GCS_MASK;
+-       writel(rst_val, (unsigned long *)(GRESET1_REG));
+-       /* Initialize the GCS in ISA/PCI Mode */
+-       
+-       nx_gcs_init_mode();
++        /* Initialize the GCS in ISA/PCI Mode */       
++        nx_gcs_init_mode();
++
+   	ret =  check_uart_boot_sel();
+ 	if (RETCODE_BOOTDEV_UART == ret)
+ 	{

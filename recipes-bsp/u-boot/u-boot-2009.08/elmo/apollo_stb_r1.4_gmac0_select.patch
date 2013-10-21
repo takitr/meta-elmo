@@ -1,0 +1,38 @@
+--- u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c	2011-07-26 11:11:05.000000000 +0800
++++ u-boot-2009.08-patch/drivers/net/lipp_6300eth/lipp_6300eth.c	2011-07-05 10:28:56.000000000 +0800
+@@ -83,9 +83,9 @@
+ 
+     GMAC_DBG("Initialize:Start\n");
+ 
+-    gtmhwLIPP6100Eth_Base[0].baseAddress = GMAC_UNIT_BASE(1);
++    gtmhwLIPP6100Eth_Base[0].baseAddress = GMAC_UNIT_BASE(0);
+ 
+-    GMAC_DBG("Ethernet MAC base address:%08x\n",GMAC_UNIT_BASE(1));
++    GMAC_DBG("Ethernet MAC base address:%08x\n",GMAC_UNIT_BASE(0));
+ 
+     for(unitNum=0; unitNum < MAX_LIPP_6300ETH_UNITS; unitNum++)
+     {
+@@ -218,9 +218,9 @@
+     setup_dma_descriptors(&gDma_desc[pPriv->hwUnitNo],pPriv->hwUnitNo);
+ 
+     /* Get the PHY interface function pointers */
+-    //tmbslPhyGetInterface(pPriv->hwUnitNo,&gpPhyInterface[pPriv->hwUnitNo]);
++    tmbslPhyGetInterface(pPriv->hwUnitNo,&gpPhyInterface[pPriv->hwUnitNo]);
+     //use GMAC 1
+-    tmbslPhyGetInterface(pPriv->hwUnitNo + 1,&gpPhyInterface[pPriv->hwUnitNo]);
++    //tmbslPhyGetInterface(pPriv->hwUnitNo + 1,&gpPhyInterface[pPriv->hwUnitNo]);
+     printf("Using %s Ethernet PHY\n", gpPhyInterface[pPriv->hwUnitNo]->phyName);
+ 
+     tmhwLIPP6100Eth_GetHWVersion(pPriv->hwUnitNo,&hwVersion);
+@@ -233,9 +233,9 @@
+         return 0;
+     }
+ #endif
+-   // ret_val = tmhwLIPP6100Eth_Init(pPriv->hwUnitNo, GMAC0_MII_SEL);
++    ret_val = tmhwLIPP6100Eth_Init(pPriv->hwUnitNo, GMAC0_MII_SEL);
+    //use MII mode ON GMAC1
+-    ret_val = tmhwLIPP6100Eth_Init(pPriv->hwUnitNo, True);
++   // ret_val = tmhwLIPP6100Eth_Init(pPriv->hwUnitNo, True);
+ 
+     if(TM_OK !=  ret_val)
+     {

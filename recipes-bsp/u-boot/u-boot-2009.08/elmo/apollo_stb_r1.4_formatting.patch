@@ -1,0 +1,564 @@
+diff -Naupr u-boot-2009.08.orig/common/.nfs00000000008600e200000002 u-boot-2009.08/common/.nfs00000000008600e200000002
+--- u-boot-2009.08.orig/common/.nfs00000000008600e200000002	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08/common/.nfs00000000008600e200000002	2011-01-25 09:30:38.021242516 -0600
+@@ -0,0 +1,201 @@
++/*
++ *  SFC- Serial Flash support
++ *  Karthik Murthy - Trident Microsystems
++ */
++
++
++#include <common.h>
++#include <linux/mtd/mtd.h>
++
++#if defined(CONFIG_CMD_SFC)
++
++#include <command.h>
++#include <watchdog.h>
++#include <malloc.h>
++#include <asm/byteorder.h>
++#include <jffs2/jffs2.h>
++
++
++//#include "ip1902dmac.h"
++
++
++extern ulong	NetBootFileXferSize;
++extern struct mtd_info *sfc_info[];
++
++#if defined(CONFIG_CMD_MTDPARTS)
++
++/* parition handling routines */
++int mtdparts_init(void);
++int id_parse(const char *id, const char **ret_id, u8 *dev_type, u8 *dev_num);
++int find_dev_and_part(const char *id, struct mtd_device **dev,
++		      u8 *part_num, struct part_info **part);
++#endif
++int nx_sfc_mtd_write(struct mtd_info *mtd, loff_t to, size_t len,
++	size_t *retlen, const u_char *buf);
++int nx_sfc_mtd_read(struct mtd_info *mtd, loff_t from, size_t len,
++	size_t *retlen, u_char *buf);
++int nx_sfc_mtd_erase(struct mtd_info *mtd, struct erase_info *instr);
++static int arg_off_size(int argc, char *argv[], struct mtd_info **sfc, ulong *off, size_t *size);
++
++/* ------------------------------------------------------------------------- */
++
++static inline int str2long(char *p, ulong *num)
++{
++	char *endptr;
++
++	*num = simple_strtoul(p, &endptr, 16);
++	return (*p != '\0' && *endptr == '\0') ? 1 : 0;
++}
++
++static int
++arg_off_size(int argc, char *argv[], struct mtd_info **sfc, ulong *off, size_t *size)
++{
++	int idx = 0;
++#if defined(CONFIG_CMD_MTDPARTS)
++	struct mtd_device *dev;
++	struct part_info *part;
++	u8 pnum;
++	*sfc = sfc_info[0];
++	if (argc >= 1 && !(str2long(argv[0], off))) {
++		if ((mtdparts_init() == 0) &&
++		    (find_dev_and_part(argv[0], &dev, &pnum, &part) == 0)) {
++			if (dev->id->type != MTD_DEV_TYPE_SFC) {
++				puts("not a SFC device\n");
++				return -1;
++			}
++			*off = part->offset;
++			if (argc >= 2) {
++				if (!(str2long(argv[1], (ulong *)size))) {
++					printf("'%s' is not a number\n", argv[1]);
++					return -1;
++				}
++				if (*size > part->size)
++					*size = part->size;
++			} else {
++				*size = part->size;
++			}
++			idx = dev->id->num;
++			goto out;
++		}
++	}
++#endif
++
++	if (argc >= 1) {
++		if (!(str2long(argv[0], off))) {
++			printf("'%s' is not a number\n", argv[0]);
++			return -1;
++		}
++	} else {
++		*off = 0;
++	}
++
++	if (argc >= 2) {
++		if (!(str2long(argv[1], (ulong *)size))) {
++			printf("'%s' is not a number\n", argv[1]);
++			return -1;
++		}
++		#if 0
++		else
++			*size = sfc->size - *off;
++		#endif
++	} 
++#if defined(CONFIG_CMD_MTDPARTS)
++out:
++#endif
++#if 0
++	printf("device %d ", idx);
++	if (*size == sfc->size)
++		puts("whole chip\n");
++	else
++#endif		
++		printf("offset 0x%lx, size 0x%zx\n", *off, *size);
++	return 0;
++}
++
++/*---------------------------------------------------------------------------------*/
++
++
++int do_sfc(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
++{
++	int ret = 0;
++	ulong addr, off;
++	size_t size, retlen;
++	char *cmd, *s;
++	struct mtd_info *sfc;
++	struct erase_info instr;
++
++	/* at least two arguments please */
++	if (argc < 2)
++		goto usage;
++
++	cmd = argv[1];
++	/*
++	 * Syntax is:
++	 *   0    1     2       3    
++	 *   sfc erase [off size]
++	 */
++	if (strcmp(cmd, "erase") == 0 ) {
++		printf("\nSFC %s: ",  "erase");
++		/* skip first two arguments, look for offset and size */
++		if (arg_off_size(argc - 2, argv + 2, &sfc, &off, &size) != 0)
++			return 1;
++		instr.addr = off;
++		instr.len = size;
++		ret = nx_sfc_mtd_erase(sfc, &instr);
++		printf("%s\n", ret ? "ERROR" : "OK");
++
++		return ret == 0 ? 0 : 1;
++	}
++
++	if (strncmp(cmd, "read", 4) == 0 || strncmp(cmd, "write", 5) == 0) {
++		int read, write;
++
++		if (argc < 3)
++			goto usage;
++		
++		s = getenv ("loadaddr");
++		addr= (int)simple_strtol(s, NULL, 10);
++		read = strncmp(cmd, "read", 4) == 0; /* 1 = read */
++		write = strncmp(cmd, "write", 5) == 0; /* 1 = write */
++		printf("\nSFC %s: ", read ? "read" : "write");
++		if (arg_off_size(argc - 2, argv + 2, &sfc, &off, &size) != 0)
++			return 1;
++
++		if (read)
++			ret = nx_sfc_mtd_read(sfc, off, size, &retlen,
++						 (u_char *)addr);
++		else if(write){
++			  if(NetBootFileXferSize)
++			  	size = NetBootFileXferSize;
++				ret = nx_sfc_mtd_write(sfc, off, size, &retlen,
++						  (u_char *)addr);
++			}
++		  else {
++			printf("Unknown  command  '%s'.\n", cmd);
++			return 1;
++		}
++
++		printf(" %zu bytes %s: %s\n", size,
++		       read ? "read" : "written", ret ? "ERROR" : "OK");
++
++		return ret == 0 ? 0 : 1;
++	}
++usage:
++	cmd_usage(cmdtp);
++	return 1;
++}
++
++U_BOOT_CMD(sfc, CONFIG_SYS_MAXARGS, 1, do_sfc,
++	"SFC sub-system",
++	"sfc read off size\n"
++	"sfc write off size\n"
++	"    read/write 'size' bytes starting at offset 'off'\n"
++	"    to/from memory address 'addr', skipping bad blocks.\n"
++	"sfc read [part-id] [size-optional]\n"
++	"sfc write [part-id] [size-optional\n"
++	"sfc erase off size- erase 'size' bytes from offset\n"
++	"sfc erase [part-id]- erase 'size' bytes from\n"
++);
++
++#endif
++
+diff -Naupr u-boot-2009.08.orig/common/cmd_sfc.c u-boot-2009.08/common/cmd_sfc.c
+--- u-boot-2009.08.orig/common/cmd_sfc.c	2011-01-25 09:30:38.021242516 -0600
++++ u-boot-2009.08/common/cmd_sfc.c	2011-01-26 17:50:23.065477295 -0600
+@@ -1,26 +1,26 @@
+ /*
+- *  SFC- Serial Flash support
+- *  Karthik Murthy - Trident Microsystems
++ *  SFC- Serial Flash support
++ *  Karthik Murthy - Trident Microsystems
+  */
+ 
+-
++
+ #include <common.h>
+ #include <linux/mtd/mtd.h>
+ 
+-#if defined(CONFIG_CMD_SFC)
++#if defined(CONFIG_CMD_SFC)
+ 
+ #include <command.h>
+ #include <watchdog.h>
+ #include <malloc.h>
+ #include <asm/byteorder.h>
+ #include <jffs2/jffs2.h>
+-
++
+ 
+ //#include "ip1902dmac.h"
+ 
+ 
+-extern ulong	NetBootFileXferSize;
+-extern struct mtd_info *sfc_info[];
++extern ulong	NetBootFileXferSize;
++extern struct mtd_info *sfc_info[];
+ 
+ #if defined(CONFIG_CMD_MTDPARTS)
+ 
+@@ -28,15 +28,15 @@ extern struct mtd_info *sfc_info[];
+ int mtdparts_init(void);
+ int id_parse(const char *id, const char **ret_id, u8 *dev_type, u8 *dev_num);
+ int find_dev_and_part(const char *id, struct mtd_device **dev,
+-		      u8 *part_num, struct part_info **part);
+-#endif
+-int nx_sfc_mtd_write(struct mtd_info *mtd, loff_t to, size_t len,
+-	size_t *retlen, const u_char *buf);
+-int nx_sfc_mtd_read(struct mtd_info *mtd, loff_t from, size_t len,
+-	size_t *retlen, u_char *buf);
+-int nx_sfc_mtd_erase(struct mtd_info *mtd, struct erase_info *instr);
+-static int arg_off_size(int argc, char *argv[], struct mtd_info **sfc, ulong *off, size_t *size);
+-
++		      u8 *part_num, struct part_info **part);
++#endif
++int nx_sfc_mtd_write(struct mtd_info *mtd, loff_t to, size_t len,
++	size_t *retlen, const u_char *buf);
++int nx_sfc_mtd_read(struct mtd_info *mtd, loff_t from, size_t len,
++	size_t *retlen, u_char *buf);
++int nx_sfc_mtd_erase(struct mtd_info *mtd, struct erase_info *instr);
++static int arg_off_size(int argc, char *argv[], struct mtd_info **sfc, ulong *off, size_t *size);
++
+ /* ------------------------------------------------------------------------- */
+ 
+ static inline int str2long(char *p, ulong *num)
+@@ -48,19 +48,19 @@ static inline int str2long(char *p, ulon
+ }
+ 
+ static int
+-arg_off_size(int argc, char *argv[], struct mtd_info **sfc, ulong *off, size_t *size)
++arg_off_size(int argc, char *argv[], struct mtd_info **sfc, ulong *off, size_t *size)
+ {
+-	int idx = 0;
++	int idx = 0;
+ #if defined(CONFIG_CMD_MTDPARTS)
+ 	struct mtd_device *dev;
+ 	struct part_info *part;
+ 	u8 pnum;
+-	*sfc = sfc_info[0];
++	*sfc = sfc_info[0];
+ 	if (argc >= 1 && !(str2long(argv[0], off))) {
+ 		if ((mtdparts_init() == 0) &&
+ 		    (find_dev_and_part(argv[0], &dev, &pnum, &part) == 0)) {
+-			if (dev->id->type != MTD_DEV_TYPE_SFC) {
+-				puts("not a SFC device\n");
++			if (dev->id->type != MTD_DEV_TYPE_SFC) {
++				puts("not a SFC device\n");
+ 				return -1;
+ 			}
+ 			*off = part->offset;
+@@ -75,7 +75,7 @@ arg_off_size(int argc, char *argv[], str
+ 				*size = part->size;
+ 			}
+ 			idx = dev->id->num;
+-			goto out;
++			goto out;
+ 		}
+ 	}
+ #endif
+@@ -93,109 +93,109 @@ arg_off_size(int argc, char *argv[], str
+ 		if (!(str2long(argv[1], (ulong *)size))) {
+ 			printf("'%s' is not a number\n", argv[1]);
+ 			return -1;
+-		}
+-		#if 0
+-		else
+-			*size = sfc->size - *off;
+-		#endif
+-	} 
++		}
++		#if 0
++		else
++			*size = sfc->size - *off;
++		#endif
++	} 
+ #if defined(CONFIG_CMD_MTDPARTS)
+ out:
+-#endif
+-#if 0
++#endif
++#if 0
+ 	printf("device %d ", idx);
+-	if (*size == sfc->size)
++	if (*size == sfc->size)
+ 		puts("whole chip\n");
+-	else
+-#endif		
++	else
++#endif		
+ 		printf("offset 0x%lx, size 0x%zx\n", *off, *size);
+ 	return 0;
+ }
+ 
+-/*---------------------------------------------------------------------------------*/
++/*---------------------------------------------------------------------------------*/
+ 
+ 
+-int do_sfc(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
++int do_sfc(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
+ {
+-	int ret = 0;
++	int ret = 0;
+ 	ulong addr, off;
+-	size_t size, retlen;
++	size_t size, retlen;
+ 	char *cmd, *s;
+-	struct mtd_info *sfc;
+-	struct erase_info instr;
+-
+-	/* at least two arguments please */
++	struct mtd_info *sfc;
++	struct erase_info instr;
++
++	/* at least two arguments please */
+ 	if (argc < 2)
+ 		goto usage;
+ 
+-	cmd = argv[1];
+-	/*
++	cmd = argv[1];
++	/*
+ 	 * Syntax is:
+-	 *   0    1     2       3    
+-	 *   sfc erase [off size]
++	 *   0    1     2       3    
++	 *   sfc erase [off size]
+ 	 */
+-	if (strcmp(cmd, "erase") == 0 ) {
+-		printf("\nSFC %s: ",  "erase");
+-		/* skip first two arguments, look for offset and size */
+-		if (arg_off_size(argc - 2, argv + 2, &sfc, &off, &size) != 0)
+-			return 1;
+-		instr.addr = off;
+-		instr.len = size;
+-		ret = nx_sfc_mtd_erase(sfc, &instr);
++	if (strcmp(cmd, "erase") == 0 ) {
++		printf("\nSFC %s: ",  "erase");
++		/* skip first two arguments, look for offset and size */
++		if (arg_off_size(argc - 2, argv + 2, &sfc, &off, &size) != 0)
++			return 1;
++		instr.addr = off;
++		instr.len = size;
++		ret = nx_sfc_mtd_erase(sfc, &instr);
+ 		printf("%s\n", ret ? "ERROR" : "OK");
+ 
+ 		return ret == 0 ? 0 : 1;
+ 	}
+-
++
+ 	if (strncmp(cmd, "read", 4) == 0 || strncmp(cmd, "write", 5) == 0) {
+-		int read, write;
++		int read, write;
+ 
+ 		if (argc < 3)
+ 			goto usage;
+ 		
+ 		s = getenv ("loadaddr");
+ 		addr= (int)simple_strtol(s, NULL, 10);
+-		read = strncmp(cmd, "read", 4) == 0; /* 1 = read */
+-		write = strncmp(cmd, "write", 5) == 0; /* 1 = write */
+-		printf("\nSFC %s: ", read ? "read" : "write");
+-		if (arg_off_size(argc - 2, argv + 2, &sfc, &off, &size) != 0)
++		read = strncmp(cmd, "read", 4) == 0; /* 1 = read */
++		write = strncmp(cmd, "write", 5) == 0; /* 1 = write */
++		printf("\nSFC %s: ", read ? "read" : "write");
++		if (arg_off_size(argc - 2, argv + 2, &sfc, &off, &size) != 0)
+ 			return 1;
+-
+-		if (read)
+-			ret = nx_sfc_mtd_read(sfc, off, size, &retlen,
+-						 (u_char *)addr);
+-		else if(write){
+-			  if(NetBootFileXferSize)
+-			  	size = NetBootFileXferSize;
+-				ret = nx_sfc_mtd_write(sfc, off, size, &retlen,
+-						  (u_char *)addr);
+-			}
+-		  else {
+-			printf("Unknown  command  '%s'.\n", cmd);
++
++		if (read)
++			ret = nx_sfc_mtd_read(sfc, off, size, &retlen,
++						 (u_char *)addr);
++		else if(write){
++			  if(NetBootFileXferSize)
++			  	size = NetBootFileXferSize;
++				ret = nx_sfc_mtd_write(sfc, off, size, &retlen,
++						  (u_char *)addr);
++			}
++		  else {
++			printf("Unknown  command  '%s'.\n", cmd);
+ 			return 1;
+ 		}
+ 
+ 		printf(" %zu bytes %s: %s\n", size,
+ 		       read ? "read" : "written", ret ? "ERROR" : "OK");
+ 
+-		return ret == 0 ? 0 : 1;
+-	}
+-usage:
++		return ret == 0 ? 0 : 1;
++	}
++usage:
+ 	cmd_usage(cmdtp);
+ 	return 1;
+ }
+ 
+-U_BOOT_CMD(sfc, CONFIG_SYS_MAXARGS, 1, do_sfc,
+-	"SFC sub-system",
+-	"sfc read off size\n"
+-	"sfc write off size\n"
++U_BOOT_CMD(sfc, CONFIG_SYS_MAXARGS, 1, do_sfc,
++	"SFC sub-system",
++	"sfc read off size\n"
++	"sfc write off size\n"
+ 	"    read/write 'size' bytes starting at offset 'off'\n"
+-	"    to/from memory address 'addr', skipping bad blocks.\n"
+-	"sfc read [part-id] [size-optional]\n"
+-	"sfc write [part-id] [size-optional\n"
+-	"sfc erase off size- erase 'size' bytes from offset\n"
+-	"sfc erase [part-id]- erase 'size' bytes from\n"
+-);
++	"    to/from memory address 'addr', skipping bad blocks.\n"
++	"sfc read [part-id] [size-optional]\n"
++	"sfc write [part-id] [size-optional\n"
++	"sfc erase off size- erase 'size' bytes from offset\n"
++	"sfc erase [part-id]- erase 'size' bytes from\n"
++);
++
++#endif
+ 
+-#endif
+-
+diff -Naupr u-boot-2009.08.orig/common/cmd_uartboot.c u-boot-2009.08/common/cmd_uartboot.c
+--- u-boot-2009.08.orig/common/cmd_uartboot.c	2011-01-25 09:30:38.149271703 -0600
++++ u-boot-2009.08/common/cmd_uartboot.c	2011-01-26 17:51:24.397503340 -0600
+@@ -1,46 +1,46 @@
+ #include <common.h>
+-#include <asm/byteorder.h>
+-#include "ldr_types.h"
+-#include "stbcfg.h"
+-
+-extern ulong		NetBootFileXferSize;
+-
+-int do_uartboot(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[]);
+-extern  retcode_t  download_from_uart(u32 length, u32 *length_read, u8 *dest);
+-
+-int do_uartboot(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
+-{
+-	u32 length=0, length_read, dest;
+-	char *cmd, *s;
+-	retcode_t ret;
+-	
+-	/* only one argument please */
+-	if (argc > 1)
++#include <asm/byteorder.h>
++#include "ldr_types.h"
++#include "stbcfg.h"
++
++extern ulong		NetBootFileXferSize;
++
++int do_uartboot(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[]);
++extern  retcode_t  download_from_uart(u32 length, u32 *length_read, u8 *dest);
++
++int do_uartboot(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
++{
++	u32 length=0, length_read, dest;
++	char *cmd, *s;
++	retcode_t ret;
++	
++	/* only one argument please */
++	if (argc > 1)
+ 		goto usage1;
+ 
+-	cmd = argv[0];
+-	if(strncmp(cmd, "uartboot", 8) == 0)
+-	{
+-		s = getenv ("loadaddr");
+-		dest = (int)simple_strtol(s, NULL, 10);
+-		ret = download_from_uart(length, &length_read, (u8 *)dest);
+-		if(ret == RETCODE_OK)
+-		{
+-			NetBootFileXferSize  = length_read;
+-			return 0;
+-		}
+-		else 
+-			return 1;
+-	}
+-	else
+-		goto usage1;
+-usage1:
++	cmd = argv[0];
++	if(strncmp(cmd, "uartboot", 8) == 0)
++	{
++		s = getenv ("loadaddr");
++		dest = (int)simple_strtol(s, NULL, 10);
++		ret = download_from_uart(length, &length_read, (u8 *)dest);
++		if(ret == RETCODE_OK)
++		{
++			NetBootFileXferSize  = length_read;
++			return 0;
++		}
++		else 
++			return 1;
++	}
++	else
++		goto usage1;
++usage1:
+ 	cmd_usage(cmdtp);
+ 	return 1;
+ }
+ 
+-U_BOOT_CMD(uartboot, CONFIG_SYS_MAXARGS, 1, do_uartboot,
+-	"Serial sub-system",
+-	"cmd usage - \n"	
+-	"uartboot\n"	
++U_BOOT_CMD(uartboot, CONFIG_SYS_MAXARGS, 1, do_uartboot,
++	"Serial sub-system",
++	"cmd usage - \n"	
++	"uartboot\n"	
+ );
+\ No newline at end of file

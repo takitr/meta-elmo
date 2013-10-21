@@ -1,0 +1,178 @@
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyAccess.c u-boot-2009.08_mysti/drivers/net/lipp_6300eth/tmbslPhyAccess.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyAccess.c	2010-02-08 15:58:08.000000000 -0600
++++ u-boot-2009.08_mysti/drivers/net/lipp_6300eth/tmbslPhyAccess.c	2010-02-08 14:51:29.000000000 -0600
+@@ -172,8 +172,8 @@
+ 
+ #endif
+ 
+-#ifdef __USING_MYSTIPHY110E_PHY__
+-#include "tmbslPhyMYSTI110E.h"
++#ifdef __USING_MYSTI110E_PHY__
++//#include "tmbslPhyMYSTI110E.h"
+ /* PHY interface structure to store PHY register access functions */
+  tmbslPhyConfig_t gtmbslPhyInterface[TMHWLIPP6100ETH_NUM_UNITS] =
+ {
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhy.c u-boot-2009.08_mysti/drivers/net/lipp_6300eth/tmbslPhy.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhy.c	2010-02-08 15:58:08.000000000 -0600
++++ u-boot-2009.08_mysti/drivers/net/lipp_6300eth/tmbslPhy.c	2010-02-08 14:35:20.000000000 -0600
+@@ -1,4 +1,5 @@
+ #include "lipp_6300eth_common.h"
++#include "tmhwLIPP6100Eth_Cfg.h"
+ 
+ /* config.h, included in lipp_6300eth_common.h has defines for 
+ ** CONFIG_LIPP_6300ETH & one of the PHY to be compiled
+@@ -41,9 +42,9 @@
+     #include "tmbslPhyRTL8211BN.c"    
+     #endif
+ 
+-    #ifdef CONFIG_USING_RTLMYSTI110E_PHY
+-    #include "tmbslPhyRTLMYSTI110E.h"        
+-    #include "tmbslPhyRTLMYSTI110E.c"    
++    #ifdef CONFIG_USING_MYSTI110E_PHY
++    #include "tmbslPhyMYSTI110E.h"        
++    #include "tmbslPhyMYSTI110E.c"    
+     #endif
+     /* Files which are must for ethernet driver, utilizing 
+     ** macros in config.h, tv55x.h
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c u-boot-2009.08_mysti/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c	2010-02-08 15:58:08.000000000 -0600
++++ u-boot-2009.08_mysti/drivers/net/lipp_6300eth/tmbslPhyMYSTI110E.c	2010-02-08 14:44:19.000000000 -0600
+@@ -34,16 +34,16 @@
+ #include "tmNxCompId.h"
+ 
+ /*  Project include files */
+-
++#include "lipp_6300eth_common.h"
+ #include "tmbslPhy.h"
+ #include "tmbslPhyMYSTI110E.h"
+ #include "tmhwLIPP6100Eth_Cfg.h"
+ 
+ /* Timeout in case of linux */
+ #ifdef __LIPP_6300ETH__
+-#include <linux/delay.h>
+-#include "remap.h"
+-#include <asm/io.h>
++//#include <linux/delay.h>
++//#include "remap.h"
++//#include <asm/io.h>
+ #define AUTO_NEG_DELAY_MULTIPLIER (800)
+ #endif
+ 
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c u-boot-2009.08_mysti/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c	2010-02-08 15:58:08.000000000 -0600
++++ u-boot-2009.08_mysti/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c	2010-02-08 14:43:01.000000000 -0600
+@@ -35,6 +35,8 @@
+ #include "tmNxCompId.h"
+ /*  Project include files */
+ 
++#include "lipp_6300eth_common.h"
++
+ #include "tmbslPhy.h"
+ //#include "tmbslPhyRTL8211BN.h"
+ #include "tmhwLIPP6100Eth_Cfg.h"
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h u-boot-2009.08_mysti/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h	2010-02-08 15:58:08.000000000 -0600
++++ u-boot-2009.08_mysti/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h	2010-02-08 15:18:32.000000000 -0600
+@@ -40,6 +40,7 @@
+ 
+ 
+ #include "tmNxTypes.h"
++#include "stbcfg.h"
+ 
+ /*----------------------------------------------------------------------------*/
+ /* Project include files: */
+@@ -77,6 +78,21 @@
+ #define IPVERSION_34_1_A  0
+ 
+ #define TMHWLIPP6100ETH_NUM_UNITS (1)
++
++#ifdef CONFIG_PHY
++#if (CFG_GMAC0_PHY == EXTERNAL_PHY)
++    #define CONFIG_USING_RTL8211_PHY
++    #define __USING_RTL8211_PHY__
++    #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
++    #define TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL 0x1U
++#else
++    #define CONFIG_USING_MYSTI110E_PHY
++    #define __USING_MYSTI110E_PHY__
++    #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
++    #define TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL 0x0U
++#endif
++#endif
++
+ /*! 
+  * \def TMHWLIPP6100ETH_NUM_UNITS
+  *  Indicates number of ethernet units supported.
+diff -Naur u-boot-2009.08/drivers/net/Makefile u-boot-2009.08_mysti/drivers/net/Makefile
+--- u-boot-2009.08/drivers/net/Makefile	2010-02-08 15:58:08.000000000 -0600
++++ u-boot-2009.08_mysti/drivers/net/Makefile	2010-02-08 14:08:00.000000000 -0600
+@@ -79,6 +79,10 @@
+ COBJS-$(CONFIG_LIPP_6300ETH) += lipp_6300eth/lipp_6300eth.o \
+ 				lipp_6300eth/tmbslPhy.o
+ 
++HOSTCFLAGS += -I $(_TMROOT)/inc
++HOSTCFLAGS += -I $(_TMTGTBUILDROOT)/cfgtoh/$(STB_HW_CONFIG)-bare
++CFLAGS += $(HOSTCFLAGS)
++
+ COBJS	:= $(COBJS-y)
+ SRCS	:= $(COBJS:.o=.c)
+ OBJS	:= $(addprefix $(obj),$(COBJS))
+diff -Naur u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08_mysti/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-02-08 15:58:08.000000000 -0600
++++ u-boot-2009.08_mysti/include/configs/vpe_apollo.h	2010-02-08 15:17:21.000000000 -0600
+@@ -198,20 +198,24 @@
+ #ifdef CONFIG_CMD_NET
+ 
+     #define CONFIG_LIPP_6300ETH
++    #define CONFIG_PHY        /* Comment this out for EMY PHY */
+ //    #define CONFIG_USING_EMU_PHY
+ //    #define __USING_EMU_PHY__
+-    
++
++#if 0    
+ #if (CFG_GMAC0_PHY == EXTERNAL_PHY)
+     #define CONFIG_USING_RTL8211_PHY
+     #define __USING_RTL8211_PHY__
+     #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
+     #define TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL 0x1U
+ #else
++xxx
+     #define CONFIG_USING_MYSTI110E_PHY
+     #define __USING_MYSTI110E_PHY__
+     #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
+     #define TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL 0x0U
+ #endif
++#endif
+     #define __NULL_PHY__
+  //   #define CONFIG_NET_RETRY_COUNT 50
+ 
+diff -Naur u-boot-2009.08/Makefile u-boot-2009.08_mysti/Makefile
+--- u-boot-2009.08/Makefile	2010-02-08 15:58:08.000000000 -0600
++++ u-boot-2009.08_mysti/Makefile	2010-02-08 13:55:39.000000000 -0600
+@@ -166,6 +166,7 @@
+ # load other configuration
+ include $(TOPDIR)/config.mk
+ 
++
+ #########################################################################
+ # U-Boot objects....order is important (i.e. start must be first)
+ 
+@@ -3114,6 +3115,7 @@
+ 	@$(MKCONFIG) $(@:_config=) arm arm_cortexa8 vpe_apollo nxp pnx84xx
+ 
+ vpe_apollo_eth_emu_config :	unconfig
++	xxx
+ 	@mkdir -p $(obj)include
+ 	@ >$(obj)include/config.h
+ 	@echo "#define CONFIG_LIPP_6300ETH" >>$(obj)include/config.h
+diff -Naur u-boot-2009.08/tools/Makefile u-boot-2009.08_mysti/tools/Makefile
+--- u-boot-2009.08/tools/Makefile	2010-02-08 15:58:08.000000000 -0600
++++ u-boot-2009.08_mysti/tools/Makefile	2010-02-08 15:13:56.000000000 -0600
+@@ -49,7 +49,6 @@
+ ifeq ($(HOSTOS),cygwin)
+ HOSTCFLAGS += -ansi
+ endif
+-
+ #
+ # toolchains targeting win32 generate .exe files
+ #

@@ -1,0 +1,935 @@
+diff --git a/board/nxp/vpe_apollo/vpe_apollo.c b/board/nxp/vpe_apollo/vpe_apollo.c
+index 3bd80d5..5680b0b 100755
+--- a/board/nxp/vpe_apollo/vpe_apollo.c
++++ b/board/nxp/vpe_apollo/vpe_apollo.c
+@@ -29,10 +29,22 @@
+ #include <asm/arch/sys_proto.h>
+ #include <asm/mach-types.h>
+ #include "vpe_apollo.h"
++#include "ns16550.h"
+ #include "splash_logo.h"
+ #include "apollo_logo.h"
+-#include "ns16550.h"
+ 
++#include <common.h>
++#include <command.h>
++
++#include "ldr_common.h"
++
++//#define APOLLO_DEBUG
++
++#ifdef	APOLLO_DEBUG
++#define APOLLO_PRINTF(fmt, args...)	printf(fmt , ##args)
++#else
++#define APOLLO_PRINTF(fmt, args...)
++#endif
+ 
+ #define APOLLO_MMIO_BASE_ADDR (0xE0600000)
+ #define APOLLO_CGU_BASE     (APOLLO_MMIO_BASE_ADDR + 0x0E7000)
+@@ -51,6 +63,38 @@
+ #define TRUE 1
+ #define FALSE 0
+ 
++#if (BOARD_VER == 0x4)
++#define HWPIN_LOW 3
++#define HWPIN_HIGH 4
++#else
++#define HWPIN_LOW 0
++#define HWPIN_HIGH 0
++#endif
++
++/*GPIO Defines */
++#define GPIO_LEFT   0x80
++#define GPIO_RIGHT  0x00
++#define GPIO_NONE   0xFF
++#define GPIO_PRIMARY_FUNCTION_MODE 0x1
++#define GPIO_FUNCTION_MODE 0x2
++#define GPIO_OUTPUT_DRAIN_MODE 0x3
++#define MAX_GPIOS 199
++#define GPIO_LEFT_DATA_REG(n)  GPIO_DATA_REG0_REG(1) + (n*0x4)
++#define GPIO_RIGHT_DATA_REG(n) GPIO_DATA_REG0_REG(2) + (n*0x4)
++#define GPIO_LEFT_MODE_CTRL_REG(n)   GPIO_MODE_CTRL0_REG(1) + (n*0x4)
++#define GPIO_RIGHT_MODE_CTRL_REG(n)  GPIO_MODE_CTRL0_REG(2) + (n*0x4)
++
++enum{
++	VIDEO_OUT_PREVIOUS_MODE = -1,
++	VIDEO_OUT_DEFAULT = 0,
++	VIDEO_OUT_NTSC = 1,
++	VIDEO_OUT_PAL = 2,
++	READ_CMD_WAKEUP_FROM_RCU = 0xC1,
++	READ_CMD_WAKEUP_FROM_FRONT = 0xC2,
++	READ_CMD_WAKEUP_FROM_TIMER = 0xC3,
++	READ_CMD_WAKEUP_FROM_AC = 0xC4,
++};
++
+ void board_config();
+ void apollo_splash2();
+ /******************************************************************************
+@@ -67,7 +111,6 @@ int board_init(void)
+ 	/* boot param addr */
+ 	gd->bd->bi_boot_params = (PNX84XX_SDRC_CS0 + 0x2000);
+ 
+-	apollo_splash2();
+ 	return 0;
+ }
+ /******************************************************************************
+@@ -115,9 +158,214 @@ void set_muxconf_regs(void)
+ #if defined(CONFIG_SHOW_BOOT_PROGRESS)
+ void show_boot_progress(int progress)
+ {
+-    printf("Boot reached stage %d\n", progress);
++    APOLLO_PRINTF("Boot reached stage %d\n", progress);
+ }
+ #endif
++static u_int8 pio_table[]=
++{
++    GPIO_NONE,              /* PIO000 */
++    GPIO_RIGHT  +   0,      /* PIO001 */
++    GPIO_RIGHT  +   1,      /* PIO002 */
++    GPIO_RIGHT  +   2,      /* PIO003 */
++    GPIO_RIGHT  +   3,      /* PIO004 */
++    GPIO_RIGHT  +   4,      /* PIO005 */
++    GPIO_RIGHT  +   5,      /* PIO006 */
++    GPIO_RIGHT  +   6,      /* PIO007 */
++    GPIO_LEFT   +   0,      /* PIO008 */
++    GPIO_LEFT   +   1,      /* PIO009 */
++    GPIO_LEFT   +   2,      /* PIO010 */
++    GPIO_LEFT   +   3,      /* PIO011 */
++    GPIO_LEFT   +   4,      /* PIO012 */
++    GPIO_LEFT   +   5,      /* PIO013 */
++    GPIO_LEFT   +   6,      /* PIO014 */
++    GPIO_LEFT   +   7,      /* PIO015 */
++    GPIO_LEFT   +   8,      /* PIO016 */
++    GPIO_NONE,              /* PIO017 */
++    GPIO_NONE,              /* PIO018 */
++    GPIO_RIGHT  +   7,      /* PIO019 */
++    GPIO_RIGHT  +   8,      /* PIO020 */
++    GPIO_RIGHT  +   9,      /* PIO021 */
++    GPIO_RIGHT  +   10,     /* PIO022 */
++    GPIO_NONE,              /* PIO023 */
++    GPIO_LEFT   +   9,      /* PIO024 */
++    GPIO_RIGHT  +   11,     /* PIO025 */
++    GPIO_NONE,              /* PIO026 */
++    GPIO_LEFT   +   10,     /* PIO027 */
++    GPIO_NONE,              /* PIO028 */
++    GPIO_NONE,              /* PIO029 */
++    GPIO_NONE,              /* PIO030 */
++    GPIO_RIGHT  +   12,     /* PIO031 */
++    GPIO_RIGHT  +   13,     /* PIO032 */
++    GPIO_RIGHT  +   14,     /* PIO033 */
++    GPIO_RIGHT  +   15,     /* PIO034 */
++    GPIO_RIGHT  +   16,     /* PIO035 */
++    GPIO_RIGHT  +   17,     /* PIO036 */
++    GPIO_RIGHT  +   18,     /* PIO037 */
++    GPIO_NONE,              /* PIO038 */
++    GPIO_RIGHT  +   19,     /* PIO039 */
++    GPIO_NONE,              /* PIO040 */
++    GPIO_NONE,              /* PIO041 */
++    GPIO_NONE,              /* PIO042 */
++    GPIO_NONE,              /* PIO043 */
++    GPIO_RIGHT  +   20,     /* PIO044 */
++    GPIO_RIGHT  +   21,     /* PIO045 */
++    GPIO_NONE,              /* PIO046 */
++    GPIO_NONE,              /* PIO047 */
++    GPIO_RIGHT  +   22,     /* PIO048 */
++    GPIO_RIGHT  +   23,     /* PIO049 */
++    GPIO_NONE,              /* PIO050 */
++    GPIO_RIGHT  +   24,     /* PIO051 */
++    GPIO_RIGHT  +   25,     /* PIO052 */
++    GPIO_NONE,              /* PIO053 */
++    GPIO_NONE,              /* PIO054 */
++    GPIO_NONE,              /* PIO055 */
++    GPIO_NONE,              /* PIO056 */
++    GPIO_NONE,              /* PIO057 */
++    GPIO_NONE,              /* PIO058 */
++    GPIO_NONE,              /* PIO059 */
++    GPIO_NONE,              /* PIO060 */
++    GPIO_NONE,              /* PIO061 */
++    GPIO_NONE,              /* PIO062 */
++    GPIO_RIGHT  +   26,     /* PIO063 */
++    GPIO_RIGHT  +   27,     /* PIO064 */
++    GPIO_RIGHT  +   28,     /* PIO065 */
++    GPIO_NONE,              /* PIO066 */
++    GPIO_NONE,              /* PIO067 */
++    GPIO_LEFT   +   11,     /* PIO068 */
++    GPIO_LEFT   +   12,     /* PIO069 */
++    GPIO_RIGHT  +   29,     /* PIO070 */
++    GPIO_LEFT   +   13,     /* PIO071 */
++    GPIO_LEFT   +   14,     /* PIO072 */
++    GPIO_LEFT   +   15,     /* PIO073 */
++    GPIO_LEFT   +   16,     /* PIO074 */
++    GPIO_LEFT   +   17,     /* PIO075 */
++    GPIO_NONE,              /* PIO076 */
++    GPIO_RIGHT  +   30,     /* PIO077 */
++    GPIO_NONE,              /* PIO078 */
++    GPIO_NONE,              /* PIO079 */
++    GPIO_NONE,              /* PIO080 */
++    GPIO_NONE,              /* PIO081 */
++    GPIO_LEFT   +   18,     /* PIO082 */
++    GPIO_LEFT   +   19,     /* PIO083 */
++    GPIO_LEFT   +   20,     /* PIO084 */
++    GPIO_LEFT   +   21,     /* PIO085 */
++    GPIO_LEFT   +   22,     /* PIO086 */
++    GPIO_LEFT   +   23,     /* PIO087 */
++    GPIO_LEFT   +   24,     /* PIO088 */
++    GPIO_LEFT   +   25,     /* PIO089 */
++    GPIO_LEFT   +   26,     /* PIO090 */
++    GPIO_LEFT   +   27,     /* PIO091 */
++    GPIO_LEFT   +   28,     /* PIO092 */
++    GPIO_LEFT   +   29,     /* PIO093 */
++    GPIO_NONE,              /* PIO094 */
++    GPIO_NONE,              /* PIO095 */
++    GPIO_NONE,              /* PIO096 */
++    GPIO_NONE,              /* PIO097 */
++    GPIO_NONE,              /* PIO098 */
++    GPIO_NONE,              /* PIO099 */
++    GPIO_NONE,              /* PIO100 */
++    GPIO_NONE,              /* PIO101 */
++    GPIO_NONE,              /* PIO102 */
++    GPIO_LEFT   +   30,     /* PIO103 */
++    GPIO_NONE,              /* PIO104 */
++    GPIO_NONE,              /* PIO105 */
++    GPIO_NONE,              /* PIO106 */
++    GPIO_NONE,              /* PIO107 */
++    GPIO_NONE,              /* PIO108 */
++    GPIO_RIGHT  +   31,     /* PIO109 */
++    GPIO_RIGHT  +   32,     /* PIO110 */
++    GPIO_RIGHT  +   33,     /* PIO111 */
++    GPIO_RIGHT  +   34,     /* PIO112 */
++    GPIO_RIGHT  +   35,     /* PIO113 */
++    GPIO_RIGHT  +   36,     /* PIO114 */
++    GPIO_RIGHT  +   37,     /* PIO115 */
++    GPIO_RIGHT  +   38,     /* PIO116 */
++    GPIO_RIGHT  +   39,     /* PIO117 */
++    GPIO_LEFT   +   31,     /* PIO118 */
++    GPIO_LEFT   +   32,     /* PIO119 */
++    GPIO_LEFT   +   33,     /* PIO120 */
++    GPIO_LEFT   +   34,     /* PIO121 */
++    GPIO_LEFT   +   35,     /* PIO122 */
++    GPIO_NONE,              /* PIO123 */
++    GPIO_NONE,              /* PIO124 */
++    GPIO_NONE,              /* PIO125 */
++    GPIO_NONE,              /* PIO126 */
++    GPIO_NONE,              /* PIO127 */
++    GPIO_LEFT   +   36,     /* PIO128 */
++    GPIO_LEFT   +   37,     /* PIO129 */
++    GPIO_LEFT   +   38,     /* PIO130 */
++    GPIO_NONE,              /* PIO131 */
++    GPIO_NONE,              /* PIO132 */
++    GPIO_NONE,              /* PIO133 */
++    GPIO_NONE,              /* PIO134 */
++    GPIO_NONE,              /* PIO135 */
++    GPIO_NONE,              /* PIO136 */
++    GPIO_NONE,              /* PIO137 */
++    GPIO_NONE,              /* PIO138 */
++    GPIO_NONE,              /* PIO139 */
++    GPIO_NONE,              /* PIO140 */
++    GPIO_LEFT   +   39,     /* PIO141 */
++    GPIO_LEFT   +   40,     /* PIO142 */
++    GPIO_LEFT   +   41,     /* PIO143 */
++    GPIO_LEFT   +   42,     /* PIO144 */
++    GPIO_LEFT   +   43,     /* PIO145 */
++    GPIO_LEFT   +   44,     /* PIO146 */
++    GPIO_LEFT   +   45,     /* PIO147 */
++    GPIO_LEFT   +   46,     /* PIO148 */
++    GPIO_LEFT   +   47,     /* PIO149 */
++    GPIO_LEFT   +   48,     /* PIO150 */
++    GPIO_RIGHT  +   40,     /* PIO151 */
++    GPIO_RIGHT  +   41,     /* PIO152 */
++    GPIO_RIGHT  +   42,     /* PIO153 */
++    GPIO_RIGHT  +   43,     /* PIO154 */
++    GPIO_RIGHT  +   44,     /* PIO155 */
++    GPIO_RIGHT  +   45,     /* PIO156 */
++    GPIO_RIGHT  +   46,     /* PIO157 */
++    GPIO_RIGHT  +   47,     /* PIO158 */
++    GPIO_RIGHT  +   48,     /* PIO159 */
++    GPIO_NONE,              /* PIO160 */
++    GPIO_LEFT   +   49,     /* PIO161 */
++    GPIO_LEFT   +   50,     /* PIO162 */
++    GPIO_NONE,              /* PIO163 */
++    GPIO_LEFT   +   51,     /* PIO164 */
++    GPIO_LEFT   +   52,     /* PIO165 */
++    GPIO_NONE,              /* PIO166 */
++    GPIO_NONE,              /* PIO167 */
++    GPIO_NONE,              /* PIO168 */
++    GPIO_LEFT   +   53,     /* PIO169 */
++    GPIO_RIGHT  +   49,     /* PIO170 */
++    GPIO_RIGHT  +   50,     /* PIO171 */
++    GPIO_LEFT   +   54,     /* PIO172 */
++    GPIO_LEFT   +   55,     /* PIO173 */
++    GPIO_LEFT   +   56,     /* PIO174 */
++    GPIO_LEFT   +   57,     /* PIO175 */
++    GPIO_LEFT   +   58,     /* PIO176 */
++    GPIO_LEFT   +   59,     /* PIO177 */
++    GPIO_LEFT   +   60,     /* PIO178 */
++    GPIO_LEFT   +   61,     /* PIO179 */
++    GPIO_LEFT   +   62,     /* PIO180 */
++    GPIO_LEFT   +   63,     /* PIO181 */
++    GPIO_LEFT   +   64,     /* PIO182 */
++    GPIO_LEFT   +   65,     /* PIO183 */
++    GPIO_LEFT   +   66,     /* PIO184 */
++    GPIO_LEFT   +   67,     /* PIO185 */
++    GPIO_LEFT   +   68,     /* PIO186 */
++    GPIO_LEFT   +   69,     /* PIO187 */
++    GPIO_LEFT   +   70,     /* PIO188 */
++    GPIO_LEFT   +   71,     /* PIO189 */
++    GPIO_LEFT   +   72,     /* PIO190 */
++    GPIO_LEFT   +   73,     /* PIO191 */
++    GPIO_NONE,              /* PIO192 */
++    GPIO_RIGHT  +   51,     /* PIO193 */
++    GPIO_RIGHT  +   52,     /* PIO194 */
++    GPIO_RIGHT  +   53,     /* PIO195 */
++    GPIO_RIGHT  +   54,     /* PIO196 */
++    GPIO_RIGHT  +   55,     /* PIO197 */
++    GPIO_RIGHT  +   56,     /* PIO198 */
++    GPIO_RIGHT  +   57,     /* PIO199 */
++
++};
++
+ unsigned char gVFD_CharTable[256][6] =
+ {
+ 		{0x00,0x00,0x00,0x00,0x00,0x00},//0x00, icon play
+@@ -391,6 +639,38 @@ unsigned char gVFD_CharTable[256][6] =
+ 
+ 	  
+ };
++
++int WaitForReply(int length)
++{
++	int i = 0;
++	char readByte[8] = {0};
++	int mTimeout = 0;
++	for(i = 0; i < length; i++)
++	{
++		mTimeout++;
++		readByte[i] = ReadByte(1000);
++		APOLLO_PRINTF("waitfor reply readByte[%d] = 0x%x\n",i,readByte[i]);		
++		if(readByte[i] == 0xff)
++			i--;
++		if (mTimeout >= length*10)
++			break;
++	}
++	return 0;
++}
++
++int ReadByte(int Timeout)
++{
++	int timecounter=0;
++	int ch=-1;
++	do{
++		ch = NS16550_pollc(CONFIG_SYS_NS16550_COM2);
++		if(ch >=0)
++			return ch;
++     		timecounter++;
++    	}while(timecounter< Timeout ); 
++	return ch;
++}
++
+ void Write(char * aBuffer, int aLength)
+ {
+ 	int i = 0;
+@@ -408,7 +688,7 @@ void Write(char * aBuffer, int aLength)
+ 		{
+ 			crcV ^=aBuffer[i];
+ 		}
+-		printf("CRC Value = %d\n",crcV);
++		APOLLO_PRINTF("CRC Value = %d\n",crcV);
+ 		mWriteBuffer[aLength-1] = crcV;
+ 	} //withCRC Value in Command
+ 	else
+@@ -420,7 +700,7 @@ void Write(char * aBuffer, int aLength)
+ 		{
+ 			crcV ^=aBuffer[i];
+ 		}
+-		printf("CRC Value = %d\n",crcV);		
++		APOLLO_PRINTF("CRC Value = %d\n",crcV);		
+ 		mWriteBuffer[aLength] = crcV;
+ 		mWriteLength++;
+ 	}
+@@ -428,10 +708,35 @@ void Write(char * aBuffer, int aLength)
+ 	for(i=0; i < mWriteLength; i++)
+ 	{
+ 		NS16550_putc((NS16550_t)CONFIG_SYS_NS16550_COM2,mWriteBuffer[i]);
+-		printf("mWriteBuffer[%d]=0x%x\n",i,mWriteBuffer[i]);
++		APOLLO_PRINTF("mWriteBuffer[%d]=0x%x\n",i,mWriteBuffer[i]);
+ 	}
+ }
+-
++int GetWakeupMode()
++{
++	char cmd[8];
++	char readcmd[8];
++	memset( cmd, 0, sizeof( cmd ) );	
++	int i=0;
++	int mTimeout = 0;
++	
++	cmd[0] = 0x43;
++		
++	Write( cmd, 8 );
++	for(i = 0; i < 8; i++)
++	{
++		mTimeout++;
++		readcmd[i] = ReadByte(1000);
++		APOLLO_PRINTF("readcmd[%d] = 0x%x\n",i,readcmd[i]);
++		if(readcmd[i] == 0xff)
++			i--;
++		if (mTimeout >= 8*10)
++			break;		
++	}
++	if(readcmd[0] == 0x77)
++		return readcmd[1];
++	else
++		return 0;
++}
+ 
+ void LED_ON_OFF(int mLED_ID, int mEnable)
+ {
+@@ -478,16 +783,8 @@ void LED_ON_OFF(int mLED_ID, int mEnable)
+ 		}
+ 
+ 	}
+-#if 0	
+-	int i;
+-	for(i=0; i < 8; i++)
+-	{
+-		NS16550_putc((NS16550_t)CONFIG_SYS_NS16550_COM2,ledcmd[i]);
+-		printf("vfdcmd[%d]=0x%x\n",i,ledcmd[i]);
+-	}
+-#else
++
+ 	Write(ledcmd, 8);
+-#endif
+ 	
+ }
+ 
+@@ -539,17 +836,8 @@ void writeVFD(char* aChar)
+ 	aChar = (char*)&tmp3[i];
+ 	memcpy(vfdcmd + 1 + (i*8), aChar, 8);
+ 	}
+-#if (BOARD_VER == 0x4)	
+-#if 0
+-	for(i=0; i < 25; i++)
+-	{
+-		NS16550_putc((NS16550_t)CONFIG_SYS_NS16550_COM2,vfdcmd[i]);
+-		//printf("vfdcmd[%d]=0x%x\n",i,vfdcmd[i]);
+-	}
+-#else
++
+ 	Write(vfdcmd, 25);
+-#endif
+-#endif	
+ }
+ 
+ 
+@@ -557,29 +845,6 @@ void writeVFD(char* aChar)
+ void Uart2_Enable(void)
+ {	
+ 	unsigned long value = 0x0;
+-#if 0 //Test Uart Port set to Open Drain mod
+-	value = readl(GLOBALREG_GPIO_SEC_PIN_MUX_2_REG);
+-	printf("GLOBALREG_GPIO_SEC_PIN_MUX_2_REG is 0x%x\n",value);
+-	//value &= 0x0;
+-	//writel(value,GLOBALREG_GPIO_SEC_PIN_MUX_2_REG);
+-	value = readl(GLOBALREG_ALT_PIN_MUX_0_REG);
+-	printf("GLOBALREG_ALT_PIN_MUX_0_REG is 0x%x\n",value);
+-	//value &= 0xffffefff;
+-	//writel(value, GLOBALREG_ALT_PIN_MUX_0_REG);
+-
+-	value = readl(GPIO_MODE_CTRL1_REG(1));
+-	printf("valueTT is 0x%x\n",value);
+-	value &= 0x3fffffff;
+-	value |= 0x80000000;
+-	writel(value, GPIO_MODE_CTRL0_REG(1));
+-	value = readl(GPIO_MODE_CTRL0_REG(1));
+-	printf("addr = 0x%x value111 is 0x%x\n",GPIO_MODE_CTRL0_REG(1),value);
+-	value = readl(GPIO_DATA_REG0_REG(1));
+-	value =0x00000000;
+-	writel(value, GPIO_DATA_REG0_REG(1));	
+-	value = readl(GPIO_DATA_REG0_REG(1));
+-	printf("addr = 0x%x value111 is 0x%x\n",GPIO_DATA_REG0_REG(1),value);
+-#endif	
+ 
+ #if (BOARD_VER == 0x4)
+ 	//UART2 Pin Mux Enable
+@@ -594,22 +859,6 @@ void Uart2_Enable(void)
+ 	value = readl(GLOBALREG_GPIO_SEC_PIN_MUX_2_REG);
+ 	value &= 0xfffffdff;
+ 	writel(value, GLOBALREG_GPIO_SEC_PIN_MUX_2_REG);
+-
+-#if 0 //Test Uart Port set to Open Drain mod
+-	value = readl(GPIO_MODE_CTRL1_REG(1));
+-	printf("valueTT is 0x%x\n",value);
+-	value &= 0x3fffffff;
+-	value |= 0x80000000;
+-	writel(value, GPIO_MODE_CTRL0_REG(1));
+-	value = readl(GPIO_MODE_CTRL0_REG(1));
+-	printf("addr = 0x%x value111 is 0x%x\n",GPIO_MODE_CTRL0_REG(1),value);
+-	value = readl(GPIO_MODE_CTRL0_REG(1));
+-	printf("value is 0x%x\n",value);
+-	value |= 0xc0000000;
+-	writel(value, GPIO_MODE_CTRL0_REG(1));
+-	value = readl(GPIO_MODE_CTRL0_REG(1));
+-	printf("addr = 0x%x  value1111 is 0x%x\n",GPIO_MODE_CTRL0_REG(1),value);
+-#endif
+ #endif
+ 
+ 	//pio045 (USB_5V) pin power Enable
+@@ -621,7 +870,6 @@ void Uart2_Enable(void)
+ 	value &= 0xffffdfff;
+ 	writel(value,GLOBALREG_GPIO_PIN_MUX_2_REG);
+ 	value = readl(GPIO_MODE_CTRL1_REG(2));
+-	//printf("22addr = 0x%x  value1111 is 0x%x\n",GPIO_MODE_CTRL1_REG(2),value);	
+ 	value &= 0xcffff0ff;
+ 	value |= 0x20000800;
+ 	writel(value, GPIO_MODE_CTRL1_REG(2));
+@@ -634,15 +882,14 @@ void Uart2_Enable(void)
+ void Uart2_Disable(void)
+ {	
+ 	unsigned long value = 0x0;
++
+ #if (BOARD_VER == 0x4)
+ 	//UART2 Pin Mux Disable
+ 	value = readl(GLOBALREG_ALT_PIN_MUX_0_REG);
+ 	value &= 0xffffefff;
+ 	writel(value, GLOBALREG_ALT_PIN_MUX_0_REG);
+ #endif	
+-	//value = readl(GLOBALREG_GPIO_PIN_MUX_1_REG);
+-	//value |= 0x3000;
+-	//writel(value,GLOBALREG_GPIO_PIN_MUX_1_REG);
++
+ }
+ void check_img()
+ {
+@@ -653,139 +900,184 @@ void check_img()
+ 
+ 	args[0]=0x0;
+ 	args[1]=0x8000;
+-	printf("Check usb storage for update ....\n");
++	APOLLO_PRINTF("Check usb storage for update ....\n");
+ 	if(check_usb()==-1)
+ 	{
+-		printf("Usb storage not found ....\n");
+-		writeVFD("Booting--");
+-		return;
++		APOLLO_PRINTF("Usb storage not found ....\n");
+ 	}
+ 	else
+ 	{
+ 		writeVFD("Check img");	
+-		printf("Usb storage Found ....\n"
++		WaitForReply(2);		
++		APOLLO_PRINTF("Usb storage Found ....\n"
+ 				"Check update Images ....\n");
+ 		size = check_update_image("update/","update/checkusb.img");
+ 		if(size == -1){
+-			printf("uldr Image Read Fail or Not found uldr Image ....\n");
++			APOLLO_PRINTF("uldr Image Read Fail or Not found uldr Image ....\n");
+ 		}
+ 		else{
+-			writeVFD("Update---");
+-			printf("Update ....\n");
++			writeVFD("Update   ");
++			WaitForReply(2);
++			APOLLO_PRINTF("Update ....\n");
+ 			source(0x8000,fit_uname);
+ 
+ 			while(check_stor()==0)
+ 			{
+-				printf("REMOVEUSB\n");
++				APOLLO_PRINTF("REMOVEUSB\n");
+ 				writeVFD("REMOVEUSB");
++				WaitForReply(2);
+ 			}
+ 			do_reset(NULL, 0, 0, NULL);
+ 		}
+ 	}
+-	writeVFD("Booting--");
++	writeVFD("Boot Up  ");
++	WaitForReply(2);
+ }
+ 
+-
+-void update_usbtonand()
++int gpio_get_level(unsigned int pio_num)
+ {
+-	long size = -1;
+-	int update_counter = 0;
++    /* Index into the pio table to find the left/right pio number */
++    u_int8 gpio_reg = pio_table[pio_num];
++    u_int8 gpio_instance = (gpio_reg&GPIO_LEFT);
++    u_int8 gpio_number = gpio_reg & (u_int8)(~GPIO_LEFT);
++    u_int32 gpio_reg_val;
++
++    /* Check if its valid GPIO */
++    if(gpio_reg == GPIO_NONE)
++        return 0;
++
++    /* Handle Left and Right GPIOs */
++    if(gpio_instance == GPIO_LEFT)
++    {
++        /* Read the LEFT GPIO register */
++        gpio_reg_val = INP32(GPIO_LEFT_DATA_REG((u_int32)gpio_number/16));
++        gpio_reg_val = (gpio_reg_val >> (gpio_number%16)) & (u_int32)0x1;
++        return (gpio_reg_val);
++    }
++    else
++    {
++        /* Read the RIGHT GPIO register */
++        gpio_reg_val = INP32(GPIO_RIGHT_DATA_REG((u_int32)gpio_number/16));
++        gpio_reg_val = (gpio_reg_val >> (gpio_number%16)) & (u_int32)0x1;
++        return (gpio_reg_val);
++    }
+ 
+-	printf("Check usb storage for update ....\n");
+-	if(check_usb()==-1){
+-		printf("Usb storage not found ....\n");
+-		writeVFD("Booting--");
+-		return;
+-	}
+-	else{
+-		writeVFD("Check img");	
+-		printf("Usb storage Found ....\n"
+-				"Check update Images ....\n");
+-		size = check_update_image("update/uldr","update/uldr/uldr.bin");
+-		if(size == -1){
+-			printf("uldr Image Read Fail or Not found uldr Image ....\n");
+-		}
+-		else{
+-			writeVFD("Update---");
+-			printf("uldr Image update ....\n");
+-			update_counter++;
+-			update_nand("uldr",0x100000);
+-		}
+-		size = check_update_image("update/u-boot","update/u-boot/u-boot.bin");
+-		if(size == -1){
+-			printf("U-boot Image Read Fail or Not found u-boot Image ....\n");
+-		}
+-		else{
+-			writeVFD("Update---");
+-			printf("u-boot Image update ....\n");
+-			update_counter++;
+-			update_nand("u-boot",size);
+-			saveenv();
+-		}
+-		size = check_update_image("update/config","update/config/config.image");
+-		if(size == -1){
+-			printf("Configuration Image Read Fail or Not found configuration Image ....\n");
+-		}
+-		else{
+-			writeVFD("Update---");			
+-			printf("configuration Image update ....\n");
+-			update_counter++;
+-			update_nand("configure",size);
+-		}
+-		size = check_update_image("update/kernel","update/kernel/kernel.image");
+-		if(size == -1){
+-			printf("Kernel Image Read Fail or Not found kernel Image ....\n");
+-		}
+-		else{
+-			writeVFD("Update---");			
+-			printf("kernel Image update ....\n");
+-			update_counter++;			
+-			update_nand("kernel",size);
+-		}
+-		size = check_update_image("update/rootfs","update/rootfs/root.jffs2");
+-		if(size == -1){
+-			printf("Rootfs Image Read Fail or Not found rootfs Image ....\n");
+-		}
+-		else{
+-			writeVFD("Update---");			
+-			printf("rootfs Image update ....\n");
+-			update_counter++;			
+-			update_nand("root",size);
+-		}
+-		size = check_update_image("update/data","update/data/data.image");
+-		if(size == -1){
+-			printf("Data Image Read Fail or Not found data Image ....\n");
+-		}
+-		else{
+-			writeVFD("Update---");			
+-			printf("data Image update ....\n");
+-			update_counter++;			
+-			update_nand("data",size);
+-		}
++}
+ 
+-		if(update_counter != 0){
+-			while(check_stor()==0){
+-			printf("REMOVEUSB\n");
+-			writeVFD("REMOVEUSB");
++int GetHwVersion()
++{
++	int bLowVer, bHighVer;
++	int hwver = 0;
++
++	if (gpio_get_level(HWPIN_HIGH))
++		hwver |= 0x2;
++	if (gpio_get_level(HWPIN_LOW))
++		hwver |= 0x1;
++	return hwver;
++}
++int CheckVideoMode()
++{
++	int i = 0;
++	int ch = -1;
++	int timecounter = 0;
++	char readcmd[8] = {0};
++	int mTimeout = 0;
++	int mPALcnt=0;
++	int mNTSCcnt=0;
++	do{
++		readcmd[0]=ReadByte(1000);
++		APOLLO_PRINTF("readcmd[0] = 0x%x\n",readcmd[0]);		
++		if (readcmd[0] == 0xd2)
++		{
++			for(i = 0; i < 7; i++)
++			{
++				mTimeout++;
++				readcmd[i+1] = ReadByte(1000);
++				APOLLO_PRINTF("readcmd[%d] = 0x%x\n",i+1,readcmd[i+1]);
++				if (mTimeout >= 8*10)
++					break;
++				udelay(10);
++			}
++			if (readcmd[1] == 0x28)
++			{
++				mPALcnt++;
++				APOLLO_PRINTF("mPALcnt = %d\n",mPALcnt);
++				if(mPALcnt >= 10)
++					return VIDEO_OUT_PAL;
++			}
++			else if(readcmd[1] == 0x29)
++			{
++				mNTSCcnt++;
++				APOLLO_PRINTF("mNTSCcnt = %d\n",mNTSCcnt);
++				if(mNTSCcnt >= 10)
++					return VIDEO_OUT_NTSC;				
+ 			}
+ 		}
+-	writeVFD("Booting--");		
++		timecounter++;
++		udelay(10000);
++	}while(timecounter < 300 ); 
++
++	return VIDEO_OUT_PREVIOUS_MODE;
++}
++void SetVideomode(int videoout)
++{
++	char videomode[128];
++	int i = 0;
++	if(videoout == VIDEO_OUT_NTSC)
++	{
++		writeVFD("NTSC mode");
++		WaitForReply(2);		
++		setenv("videomode","NTSC");
++		saveenv();
++		for(i = 0; i < 100; i++)
++			udelay(10000);
++	}
++	else if(videoout == VIDEO_OUT_PAL)
++	{
++		writeVFD("PAL mode");
++		WaitForReply(2);		
++		setenv("videomode","PAL");
++		saveenv();
++		for(i = 0; i < 100; i++)
++			udelay(10000);
++	}
++	else
++	{
++		APOLLO_PRINTF("Use Previous video mode!\n");
+ 	}
+ }
+-
+-
+ void board_config()
+ {
++	int mWakeupmode = 0;
++	int mVideomode = 0;
++	int hwversion = 0;
++	char hwver[128];
++	
+ 	//Uart2 Pin mux register enable
+ 	Uart2_Enable();
+-
+ 	LED_ON_OFF(3, TRUE);
+-//	LED_ON_OFF(1,TRUE);
++	WaitForReply(2);
++
++	/* Get hw version & Set Env */
++	hwversion = GetHwVersion();
++	sprintf(hwver,"%d",hwversion);
++	setenv("hwver",hwver);
+ 	
+-//	LED_ON_OFF(2,FALSE);
++	mWakeupmode = GetWakeupMode();
++	WaitForReply(2);
+ 
++	if(mWakeupmode == READ_CMD_WAKEUP_FROM_AC || mWakeupmode == 0)
++	{
++		mVideomode = CheckVideoMode();
++		SetVideomode(mVideomode);
++	}
++		
++	if(mWakeupmode != READ_CMD_WAKEUP_FROM_TIMER)
++	{
++		apollo_splash2();
++		udelay(100);
++	}
+ 	check_img();
+-	
+ }
+ 
+ 
+@@ -1116,3 +1408,4 @@ void apollo_splash2()
+ }
+ 
+ 
++
+diff --git a/common/main.c b/common/main.c
+index 01da291..3d05896 100755
+--- a/common/main.c
++++ b/common/main.c
+@@ -402,11 +402,6 @@ void main_loop (void)
+ 
+ 	debug ("### main_loop: bootcmd=\"%s\"\n", s ? s : "<UNDEFINED>");
+ 	
+-#ifdef CONFIG_PNX84XX
+-	//Uart2 pin mux register disable
+-	Uart2_Disable();
+-#endif
+-
+ 	if (bootdelay >= 0 && s && !abortboot (bootdelay)) {
+ # ifdef CONFIG_AUTOBOOT_KEYED
+ 		int prev = disable_ctrlc(1);	/* disable Control C checking */
+diff --git a/include/configs/vpe_apollo.h b/include/configs/vpe_apollo.h
+index 31c6338..b3b4e8c 100755
+--- a/include/configs/vpe_apollo.h
++++ b/include/configs/vpe_apollo.h
+@@ -278,7 +278,10 @@
+     "nandboot=nand read kernel; bootm 0x4400000\0"    \
+     "uboot_macaddr=1\0"    \
+     "uboot_cmdline=1\0"		\
+-    "bootcmd=run nandboot\0"
++    "bootcmd=run nandboot\0"	\
++    "ldver=0.1.0\0"	\
++    "hwver=1\0"	\
++    "videomode=PAL\0"
+ #if 0
+ #define CONFIG_BOOTARGS "noinitrd " \
+     "console=ttyS1,115200n8 "\
+@@ -298,7 +301,7 @@
+ /*
+  * Miscellaneous configurable options
+  */
+-#define V_PROMPT    "Apollo # "
++#define V_PROMPT    "Elmo # "
+ 
+ #define CONFIG_APOLLO
+ 
+diff --git a/lib_arm/bootm.c b/lib_arm/bootm.c
+old mode 100644
+new mode 100755
+index 5c3d562..a826732
+--- a/lib_arm/bootm.c
++++ b/lib_arm/bootm.c
+@@ -317,6 +317,12 @@ void  patch_ataglist( void )
+    uchar *tmp, *tmp1;
+    char *s, *cmdline;   
+    u32 *patch_addr = (u32 *)0x2000, cmdline_words;
++
++   char tmphwver[128];
++   char tmpldver[128];
++   char tmpvideomode[128];
++   int ldver_length=0, hwver_length=0, videomode_length=0;   
++
+ 	/* Initialize from environment */
+ 	if ((s = getenv ("uboot_macaddr")) != NULL) {
+ 		uboot_macaddr = simple_strtoul (s, NULL, 16);
+@@ -359,29 +365,67 @@ void  patch_ataglist( void )
+             break;
+             patch_addr += *patch_addr;
+          } 
+-      }
++	}
+    /* patch command line */
+-   
+       cmdline_length = strlen((char *)cmdline);
++	if(getenv("ldver"))
++	{
++				  
++		sprintf(tmpldver," ldver=%s",getenv("ldver"));
++		ldver_length = strlen((char *)tmpldver);
++	}
++	if(getenv("hwver"))
++	{
++		sprintf(tmphwver," hwver=%s",getenv("hwver"));
++		hwver_length = strlen((char *)tmphwver);
++	}
++	if(getenv("videomode"))
++	{
++		sprintf(tmpvideomode," videomode=%s",getenv("videomode"));
++		videomode_length = strlen((char *)tmpvideomode);	
++	}
+ 
+-      if ((cmdline_length & 0x3))
+-       cmdline_words = (cmdline_length/4) + 1;
+-      else
+-       cmdline_words = (cmdline_length/4);
+-      
+-      *patch_addr++ = cmdline_words + 2;
+-      *patch_addr++ = ATAG_CMDLINE;
+-      tmp1 = (uchar *)patch_addr;
+-      tmp = (uchar*)cmdline;
+-      for( i = 0; i<cmdline_length; i++)
+-      {
+-              *tmp1++ = *tmp++;
+-      }
++	if (((cmdline_length + ldver_length + hwver_length + videomode_length)  & 0x3))
++		cmdline_words = ((cmdline_length + ldver_length + hwver_length + videomode_length)/4) + 1;
++	else
++		cmdline_words = ((cmdline_length + ldver_length + hwver_length + videomode_length)/4);
+ 
+-      
+-      for( i = 0; i<11; i++)
+-        *tmp1++ = 0x0;
+-   }
++	*patch_addr++ = cmdline_words + 2;
++	*patch_addr++ = ATAG_CMDLINE;
++	tmp1 = (uchar *)patch_addr;
++	tmp = (uchar*)cmdline;
++	for( i = 0; i<cmdline_length; i++)
++	{
++		*tmp1++ = *tmp++;
++	}
++	/* version / videomode append to cmdline */
++	if(tmpldver !=NULL)
++	{
++		tmp = (uchar*)tmpldver;
++		for( i = 0; i<ldver_length; i++)
++		{
++			*tmp1++ = *tmp++;
++		}		  
++	}
++	if(tmphwver !=NULL)
++	{
++		tmp = (uchar*)tmphwver;
++		for( i = 0; i<hwver_length; i++)
++		{
++			*tmp1++ = *tmp++;
++		}		  
++	}
++	if(tmpvideomode !=NULL)
++	{
++		tmp = (uchar*)tmpvideomode;
++		for( i = 0; i<videomode_length; i++)
++		{
++			*tmp1++ = *tmp++;
++		}		  
++	}
++	for( i = 0; i<11; i++)
++		*tmp1++ = 0x0;
++	}
+    
+ }
+ 

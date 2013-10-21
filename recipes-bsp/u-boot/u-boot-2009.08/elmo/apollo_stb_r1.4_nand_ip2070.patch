@@ -1,0 +1,129 @@
+--- u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c	2011-07-26 11:11:05.000000000 +0800
++++ u-boot-2009.08-patch/drivers/mtd/nand/nx_nand_ip2070.c	2011-07-18 16:53:16.000000000 +0800
+@@ -599,27 +599,6 @@
+  * NAND chip specific functions
+  --------------------------------------------------------------------------------------*/
+ /**
+- * nx_nand_select_chip - Enable or Disable chip
+- * @mtd: MTD information structure
+- * @chipnr: Chip number
+- *
+- * Enable the chip if it chipnr >= 0, else disable the chip
+- */
+-static void nx_nand_select_chip(struct mtd_info *mtd, int chipnr)
+-{
+-    struct nand_chip *chip= mtd->priv;
+-    struct nx_nand_ctrl *nc = chip->priv;
+-
+-    if (chipnr == -1) {
+-        return;
+-    }
+-
+-    /* Store the value in nand control structure
+-     * Chip enable/disable done in command function */
+-    nc->slotid = chipnr;
+-}
+-
+-/**
+  * nx_nand_dev_ready - Check device ready
+  * @mtd: MTD information structure
+  *
+@@ -980,6 +959,87 @@
+ }
+ 
+ /**
++ * nx_nand_select_chip - Enable or Disable chip
++ * @mtd: MTD information structure
++ * @chipnr: Chip number
++ *
++ * Enable the chip if it chipnr >= 0, else disable the chip
++ */
++
++/*
++tatic void nx_nand_select_chip(struct mtd_info *mtd, int chipnr)
++{
++    struct nand_chip *chip= mtd->priv;
++    struct nx_nand_ctrl *nc = chip->priv;
++
++    if (chipnr == -1) {
++        return;
++    }
++
++   // Store the value in nand control structure
++   // Chip enable/disable done in command function 
++    nc->slotid = chipnr;
++}
++*/
++
++static void nx_nand_select_chip(struct mtd_info *mtd, int chipnr)
++{
++    static int initted = 0;
++    struct nand_chip *chip= mtd->priv;
++    struct nx_nand_ctrl *nc = chip->priv;
++    int page, oob;
++
++    if ((initted == 0) && (mtd->writesize != 0)) {
++        switch (mtd->writesize) {
++        case 512:
++            page = 512;
++            oob = 16;
++            nx_nc->lb_chip = 0;
++            chip->cmdfunc = nx_nand_command;
++            chip->ecc.layout = &nx_nand_oob_16;
++            writel(0x00000000, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++            break;
++
++        case 2048:
++            page = 2048;
++            oob = 64;
++            nx_nc->lb_chip = 1;
++            chip->cmdfunc = nx_nand_command_lp;
++            chip->ecc.layout = &nx_nand_oob_64;
++            writel(0x00000010, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++            break;
++
++        case 4096:
++            page = 4096;
++            oob = 128;
++            nx_nc->lb_chip = 1;
++            chip->cmdfunc = nx_nand_command_lp;
++            chip->ecc.layout = &nx_nand_oob_128;
++            writel(0x00000020, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++            break;
++
++        default:
++            printf("Invalid page configuration %d\n", mtd->writesize);
++            return;
++        }
++
++        nx_nc->num_blks = page >> 9;
++        nx_nc->page_size = page;
++        nx_nc->oob_size = oob;
++
++        initted = 1;
++    }
++    if (chipnr == -1) {
++        return;
++    }
++
++    /* Store the value in nand control structure
++     * Chip enable/disable done in command function */
++    nc->slotid = chipnr;
++}
++
++
++/**
+  * nx_nand_block_bad - Read bad block marker from the chip
+  * @mtd:        MTD device structure
+  * @ofs:        offset from device start
+@@ -1081,8 +1141,8 @@
+ 
+ #ifdef  CONFIG_PNX84XX
+     /* Configure controller timing */
+-    //writel(0x00000010, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
+-    writel(0x00000004, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++    writel(0x00000010, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
++    //writel(0x00000004, (nx_nc->ctrl_base + DEV_TYPE0_OFFSET));
+     writel(0x02644448, (nx_nc->ctrl_base + DEV_TIMING0_OFFSET));
+     writel(0x01008444, (nx_nc->ctrl_base + DEV_TIMING1_OFFSET));
+ #endif

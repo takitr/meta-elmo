@@ -1,0 +1,296 @@
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth.c u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth.c	2011-02-13 19:26:19.000000000 -0600
++++ u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c	2011-02-13 19:28:31.000000000 -0600
+@@ -4,6 +4,7 @@
+ ** Speed, mode & autonegotiation
+ */
+ 
++#include "stbcfg.h"
+ #include "lipp_6300eth_common.h"
+ #include "lipp_6300eth.h"
+ #include "tmhwLIPP6100Eth_Vhip.h"
+@@ -91,13 +92,13 @@ void lipp_6300eth_initialize(void)
+ 
+         pEthDevice[unitNum] = (struct eth_device *) malloc(sizeof (struct eth_device));
+ 
+-        GMAC_DBG("pEthDevice :%08x\n",pEthDevice[unitNum]);
++        GMAC_DBG("pEthDevice :%08x\n",(unsigned int) pEthDevice[unitNum]);
+ 
+         pEthDevice[unitNum]->priv = NULL;
+ 
+         if(pEthDevice[unitNum] == NULL)
+         {
+-            GMAC_DBG("Mem alloc failed for ethdevice: lip%d ... exiting\n",unitNum);
++            GMAC_DBG("Mem alloc failed for ethdevice: lip%ud ... exiting\n", (unsigned int)unitNum);
+             goto __free_mem;
+         }
+ 
+@@ -105,7 +106,7 @@ void lipp_6300eth_initialize(void)
+ 
+         if(pPriv == NULL)
+         {
+-            GMAC_DBG("Mem alloc failed for priv for lip%d ... exiting\n",unitNum);
++            GMAC_DBG("Mem alloc failed for priv for lip%ud ... exiting\n", (unsigned int)unitNum);
+             goto __free_mem;
+         }
+ 
+@@ -133,8 +134,8 @@ void lipp_6300eth_initialize(void)
+         pPriv->dmaEnabled = 0;
+ 
+ 		/* Buffers for these descriptors are assigned statically */
+-        GMAC_DBG("p_tx_descr list :%08x\n",pPriv->p_tx_descr);
+-        GMAC_DBG("p_rx_descr list :%08x\n",pPriv->p_rx_descr);
++        GMAC_DBG("p_tx_descr list :%08x\n", (unsigned int)pPriv->p_tx_descr);
++        GMAC_DBG("p_rx_descr list :%08x\n", (unsigned int)pPriv->p_rx_descr);
+ 
+         /* This used in descriptor initialization only */
+         gDma_desc[unitNum].pTx_desc = &gTxDescList[unitNum][0];
+@@ -221,15 +222,15 @@ static int lipp_6300eth_init(struct eth_
+ 
+     tmhwLIPP6100Eth_GetHWVersion(pPriv->hwUnitNo,&hwVersion);
+ 
+-    GMAC_DBG("HW Version:%08x\n",hwVersion);
+-#if 1
++    GMAC_DBG("HW Version:%08x\n", (unsigned int)hwVersion);
++#if 0
+     if(hwVersion != 0x2535U)
+     {
+         GMAC_DBG("Wrong Module ID, returning from initialization\n");
+         return 0;
+     }
+ #endif
+-    ret_val = tmhwLIPP6100Eth_Init(pPriv->hwUnitNo);
++    ret_val = tmhwLIPP6100Eth_Init(pPriv->hwUnitNo, GMAC0_MII_SEL);
+ 
+     if(TM_OK !=  ret_val)
+     {
+@@ -350,7 +351,7 @@ static int lipp_6300Eth_recv(struct eth_
+             {
+                 if(pPriv->p_rx_descr[pPriv->rx_consume_index].RDES0 & RXDESC_RDES0_OVERFLOW_ERR_VAL)
+                 {
+-                    GMAC_DBG("\nhandle_receive_packets: OverFlow Error: Index %d",pPriv->rx_consume_index);
++                    GMAC_DBG("\nhandle_receive_packets: OverFlow Error: Index %d", (unsigned int)pPriv->rx_consume_index);
+                 }
+                 if(pPriv->p_rx_descr[pPriv->rx_consume_index].RDES0 & RXDESC_RDES0_CRC_ERR_VAL)
+                 {
+@@ -419,12 +420,12 @@ static int lipp_6300Eth_recv(struct eth_
+         {
+             tmhwLIPP6100Eth_Int_t intStat;
+             GMAC_DBG("handle_receive_packets: Dropped Pkt..EOF not set");
+-            GMAC_DBG("Current RDES0:%08x\n",pPriv->p_rx_descr[pPriv->rx_consume_index].RDES0);
++            GMAC_DBG("Current RDES0:%08x\n", (unsigned int)pPriv->p_rx_descr[pPriv->rx_consume_index].RDES0);
+             tmhwLIPP6100Eth_IntGetStatus(0,&intStat);
+-            GMAC_DBG("Int Stat:%08x\n",intStat.dmaIntVal);
++            GMAC_DBG("Int Stat:%08x\n", (unsigned int)intStat.dmaIntVal);
+ 
+-            GMAC_DBG("Current Rx DMA desc :%08x",*(UInt32*)(GMAC_UNIT_BASE(0)+0x104C));
+-            GMAC_DBG("Current Rx Buf:%08x",*(UInt32*)(GMAC_UNIT_BASE(0)+0x1054));
++            GMAC_DBG("Current Rx DMA desc :%08x",(unsigned int)(*(UInt32*)(GMAC_UNIT_BASE(0)+0x104C)));
++            GMAC_DBG("Current Rx Buf:%08x",(unsigned int)(*(UInt32*)(GMAC_UNIT_BASE(0)+0x1054)));
+ 
+             goto _err_drop_packet;
+ 
+@@ -603,8 +604,7 @@ lipp_6300eth_transmit(struct eth_device 
+     }
+     else
+     {
+-        #if 0
+-        GMAC_DBG("W$$W%WOWN not clred%%#$#\n\n");
++        GMAC_DBG("OWN bit not cleared \n\n");
+         GMAC_DBG("Buff Len:%d",length);
+ 
+         GMAC_DBG("Current Tx Desc:%08x",*(UInt32*)(GMAC_UNIT_BASE(0)+0x1048));
+@@ -615,8 +615,6 @@ lipp_6300eth_transmit(struct eth_device 
+         GMAC_DBG("TDES1:%08x",pPriv->p_tx_descr[pPriv->tx_produce_index].TDES1);
+         GMAC_DBG("TDES2:%08x",pPriv->p_tx_descr[pPriv->tx_produce_index].TDES2);
+         GMAC_DBG("TDES3:%08x",pPriv->p_tx_descr[pPriv->tx_produce_index].TDES3);
+-        #endif
+-
+     }
+ 
+ //    GMAC_DBG("Tx: End\n\n");
+@@ -672,9 +670,18 @@ Int32 setup_phy(plipp_6300eth_priv_t pPr
+     auto_neg_mask.protocolSel = tmbslPhyIEEE8023;
+     auto_neg_mask.maskRemoteFault = tmbslPhyEnable;
+ 
+-    /* Disable 1Gig Support */
+-    auto_neg_mask.mask1000BaseTFullDuplexSupport = tmbslPhyEnable;
+-    auto_neg_mask.mask1000BaseTHalfDuplexSupport = tmbslPhyEnable;
++    if(GMAC0_MII_SEL == True)
++    {
++        /* Mask 1Gig Support */
++        auto_neg_mask.mask1000BaseTFullDuplexSupport = tmbslPhyEnable;
++        auto_neg_mask.mask1000BaseTHalfDuplexSupport = tmbslPhyEnable;
++    }
++    else
++    {
++        /* Unmask 1Gig Support */
++        auto_neg_mask.mask1000BaseTFullDuplexSupport = tmbslPhyDisable;
++        auto_neg_mask.mask1000BaseTHalfDuplexSupport = tmbslPhyDisable;
++    }
+ 
+     if( pPriv->u_autoneg == LX_AUTONEG_ENABLE )
+     {
+@@ -717,6 +724,9 @@ Int32 setup_phy(plipp_6300eth_priv_t pPr
+ 
+         switch(pPriv->u_speed)
+         {
++        case LX_SPEED_1000:
++            bmc.speed = tmbslPhySpeed1Gbps;
++            break;        
+         case LX_SPEED_100:
+             bmc.speed = tmbslPhySpeed100Mbps;
+             break;
+@@ -755,14 +765,18 @@ Int32 setup_phy(plipp_6300eth_priv_t pPr
+         /* store the updated results into the priv structure */
+         pPriv->u_mode = bms.duplexMode ;
+ 
+-        if(tmbslPhySpeed100Mbps == bms.speed)
++        if(tmbslPhySpeed1Gbps == bms.speed)
++        {
++            pPriv->u_speed = LX_SPEED_1000;
++        }    
++        else if(tmbslPhySpeed100Mbps == bms.speed)
+         {
+             pPriv->u_speed = LX_SPEED_100;
+         }
+-        else if(tmbslPhySpeed10Mbps == bms.speed)
++        else
+         {
+             pPriv->u_speed = LX_SPEED_10;
+-        }
++        }    
+     }
+ 
+     return 0 ;
+@@ -796,20 +810,23 @@ tmErrorCode_t setup_mac(plipp_6300eth_pr
+     eth_cfg.clockSelect = (tmhwLIPP6100Eth_ClkDiv_t)TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL;
+     eth_cfg.ifg = tmhwLIPP6100Eth_IFG96bits;
+     eth_cfg.phyAddress = phyAddr; //TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL;
++    eth_cfg.miiSelect = GMAC0_MII_SEL;
+ 
+-    if(LX_SPEED_1000 != pPriv->u_speed)
+-    {
+-        eth_cfg.miiSelect = True; /* 10/100Mbps mode */
+-    }
+-    else
++
++    if(eth_cfg.miiSelect == False)
+     {
+-        eth_cfg.miiSelect = False;
++        if((pPriv->u_speed == LX_SPEED_100) || (pPriv->u_speed == LX_SPEED_10))
++            eth_cfg.miiSelect = True;
+     }
+ 
+     if(LX_SPEED_100 == pPriv->u_speed)
+     {
+         eth_cfg.speed100Mbps = True;
+     }
++    else
++    {
++        eth_cfg.speed100Mbps = False;
++    }
+ 
+     if( LX_MODE_FULL_DUPLEX == pPriv->u_mode)
+     {
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth.h u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.h
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/lipp_6300eth.h	2011-02-13 19:26:19.000000000 -0600
++++ u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.h	2011-02-13 19:27:33.000000000 -0600
+@@ -93,6 +93,12 @@
+  */
+ #define MAX_ETH_FRAME_SIZE (1536)
+ 
++#if (CFG_GMAC0_MODE == RGMII)
++#define GMAC0_MII_SEL False
++#else
++#define GMAC0_MII_SEL True
++#endif
++
+ /* Number of descriptors for transmit side */
+ #define HW_DESCR_QUEUE_LEN_TX  (1)
+ 
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c	2011-02-13 19:26:19.000000000 -0600
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyRTL8211BN.c	2011-02-13 19:27:33.000000000 -0600
+@@ -798,8 +798,13 @@ tmbslPhyRTL8211BNAutoNegotiate (
+     /* Clear autonegotiation bit */
+     regVal &= TMBSL_PHYRTL8211_BMCR_AN_CLR;
+ 
++    /* Don't isolate the PHY if we're negotiating */
++    regVal &= ~TMBSL_PHYRTL8211_BMCR_ISO_PHY;
++    
+     regVal |= TMBSL_PHYRTL8211_BMCR_AN_EN;
+ 
++    regVal |= TMBSL_PHYRTL8211_BMCR_AN_RESTART;
++    
+     tmbslPhyRTL8211Write(ethUnitId,tmbslPhyRTL8211Bmcr,regVal);
+ 
+     /* Wait till the Auto negotiation is complete Or Do we need to set the Timeout */
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c	2011-02-13 19:26:19.000000000 -0600
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c	2011-02-13 19:27:33.000000000 -0600
+@@ -185,7 +185,8 @@ extern UInt32 phyAddr;
+ 
+ tmErrorCode_t
+ tmhwLIPP6100Eth_Init(
+-    tmUnitSelect_t  ethUnitId
++    tmUnitSelect_t  ethUnitId,
++    Bool miiSelect
+     )
+ {
+     UInt32 pEthRegs;
+@@ -197,6 +198,12 @@ tmhwLIPP6100Eth_Init(
+     TMVH_GEN_WRITE(pEthRegs+TMVH_LIPP6100ETH_BUS_MODE_REG_OFFSET,
+                                 TMVH_LIPP6100ETH_BUS_MODE_RESET_VAL);
+ 
++    /* Select the GMII or MII interface */
++    if(miiSelect == True)
++        regVal = TMVH_LIPP6100ETH_CONFIG_MII_VAL;
++    else
++        regVal = TMVH_LIPP6100ETH_CONFIG_GMII_VAL;
++
+     /* Program the MAC configuration register. Untouched values are in default state 
+     ** PS =1 : MII 10/100 Mbps 
+     ** FES = : 10 Mbps 
+@@ -204,7 +211,7 @@ tmhwLIPP6100Eth_Init(
+     ** Automatic CRC padding/stripping
+     */
+     TMVH_GEN_WRITE(pEthRegs+TMVH_LIPP6100ETH_CONFIG_REG_OFFSET,
+-                                TMVH_LIPP6100ETH_CONFIG_MII_VAL |
++                                regVal |
+                                 TMVH_LIPP6100ETH_CONFIG_ACS_VAL);
+ 
+     /* Default values for PHY at address 2, MDIO clock is selected in 
+@@ -578,6 +585,8 @@ tmhwLIPP6100Eth_SetConfig(
+             regVal |= TMVH_LIPP6100ETH_CONFIG_FES_VAL;
+         }
+     }
++    else
++        regVal |= TMVH_LIPP6100ETH_CONFIG_GMII_VAL;
+ 
+     if(pEthConfig->disableReceiveOwn == True)
+     {
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.h u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.h
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.h	2011-02-13 19:26:19.000000000 -0600
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.h	2011-02-13 19:27:33.000000000 -0600
+@@ -2597,7 +2597,8 @@ tmhwLIPP6100Eth_GetWakeupStatus(
+ */
+ tmErrorCode_t
+ tmhwLIPP6100Eth_Init(
+-    tmUnitSelect_t  ethUnitId
++    tmUnitSelect_t  ethUnitId,
++    Bool miiSelect
+     );
+ 
+ /*!
+diff -Naurp u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h
+--- u-boot-2009.08.org/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h	2011-02-13 19:26:19.000000000 -0600
++++ u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h	2011-02-13 19:27:33.000000000 -0600
+@@ -71,6 +71,7 @@ extern "C" {  /* Assume C declarations f
+ #define TMVH_LIPP6100ETH_CONFIG_IFG_MSK (0xE0000U)
+ #define TMVH_LIPP6100ETH_CONFIG_IFG_POS (17)
+ 
++#define TMVH_LIPP6100ETH_CONFIG_GMII_VAL (0x0000U)
+ #define TMVH_LIPP6100ETH_CONFIG_MII_VAL (0x8000U)
+ #define TMVH_LIPP6100ETH_CONFIG_MII_POS (14)
+ 

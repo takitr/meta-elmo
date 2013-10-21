@@ -1,0 +1,5778 @@
+diff -Naur u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/timer.c u-boot-2009.08_new/cpu/arm_cortexa8/pnx84xx/timer.c
+--- u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/timer.c	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/cpu/arm_cortexa8/pnx84xx/timer.c	2010-02-08 01:51:27.000000000 -0600
+@@ -99,8 +99,7 @@
+ /* delay x useconds */
+ void udelay(unsigned long usec)
+ {
+-	//unsigned long tmo = TO_USEC(usec);
+-  unsigned long tmo = usec;
++	unsigned long tmo = TO_USEC(usec);
+   unsigned long now, last = readl(&timer_base->tcrr);
+ 
+ 	while (tmo > 0) {
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c u-boot-2009.08_new/drivers/net/lipp_6300eth/lipp_6300eth.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.c	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/lipp_6300eth.c	2010-02-08 01:52:05.000000000 -0600
+@@ -196,7 +196,7 @@
+     memcpy(dev_addr,bis->bi_enetaddr,6);
+ #endif
+ 
+-    memcpy(pEthDevice[0]->enetaddr,dev_addr,6);
++    memcpy(dev_addr, pEthDevice[0]->enetaddr,6);
+ 
+     /* Fill in the private structure members */
+     pPriv->rx_consume_index = 0;
+@@ -366,7 +366,7 @@
+ 			#if ENABLE_VIRT_TO_PHYS
+             pFullBuf = phys_to_virt((pUInt8)pPriv->p_rx_descr[pPriv->rx_consume_index].RDES2);
+ 			#else
+-            pFullBuf = (pUInt8)pPriv->p_rx_descr[pPriv->rx_consume_index].RDES2;
++  //          pFullBuf = (pUInt8)pPriv->p_rx_descr[pPriv->rx_consume_index].RDES2;
+ 			#endif
+ 
+ 			#if ENABLE_CACHE
+@@ -377,17 +377,19 @@
+ //            GMAC_DBG("Rx %u\n",++rxPktCount);
+ 
+             /* If the frame received is valid, pass it to the upper layer */
+-            NetReceive(pFullBuf,le32_to_cpu(frameSize));
++   //         NetReceive(pFullBuf,le32_to_cpu(frameSize));
+ 
+             if( pPriv->bufferFlip[pPriv->rx_consume_index] == 0)
+             {
+                 pEmptyBuf = &gDmaBuffers[pPriv->hwUnitNo].rxCopyBuffer[pPriv->rx_consume_index][0];
+                 pPriv->bufferFlip[pPriv->rx_consume_index] = 1;
++                pFullBuf = &gDmaBuffers[pPriv->hwUnitNo].rxBuffer[pPriv->rx_consume_index][0];
+             }
+             else
+             {
+                 pEmptyBuf = &gDmaBuffers[pPriv->hwUnitNo].rxBuffer[pPriv->rx_consume_index][0];
+                 pPriv->bufferFlip[pPriv->rx_consume_index] =0;
++                pFullBuf = &gDmaBuffers[pPriv->hwUnitNo].rxCopyBuffer[pPriv->rx_consume_index][0];
+             }
+ 
+ 			#if ENABLE_VIRT_TO_PHYS
+@@ -396,6 +398,11 @@
+             pPriv->p_rx_descr[pPriv->rx_consume_index].RDES2 = (UInt32)pEmptyBuf;
+ 			#endif
+ 
++            /* Set back the own bit for this descriptor, use the same buffer */
++            pPriv->p_rx_descr[pPriv->rx_consume_index].RDES0 = RXDESC_RDES0_OWN_VAL;
++         
++            /* If the frame received is valid, pass it to the upper layer */
++            NetReceive(pFullBuf,le32_to_cpu(frameSize));
+ 			/* When bufferflip =0, rx buf is full & copybuf is empty. Next time again use
+             ** rx buf as empty buf & copy buf as full buff. Invert the same.
+             */
+@@ -426,7 +433,7 @@
+ //		 GMAC_DBG("Current Rx DMA desc :%08x\n",*(UInt32*)(TMHW_LIPP6100ETH_PHY_MMIO_ADDRESS0+0x104C));
+ 
+ 		 /* Set back the own bit for this descriptor, use the same buffer */
+-        pPriv->p_rx_descr[pPriv->rx_consume_index].RDES0 = RXDESC_RDES0_OWN_VAL;
++ //       pPriv->p_rx_descr[pPriv->rx_consume_index].RDES0 = RXDESC_RDES0_OWN_VAL;
+ 
+ #if ENABLE_CACHE
+         /* After setting & upating the buffer, flush cache */
+@@ -794,6 +801,7 @@
+ 
+     dmaCfg.disableFrameFlush  = (Bool)ETH_DISABLE_FRAME_FLUSH;
+     dmaCfg.fixedBurstEn = (Bool)ETH_FIXED_BURST_ENABLE;
++    dmaCfg.enableAltDescSize = (Bool)ETH_ALTDESC_SIZE_ENABLE;
+ 
+     dmaCfg.differentPBL = (Bool)ETH_DIFF_PBL_ENABLE;
+     dmaCfg.pBL4xmode = (Bool)ETH_4XPBL_ENABLE;
+@@ -841,7 +849,7 @@
+     memset(pDesc->pTx_desc,0, (sizeof(TX_DESCR_t)*HW_DESCR_QUEUE_LEN_TX));
+ 
+     /* Set the Transmit End of Ring bit */
+-    pDesc->pTx_desc[HW_DESCR_QUEUE_LEN_TX-1].TDES0 |= TXDESC_TDES0_END_OF_RING_VAL;
++    pDesc->pTx_desc[HW_DESCR_QUEUE_LEN_TX-1].TDES0 |= (TXDESC_TDES0_END_OF_RING_VAL | TXDESC_TDES0_SEC_ADR_CHAIN_VAL);
+ 
+     /* Transmit gets buffer from n/w stack. So no need to allocate */
+     #if 0
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth_common.h u-boot-2009.08_new/drivers/net/lipp_6300eth/lipp_6300eth_common.h
+--- u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth_common.h	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/lipp_6300eth_common.h	2010-02-08 01:52:05.000000000 -0600
+@@ -3,7 +3,7 @@
+ 
+ #include <config.h> /* PHY & ethernet driver related macros are defined here */
+ 
+-#define MAC_BASE_ADDRESS ((PNX84XX_IO_BASE+0xB8000))
++#define MAC_BASE_ADDRESS ((PNX84XX_IO_BASE+0x7C000))
+ 
+ #define ENABLE_CACHE 0
+ 
+@@ -14,9 +14,9 @@
+ #define ETH_LINK_MODE (LX_MODE_FULL_DUPLEX)
+   
+ /* Macro to enable/disable autonegotiation */
+-#define ETH_AUTO_NEGOTIATION (LX_AUTONEG_DISABLE)
++#define ETH_AUTO_NEGOTIATION (LX_AUTONEG_ENABLE)
+ 
+-#define GMAC_PRINT 1
++#define GMAC_PRINT 0
+ 
+ #if (GMAC_PRINT == 1)
+ #define GMAC_DBG(args...)	printf("\nlipp6300eth: " args)
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.h u-boot-2009.08_new/drivers/net/lipp_6300eth/lipp_6300eth.h
+--- u-boot-2009.08/drivers/net/lipp_6300eth/lipp_6300eth.h	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/lipp_6300eth.h	2010-02-08 01:52:05.000000000 -0600
+@@ -1,362 +1,371 @@
+-/* lipp_6300eth.h */
+-#ifndef _LIPP_6300ETH_H_
+-#define _LIPP_6300ETH_H_
+-
+-#include "tmNxTypes.h"
+-
+-/* Macros for MAC driver */
+-
+-/* Device speed macros */
+-#define DEVICE_SPEED_10MBPS (10)
+-#define DEVICE_SPEED_100MBPS (100)
+-#define DEVICE_SPEED_1G (1000)
+-
+-/* Macros to define speed of the link */
+-#define LX_SPEED_1000  (1000)
+-#define LX_SPEED_100 (100)
+-#define LX_SPEED_10 (10)
+-
+-#define LX_MODE_FULL_DUPLEX (1)
+-#define LX_MODE_HALF_DUPLEX (0)
+-
+-/* Autonegotiation enable/disable macros */
+-#define LX_AUTONEG_ENABLE (1)
+-#define LX_AUTONEG_DISABLE (0)
+-
+-#define LX_FLOW_CONTROL_ENABLED (1)
+-#define LX_FLOW_CONTROL_DISABLED (0)
+-
+-#define LX_RX_FLOW_CONTROL (0x02)
+-#define LX_TX_FLOW_CONTROL (0x04)
+-
+-#define LX_FILTER_TYPE_SW (0)
+-#define LX_FILTER_TYPE_HW (1)
+-
+-#define LX_PROMISC_ENABLED (1)
+-#define LX_PROMISC_DISABLED (0)
+-
+-#define LX_4SLOT_TIMES (0)
+-#define LX_28SLOT_TIMES (1)
+-#define LX_144SLOT_TIMES (2)
+-#define LX_256SLOT_TIMES (3)
+-
+-/* Fill level of receive FIFO for activating/deactivating
+-** hardware flow control. Used when the macro ENABLE_HW_FLOW_CONTROL
+-** is set to 1.
+-*/
+-#define FIFO_FILL_LEVEL_1K (0)
+-#define FIFO_FILL_LEVEL_2K (1)
+-#define FIFO_FILL_LEVEL_3K (2)
+-#define FIFO_FILL_LEVEL_4K (3)
+-#define FIFO_FILL_LEVEL_5K (4)
+-#define FIFO_FILL_LEVEL_6K (5)
+-#define FIFO_FILL_LEVEL_7K (6)
+-
+-/* Programmable burst length values */
+-#define BURST_LENGTH_1 (1)
+-#define BURST_LENGTH_2 (2)
+-#define BURST_LENGTH_4 (4)
+-#define BURST_LENGTH_8 (8)
+-#define BURST_LENGTH_16 (16)
+-#define BURST_LENGTH_32 (32)
+-
+-/* DMA transmit threshold values */
+-#define TX_DMA_THRESHOLD_VAL_64 (0)
+-#define TX_DMA_THRESHOLD_VAL_128 (1)
+-#define TX_DMA_THRESHOLD_VAL_192 (2)
+-#define TX_DMA_THRESHOLD_VAL_256 (3)
+-#define TX_DMA_THRESHOLD_VAL_40 (4)
+-#define TX_DMA_THRESHOLD_VAL_32 (5)
+-#define TX_DMA_THRESHOLD_VAL_24 (6)
+-#define TX_DMA_THRESHOLD_VAL_16 (7)
+-
+-/* DMA receive threshold values */
+-#define RX_DMA_THRESHOLD_VAL_64 (0)
+-#define RX_DMA_THRESHOLD_VAL_32 (1)
+-#define RX_DMA_THRESHOLD_VAL_96 (2)
+-#define RX_DMA_THRESHOLD_VAL_128 (3)
+-
+-/* DMA priorities in Rx:Tx ratio */
+-#define DMA_RX1_TX1 (0)
+-#define DMA_RX2_TX1 (1)
+-#define DMA_RX3_TX1 (2)
+-#define DMA_RX4_TX1 (3)
+-
+-
+-/*----------------------------------------------------------------------------*/
+-/*********************** configuration options for MAC    *********************/
+-/*----------------------------------------------------------------------------*/
+-
+-/* Rx Frame size should be multiple of 4/8/16 depending on bus width. 
+- * The frame size should be at least (MTU+14) bytes after meeting the above
+- * condition
+- */
+-#define MAX_ETH_FRAME_SIZE (1536)
+-
+-/* Number of descriptors for transmit side */
+-#define HW_DESCR_QUEUE_LEN_TX  (1)
+-
+-/* Number of descriptors for receive side */
+-#define HW_DESCR_QUEUE_LEN_RX  (10)
+-
+-/* Interfaces macros */
+-#define NUMBER_OF_INTERFACES (1)
+-
+-/* HW or SW filtering */
+-#define ETH_FILTER_TYPE (LX_FILTER_TYPE_HW)
+-
+-/* Software based flow control -Enable/Disable */
+-#define ETH_FLOW_CTRL (LX_FLOW_CONTROL_DISABLED)
+-
+-/* Macro to enable hardware flow control if the receive FIFO size
+- * is greater than 4K
+- */    
+-#define ENABLE_HW_FLOW_CONTROL (0)
+-
+-/* Activate flow control when the empty space falls below this value */
+-#define RFA_THRESHOLD (FIFO_FILL_LEVEL_5K)
+-
+-/* Deactivate flow control when FIFO fill level is less than this value */
+-#define RFD_THRESHOLD (FIFO_FILL_LEVEL_4K)
+-
+-#define ETH_DISABLE_FRAME_FLUSH (1)
+-
+-/* Enable Operate on second frame. 1-Enable, 0-Disable */
+-#define ETH_ENABLE_OSF (0)
+-
+-#define ETH_STORE_FWD_ENABLE (1)
+-
+-#define ETH_TX_THRESHOLD (TX_DMA_THRESHOLD_VAL_256)
+-
+-#define ETH_RX_THRESHOLD (RX_DMA_THRESHOLD_VAL_128)
+-
+-/* 4*X PBL mode enable/disable */
+-#define ETH_4XPBL_ENABLE (0)
+-
+-/* Separate PBL for Tx & Rx */
+-#define ETH_DIFF_PBL_ENABLE (0)
+-
+-#define ETH_FIXED_BURST_ENABLE (1)
+-
+-/* Programmable burst length value */
+-#define ETH_TX_PBL_VAL (BURST_LENGTH_32)
+-
+-#define ETH_RX_PBL_VAL (BURST_LENGTH_32)
+-
+-/* Enable/Disable DMA arbitration scheme */
+-#define ETH_DMA_ARBITRATION (0)
+-
+-/* When DA bit is reset, the values are valid */
+-#define ETH_DMA_PRIORITY (DMA_RX1_TX1)
+-
+-/* Flow control direction Tx/Rx or Both */
+-#define ETH_FLOW_CTRL_DIR (LX_RX_FLOW_CONTROL | LX_TX_FLOW_CONTROL)
+-
+-/* Promiscuous mode enable/disable */
+-#define ETH_PROMISC_MODE (LX_PROMISC_DISABLED)
+-
+-/* Time sent in a pause frame in slot times. Max value is 0xFFFF slot time
+-** Each slot time is 512 bit times in GMII/MII mode
+-*/    
+-#define LX_PAUSE_TIMER_VALUE (256)
+-
+-/* Pause low threshold value  */
+-#define ETH_PLT_VALUE (LX_4SLOT_TIMES)
+-
+-/* To find if there are enough descriptors are available to receive frames */
+-#define LX_DESC_GAP (10)
+-
+-#undef  CONTROL_INTR_FREQ
+-
+-/* Frequency at which the transmit side is interrupted */
+-#define ETH_TX_INTR_FREQ (1)
+-
+-/* Frequency at which the receive side is interrupted */
+-#define ETH_RX_INTR_FREQ (1)
+-
+-/* Autonegotiation retry count */
+-#define AUTO_NEG_RETRY_COUNT (3)
+-
+-/* Number of perfect address filters available on the hardware
+-** Perfect Filter register 0 is used for MAC address
+-** Remaining Perfect Filter registers (1-31) are used for programming multicast addresses 
+-*/
+-#define ETH_NUM_OF_PER_ADR_FILTERS (32)
+-
+-/*----------------------------------------------------------------------------*/
+-/**********************      Descriptor values     ****************************/
+-/*----------------------------------------------------------------------------*/
+-
+-/* Transmit descriptor macros */
+-#define TXDESC_TDES0_OWN_VAL (0x80000000)
+-
+-/* Status bits 16:0 */
+-#define TXDESC_TDES0_IHE_VAL (0x10000)
+-#define TXDESC_TDES0_ES_VAL (0x8000)
+-#define TXDESC_TDES0_JABTIMEOUT_VAL (0x4000)
+-#define TXDESC_TDES0_FRMFLUSH_VAL (0x2000)
+-#define TXDESC_TDES0_LOSSOFCAR_VAL (0x800)
+-#define TXDESC_TDES0_NOCAR_VAL (0x400)
+-#define TXDESC_TDES0_LATECOL_VAL (0x200)
+-#define TXDESC_TDES0_EXCOL_VAL (0x100)
+-#define TXDESC_TDES0_VLAN_VAL (0x80)
+-#define TXDESC_TDES0_COLCNT_MSK (0x78)
+-#define TXDESC_TDES0_COLCNT_POS (3)
+-#define TXDESC_TDES0_EXDEF_VAL (0x4)
+-#define TXDESC_TDES0_UNDERFLOW_VAL (0x2)
+-#define TXDESC_TDES0_DEF_BIT_VAL (0x1)
+-
+-/* Control  Bits 30:26 */
+-#define TXDESC_TDES0_INT_VAL (0x40000000)
+-#define TXDESC_TDES0_LASTSEG_VAL (0x20000000)
+-#define TXDESC_TDES0_FIRSTSEG_VAL (0x10000000)
+-#define TXDESC_TDES0_CRC_DISABLE_VAL (0x8000000)
+-#define TXDESC_TDES0_PAD_DISABLE_VAL (0x4000000)
+-
+-/* Control  Bits  Bits 23:20 */
+-#define TXDESC_TDES0_CIC_CLR (0xC00000)
+-#define TXDESC_TDES0_CIC_POS (22)
+-#define TXDESC_TDES0_END_OF_RING_VAL (0x200000)
+-#define TXDESC_TDES0_SEC_ADR_CHAIN_VAL (0x100000)
+-
+-#define TXDESC_TDES1_TX_BUF2_SIZE_CLR (0xE000FFFF)
+-#define TXDESC_TDES1_TX_BUF2_SIZE_POS (16)
+-#define TXDESC_TDES1_TX_BUF1_SIZE_CLR (0xFFFFE000)
+-#define TXDESC_TDES1_TX_BUF1_SIZE_MSK (0x1FFF)
+-
+-/* Receive descriptor macros */
+-#define RXDESC_RDES0_OWN_VAL (0x80000000)
+-#define RXDESC_RDES0_DST_ADR_FAIL_VAL (0x40000000)
+-
+-#define RXDESC_RDES0_FRM_LEN_MSK (0x3fff0000)
+-#define RXDESC_RDES0_FRM_LEN_POS (16)
+-
+-#define RXDESC_RDES0_ERR_SUM_VAL (0x8000)
+-#define RXDESC_RDES0_DESC_ERR_VAL (0x4000)
+-#define RXDESC_RDES0_SRC_ADR_FAIL_VAL (0x2000)
+-#define RXDESC_RDES0_LEN_ERR_VAL (0x1000)
+-#define RXDESC_RDES0_OVERFLOW_ERR_VAL (0x800)
+-#define RXDESC_RDES0_VLAN_TAG_VAL (0x400)
+-#define RXDESC_RDES0_FIRST_DESC_VAL (0x200)
+-#define RXDESC_RDES0_LAST_DESC_VAL (0x100)
+-#define RXDESC_RDES0_IPC_GIANT_VAL (0x80)
+-#define RXDESC_RDES0_LATE_COL_VAL (0x40)
+-#define RXDESC_RDES0_FRM_TYP_VAL (0x20)
+-#define RXDESC_RDES0_WDOG_VAL (0x10)
+-#define RXDESC_RDES0_RX_ERR_VAL (0x8)
+-#define RXDESC_RDES0_DRIBBLE_VAL (0x4)
+-#define RXDESC_RDES0_CRC_ERR_VAL (0x2)
+-#define RXDESC_RDES0_ADR_MATCH_VAL (0x1)
+-
+-/* RDES1 */
+-#define RXDESC_RDES1_DIS_IOC_VAL (0x80000000)
+-#define RXDESC_RDES1_DIS_IOC_CLR (0x7FFFFFFF)
+-
+-#define RXDESC_RDES1_END_OF_RING_VAL (0x8000)
+-#define RXDESC_RDES1_SEC_ADR_CHN_VAL (0x4000)
+-#define RXDESC_RDES1_BUF2_LEN_CLR (0xE000FFFF)
+-#define RXDESC_RDES1_BUF2_LEN_POS (16)
+-#define RXDESC_RDES1_BUF1_LEN_MSK (0x1FFF)
+-#define RXDESC_RDES1_BUF1_LEN_CLR (0xFFFFE000)
+-
+-/*----------------------------------------------------------------------------*/
+-/**********************      Interrupt masks       ****************************/
+-/*----------------------------------------------------------------------------*/
+-#define DMA_MASK_ALL_INTS (0xFFFF)
+-
+-#define GMAC_MASK_ALL_INTS (0xF)
+-
+-/* Macro to clear the status bits. Bits are clear on write */
+-#define DMA_CLR_ALL_INTS (0xE7FF)
+-
+-/* Macro for clearing receive status */
+-#define RX_STAT_MSK (TMHW_LIPP6100ETH_DMA_STATUS_RI_VAL | \
+-                                  TMHW_LIPP6100ETH_DMA_STATUS_RU_VAL | \
+-                                  TMHW_LIPP6100ETH_DMA_STATUS_OVF_VAL | \
+-                                  TMHW_LIPP6100ETH_DMA_STATUS_NIS_VAL | \
+-                                  TMHW_LIPP6100ETH_DMA_STATUS_AIS_VAL)
+-
+-/* Receive interrupts macro for disabling interrupts for NAPI */
+-#define RX_INT_MSK (TMHW_LIPP6100ETH_DMA_INT_RIE_EN_VAL |  \
+-                                TMHW_LIPP6100ETH_DMA_INT_RUE_EN_VAL | \
+-                                TMHW_LIPP6100ETH_DMA_INT_OVE_EN_VAL )
+-
+-/* Desired transmit interrupts */
+-/* Fatal bus error interrupt, Normal Interrupt summary,Abnormal Interrupt summary
+-** Underflow interrupt enable, Transmit interrupt enable 
+-*/
+-#define TX_INTR_VAL (TMHW_LIPP6100ETH_DMA_INT_FBE_EN_VAL | \
+-                     TMHW_LIPP6100ETH_DMA_INT_NIE_EN_VAL  | \
+-                     TMHW_LIPP6100ETH_DMA_INT_AIE_EN_VAL  | \
+-                     TMHW_LIPP6100ETH_DMA_INT_UNE_EN_VAL | \
+-                     TMHW_LIPP6100ETH_DMA_INT_TIE_EN_VAL )
+-
+-/* Fatal Bus Error Interrupt, Over run error interrupt, Normal Interrupt Summary, 
+-** Abnormal Interrupt Summary, Receive Interrupt Enable 
+-*/
+-#define RX_INTR_VAL (TMHW_LIPP6100ETH_DMA_INT_FBE_EN_VAL | \
+-                     TMHW_LIPP6100ETH_DMA_INT_OVE_EN_VAL | \
+-                     TMHW_LIPP6100ETH_DMA_INT_NIE_EN_VAL | \
+-                     TMHW_LIPP6100ETH_DMA_INT_AIE_EN_VAL | \
+-                     TMHW_LIPP6100ETH_DMA_INT_RIE_EN_VAL )
+-
+-/* Early Transmit and Early Receive Interrupts */
+-#define ERE_ETE_INT_VAL ( TMHW_LIPP6100ETH_DMA_INT_ERE_EN_VAL | \
+-                          TMHW_LIPP6100ETH_DMA_INT_ETE_EN_VAL )
+-
+-#define MAX_LIPP_6300ETH_UNITS (1)
+-
+-#define NULL 0
+-
+-/*----------------------------------------------------------------------------*/
+-/**********************      Structures  definitions     **********************/
+-/*----------------------------------------------------------------------------*/
+-
+-/* structure for TX descriptors */
+-typedef struct TX_DESCR 
+-{
+-    volatile UInt32 TDES0;
+-    volatile UInt32 TDES1;
+-    volatile UInt32 TDES2;
+-    volatile UInt32 TDES3;
+-} TX_DESCR_t ;
+-
+-typedef struct RX_DESCR
+-{
+-    volatile UInt32 RDES0;
+-    volatile UInt32 RDES1;
+-    volatile UInt32 RDES2;
+-    volatile UInt32 RDES3;
+-} RX_DESCR_t ;
+-
+-
+-typedef struct dma_descs
+-{
+-    TX_DESCR_t* pTx_desc;
+-    RX_DESCR_t* pRx_desc;
+-
+-} dma_descs_t,*pdma_descs_t;
+-
+-/* Structure for storing the tx & rx transactions */
+-typedef struct lipp_6300eth_priv 
+-{
+-
+-    struct eth_addr *ethaddr;
+-
+-    /* Add whatever per-interface state that is needed here. */
+-    TX_DESCR_t *p_tx_descr;  /* Transmit descriptor ring pointer */ 
+-    RX_DESCR_t *p_rx_descr;  /* Receive descriptor ring pointer */   
+-    UInt32 tx_produce_index; /* Counter to keep track of transmit descriptor index */
+-    UInt32 rx_consume_index; /* Pointer to keep track of receive descriptor index */    
+-    UInt32 u_speed; /* speed setting 10/100/1000 */
+-    UInt32 u_mode; /* mode setting Full Duplex, Half Duplex */
+-    UInt32 u_autoneg; /* auto negotiation enable/disable */
+-    tmUnitSelect_t hwUnitNo; /* Hardware unit  < Combination of GMAC & PHY >*/
+-    UInt32 bufferFlip[HW_DESCR_QUEUE_LEN_RX]; /* Used to swap buffers & avoid memcpy */
+-    UInt32 dmaEnabled;
+-
+-} lipp_6300eth_priv_t,*plipp_6300eth_priv_t ;
+-
+-#endif /* _LIPP_6300ETH_H_ */
+-
+-
++/* lipp_6300eth.h */
++#ifndef _LIPP_6300ETH_H_
++#define _LIPP_6300ETH_H_
++
++#include "tmNxTypes.h"
++
++/* Macros for MAC driver */
++
++/* Device speed macros */
++#define DEVICE_SPEED_10MBPS (10)
++#define DEVICE_SPEED_100MBPS (100)
++#define DEVICE_SPEED_1G (1000)
++
++/* Macros to define speed of the link */
++#define LX_SPEED_1000  (1000)
++#define LX_SPEED_100 (100)
++#define LX_SPEED_10 (10)
++
++#define LX_MODE_FULL_DUPLEX (1)
++#define LX_MODE_HALF_DUPLEX (0)
++
++/* Autonegotiation enable/disable macros */
++#define LX_AUTONEG_ENABLE (1)
++#define LX_AUTONEG_DISABLE (0)
++
++#define LX_FLOW_CONTROL_ENABLED (1)
++#define LX_FLOW_CONTROL_DISABLED (0)
++
++#define LX_RX_FLOW_CONTROL (0x02)
++#define LX_TX_FLOW_CONTROL (0x04)
++
++#define LX_FILTER_TYPE_SW (0)
++#define LX_FILTER_TYPE_HW (1)
++
++#define LX_PROMISC_ENABLED (1)
++#define LX_PROMISC_DISABLED (0)
++
++#define LX_4SLOT_TIMES (0)
++#define LX_28SLOT_TIMES (1)
++#define LX_144SLOT_TIMES (2)
++#define LX_256SLOT_TIMES (3)
++
++/* Fill level of receive FIFO for activating/deactivating
++** hardware flow control. Used when the macro ENABLE_HW_FLOW_CONTROL
++** is set to 1.
++*/
++#define FIFO_FILL_LEVEL_1K (0)
++#define FIFO_FILL_LEVEL_2K (1)
++#define FIFO_FILL_LEVEL_3K (2)
++#define FIFO_FILL_LEVEL_4K (3)
++#define FIFO_FILL_LEVEL_5K (4)
++#define FIFO_FILL_LEVEL_6K (5)
++#define FIFO_FILL_LEVEL_7K (6)
++
++/* Programmable burst length values */
++#define BURST_LENGTH_1 (1)
++#define BURST_LENGTH_2 (2)
++#define BURST_LENGTH_4 (4)
++#define BURST_LENGTH_8 (8)
++#define BURST_LENGTH_16 (16)
++#define BURST_LENGTH_32 (32)
++
++/* DMA transmit threshold values */
++#define TX_DMA_THRESHOLD_VAL_64 (0)
++#define TX_DMA_THRESHOLD_VAL_128 (1)
++#define TX_DMA_THRESHOLD_VAL_192 (2)
++#define TX_DMA_THRESHOLD_VAL_256 (3)
++#define TX_DMA_THRESHOLD_VAL_40 (4)
++#define TX_DMA_THRESHOLD_VAL_32 (5)
++#define TX_DMA_THRESHOLD_VAL_24 (6)
++#define TX_DMA_THRESHOLD_VAL_16 (7)
++
++/* DMA receive threshold values */
++#define RX_DMA_THRESHOLD_VAL_64 (0)
++#define RX_DMA_THRESHOLD_VAL_32 (1)
++#define RX_DMA_THRESHOLD_VAL_96 (2)
++#define RX_DMA_THRESHOLD_VAL_128 (3)
++
++/* DMA priorities in Rx:Tx ratio */
++#define DMA_RX1_TX1 (0)
++#define DMA_RX2_TX1 (1)
++#define DMA_RX3_TX1 (2)
++#define DMA_RX4_TX1 (3)
++
++
++/*----------------------------------------------------------------------------*/
++/*********************** configuration options for MAC    *********************/
++/*----------------------------------------------------------------------------*/
++
++/* Rx Frame size should be multiple of 4/8/16 depending on bus width. 
++ * The frame size should be at least (MTU+14) bytes after meeting the above
++ * condition
++ */
++#define MAX_ETH_FRAME_SIZE (1536)
++
++/* Number of descriptors for transmit side */
++#define HW_DESCR_QUEUE_LEN_TX  (1)
++
++/* Number of descriptors for receive side */
++#define HW_DESCR_QUEUE_LEN_RX  (10)
++
++/* Interfaces macros */
++#define NUMBER_OF_INTERFACES (1)
++
++/* HW or SW filtering */
++#define ETH_FILTER_TYPE (LX_FILTER_TYPE_HW)
++
++/* Software based flow control -Enable/Disable */
++#define ETH_FLOW_CTRL (LX_FLOW_CONTROL_DISABLED)
++
++/* Macro to enable hardware flow control if the receive FIFO size
++ * is greater than 4K
++ */    
++#define ENABLE_HW_FLOW_CONTROL (0)
++
++/* Activate flow control when the empty space falls below this value */
++#define RFA_THRESHOLD (FIFO_FILL_LEVEL_5K)
++
++/* Deactivate flow control when FIFO fill level is less than this value */
++#define RFD_THRESHOLD (FIFO_FILL_LEVEL_4K)
++
++#define ETH_DISABLE_FRAME_FLUSH (1)
++
++/* Enable Operate on second frame. 1-Enable, 0-Disable */
++#define ETH_ENABLE_OSF (0)
++
++#define ETH_STORE_FWD_ENABLE (1)
++
++#define ETH_TX_THRESHOLD (TX_DMA_THRESHOLD_VAL_256)
++
++#define ETH_RX_THRESHOLD (RX_DMA_THRESHOLD_VAL_128)
++
++/* 4*X PBL mode enable/disable */
++#define ETH_4XPBL_ENABLE (0)
++
++/* Separate PBL for Tx & Rx */
++#define ETH_DIFF_PBL_ENABLE (0)
++
++#define ETH_FIXED_BURST_ENABLE (1)
++
++#define ETH_ALTDESC_SIZE_ENABLE (1)
++/* Programmable burst length value */
++#define ETH_TX_PBL_VAL (BURST_LENGTH_32)
++
++#define ETH_RX_PBL_VAL (BURST_LENGTH_32)
++
++/* Enable/Disable DMA arbitration scheme */
++#define ETH_DMA_ARBITRATION (0)
++
++/* When DA bit is reset, the values are valid */
++#define ETH_DMA_PRIORITY (DMA_RX1_TX1)
++
++/* Flow control direction Tx/Rx or Both */
++#define ETH_FLOW_CTRL_DIR (LX_RX_FLOW_CONTROL | LX_TX_FLOW_CONTROL)
++
++/* Promiscuous mode enable/disable */
++#define ETH_PROMISC_MODE (LX_PROMISC_DISABLED)
++
++/* Time sent in a pause frame in slot times. Max value is 0xFFFF slot time
++** Each slot time is 512 bit times in GMII/MII mode
++*/    
++#define LX_PAUSE_TIMER_VALUE (256)
++
++/* Pause low threshold value  */
++#define ETH_PLT_VALUE (LX_4SLOT_TIMES)
++
++/* To find if there are enough descriptors are available to receive frames */
++#define LX_DESC_GAP (10)
++
++#undef  CONTROL_INTR_FREQ
++
++/* Frequency at which the transmit side is interrupted */
++#define ETH_TX_INTR_FREQ (1)
++
++/* Frequency at which the receive side is interrupted */
++#define ETH_RX_INTR_FREQ (1)
++
++/* Autonegotiation retry count */
++#define AUTO_NEG_RETRY_COUNT (3)
++
++/* Number of perfect address filters available on the hardware
++** Perfect Filter register 0 is used for MAC address
++** Remaining Perfect Filter registers (1-31) are used for programming multicast addresses 
++*/
++#define ETH_NUM_OF_PER_ADR_FILTERS (32)
++
++/*----------------------------------------------------------------------------*/
++/**********************      Descriptor values     ****************************/
++/*----------------------------------------------------------------------------*/
++
++/* Transmit descriptor macros */
++#define TXDESC_TDES0_OWN_VAL (0x80000000)
++
++/* Status bits 16:0 */
++#define TXDESC_TDES0_IHE_VAL (0x10000)
++#define TXDESC_TDES0_ES_VAL (0x8000)
++#define TXDESC_TDES0_JABTIMEOUT_VAL (0x4000)
++#define TXDESC_TDES0_FRMFLUSH_VAL (0x2000)
++#define TXDESC_TDES0_LOSSOFCAR_VAL (0x800)
++#define TXDESC_TDES0_NOCAR_VAL (0x400)
++#define TXDESC_TDES0_LATECOL_VAL (0x200)
++#define TXDESC_TDES0_EXCOL_VAL (0x100)
++#define TXDESC_TDES0_VLAN_VAL (0x80)
++#define TXDESC_TDES0_COLCNT_MSK (0x78)
++#define TXDESC_TDES0_COLCNT_POS (3)
++#define TXDESC_TDES0_EXDEF_VAL (0x4)
++#define TXDESC_TDES0_UNDERFLOW_VAL (0x2)
++#define TXDESC_TDES0_DEF_BIT_VAL (0x1)
++
++/* Control  Bits 30:26 */
++#define TXDESC_TDES0_INT_VAL (0x40000000)
++#define TXDESC_TDES0_LASTSEG_VAL (0x20000000)
++#define TXDESC_TDES0_FIRSTSEG_VAL (0x10000000)
++#define TXDESC_TDES0_CRC_DISABLE_VAL (0x8000000)
++#define TXDESC_TDES0_PAD_DISABLE_VAL (0x4000000)
++
++/* Control  Bits  Bits 23:20 */
++#define TXDESC_TDES0_CIC_CLR (0xC00000)
++#define TXDESC_TDES0_CIC_POS (22)
++#define TXDESC_TDES0_END_OF_RING_VAL (0x200000)
++#define TXDESC_TDES0_SEC_ADR_CHAIN_VAL (0x100000)
++
++#define TXDESC_TDES1_TX_BUF2_SIZE_CLR (0xE000FFFF)
++#define TXDESC_TDES1_TX_BUF2_SIZE_POS (16)
++#define TXDESC_TDES1_TX_BUF1_SIZE_CLR (0xFFFFE000)
++#define TXDESC_TDES1_TX_BUF1_SIZE_MSK (0x1FFF)
++
++/* Receive descriptor macros */
++#define RXDESC_RDES0_OWN_VAL (0x80000000)
++#define RXDESC_RDES0_DST_ADR_FAIL_VAL (0x40000000)
++
++#define RXDESC_RDES0_FRM_LEN_MSK (0x3fff0000)
++#define RXDESC_RDES0_FRM_LEN_POS (16)
++
++#define RXDESC_RDES0_ERR_SUM_VAL (0x8000)
++#define RXDESC_RDES0_DESC_ERR_VAL (0x4000)
++#define RXDESC_RDES0_SRC_ADR_FAIL_VAL (0x2000)
++#define RXDESC_RDES0_LEN_ERR_VAL (0x1000)
++#define RXDESC_RDES0_OVERFLOW_ERR_VAL (0x800)
++#define RXDESC_RDES0_VLAN_TAG_VAL (0x400)
++#define RXDESC_RDES0_FIRST_DESC_VAL (0x200)
++#define RXDESC_RDES0_LAST_DESC_VAL (0x100)
++#define RXDESC_RDES0_IPC_GIANT_VAL (0x80)
++#define RXDESC_RDES0_LATE_COL_VAL (0x40)
++#define RXDESC_RDES0_FRM_TYP_VAL (0x20)
++#define RXDESC_RDES0_WDOG_VAL (0x10)
++#define RXDESC_RDES0_RX_ERR_VAL (0x8)
++#define RXDESC_RDES0_DRIBBLE_VAL (0x4)
++#define RXDESC_RDES0_CRC_ERR_VAL (0x2)
++#define RXDESC_RDES0_ADR_MATCH_VAL (0x1)
++
++/* RDES1 */
++#define RXDESC_RDES1_DIS_IOC_VAL (0x80000000)
++#define RXDESC_RDES1_DIS_IOC_CLR (0x7FFFFFFF)
++
++#define RXDESC_RDES1_END_OF_RING_VAL (0x8000)
++#define RXDESC_RDES1_SEC_ADR_CHN_VAL (0x4000)
++#define RXDESC_RDES1_BUF2_LEN_CLR (0xE000FFFF)
++#define RXDESC_RDES1_BUF2_LEN_POS (16)
++#define RXDESC_RDES1_BUF1_LEN_MSK (0x1FFF)
++#define RXDESC_RDES1_BUF1_LEN_CLR (0xFFFFE000)
++
++/*----------------------------------------------------------------------------*/
++/**********************      Interrupt masks       ****************************/
++/*----------------------------------------------------------------------------*/
++#define DMA_MASK_ALL_INTS (0xFFFF)
++
++#define GMAC_MASK_ALL_INTS (0xF)
++
++/* Macro to clear the status bits. Bits are clear on write */
++#define DMA_CLR_ALL_INTS (0xE7FF)
++
++/* Macro for clearing receive status */
++#define RX_STAT_MSK (TMHW_LIPP6100ETH_DMA_STATUS_RI_VAL | \
++                                  TMHW_LIPP6100ETH_DMA_STATUS_RU_VAL | \
++                                  TMHW_LIPP6100ETH_DMA_STATUS_OVF_VAL | \
++                                  TMHW_LIPP6100ETH_DMA_STATUS_NIS_VAL | \
++                                  TMHW_LIPP6100ETH_DMA_STATUS_AIS_VAL)
++
++/* Receive interrupts macro for disabling interrupts for NAPI */
++#define RX_INT_MSK (TMHW_LIPP6100ETH_DMA_INT_RIE_EN_VAL |  \
++                                TMHW_LIPP6100ETH_DMA_INT_RUE_EN_VAL | \
++                                TMHW_LIPP6100ETH_DMA_INT_OVE_EN_VAL )
++
++/* Desired transmit interrupts */
++/* Fatal bus error interrupt, Normal Interrupt summary,Abnormal Interrupt summary
++** Underflow interrupt enable, Transmit interrupt enable 
++*/
++#define TX_INTR_VAL (TMHW_LIPP6100ETH_DMA_INT_FBE_EN_VAL | \
++                     TMHW_LIPP6100ETH_DMA_INT_NIE_EN_VAL  | \
++                     TMHW_LIPP6100ETH_DMA_INT_AIE_EN_VAL  | \
++                     TMHW_LIPP6100ETH_DMA_INT_UNE_EN_VAL | \
++                     TMHW_LIPP6100ETH_DMA_INT_TIE_EN_VAL )
++
++/* Fatal Bus Error Interrupt, Over run error interrupt, Normal Interrupt Summary, 
++** Abnormal Interrupt Summary, Receive Interrupt Enable 
++*/
++#define RX_INTR_VAL (TMHW_LIPP6100ETH_DMA_INT_FBE_EN_VAL | \
++                     TMHW_LIPP6100ETH_DMA_INT_OVE_EN_VAL | \
++                     TMHW_LIPP6100ETH_DMA_INT_NIE_EN_VAL | \
++                     TMHW_LIPP6100ETH_DMA_INT_AIE_EN_VAL | \
++                     TMHW_LIPP6100ETH_DMA_INT_RIE_EN_VAL )
++
++/* Early Transmit and Early Receive Interrupts */
++#define ERE_ETE_INT_VAL ( TMHW_LIPP6100ETH_DMA_INT_ERE_EN_VAL | \
++                          TMHW_LIPP6100ETH_DMA_INT_ETE_EN_VAL )
++
++#define MAX_LIPP_6300ETH_UNITS (1)
++
++#define NULL 0
++
++/*----------------------------------------------------------------------------*/
++/**********************      Structures  definitions     **********************/
++/*----------------------------------------------------------------------------*/
++
++/* structure for TX descriptors */
++typedef struct TX_DESCR 
++{
++    volatile UInt32 TDES0;
++    volatile UInt32 TDES1;
++    volatile UInt32 TDES2;
++    volatile UInt32 TDES3;
++    volatile UInt32 TDES4;
++    volatile UInt32 TDES5;
++    volatile UInt32 TDES6;
++    volatile UInt32 TDES7;
++} TX_DESCR_t ;
++
++typedef struct RX_DESCR
++{
++    volatile UInt32 RDES0;
++    volatile UInt32 RDES1;
++    volatile UInt32 RDES2;
++    volatile UInt32 RDES3;
++    volatile UInt32 RDES4;
++    volatile UInt32 RDES5;
++    volatile UInt32 RDES6;
++    volatile UInt32 RDES7;
++} RX_DESCR_t ;
++
++
++typedef struct dma_descs
++{
++    TX_DESCR_t* pTx_desc;
++    RX_DESCR_t* pRx_desc;
++
++} dma_descs_t,*pdma_descs_t;
++
++/* Structure for storing the tx & rx transactions */
++typedef struct lipp_6300eth_priv 
++{
++
++    struct eth_addr *ethaddr;
++
++    /* Add whatever per-interface state that is needed here. */
++    TX_DESCR_t *p_tx_descr;  /* Transmit descriptor ring pointer */ 
++    RX_DESCR_t *p_rx_descr;  /* Receive descriptor ring pointer */   
++    UInt32 tx_produce_index; /* Counter to keep track of transmit descriptor index */
++    UInt32 rx_consume_index; /* Pointer to keep track of receive descriptor index */    
++    UInt32 u_speed; /* speed setting 10/100/1000 */
++    UInt32 u_mode; /* mode setting Full Duplex, Half Duplex */
++    UInt32 u_autoneg; /* auto negotiation enable/disable */
++    tmUnitSelect_t hwUnitNo; /* Hardware unit  < Combination of GMAC & PHY >*/
++    UInt32 bufferFlip[HW_DESCR_QUEUE_LEN_RX]; /* Used to swap buffers & avoid memcpy */
++    UInt32 dmaEnabled;
++
++} lipp_6300eth_priv_t,*plipp_6300eth_priv_t ;
++
++#endif /* _LIPP_6300ETH_H_ */
++
++
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyAccess.c u-boot-2009.08_new/drivers/net/lipp_6300eth/tmbslPhyAccess.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhyAccess.c	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/tmbslPhyAccess.c	2010-02-08 01:52:05.000000000 -0600
+@@ -172,7 +172,7 @@
+ 
+ #endif
+ 
+-#ifdef __USING_MYSTIPHY110_PHY__
++#ifdef __USING_MYSTIPHY110E_PHY__
+ #include "tmbslPhyMYSTI110E.h"
+ /* PHY interface structure to store PHY register access functions */
+  tmbslPhyConfig_t gtmbslPhyInterface[TMHWLIPP6100ETH_NUM_UNITS] =
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhy.c u-boot-2009.08_new/drivers/net/lipp_6300eth/tmbslPhy.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhy.c	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/tmbslPhy.c	2010-02-08 01:52:05.000000000 -0600
+@@ -1,63 +1,63 @@
+-#include "lipp_6300eth_common.h"
+-
+-/* config.h, included in lipp_6300eth_common.h has defines for 
+-** CONFIG_LIPP_6300ETH & one of the PHY to be compiled
+-** as CONFIG_USING_<phy type>_PHY. 
+-**
+-** PHY source files are included as part of this file, so as to 
+-** keep the make file constant, even if a different PHY is used.
+-*/
+-
+-/* pnx85500 on board ethernet */
+-
+-#ifdef CONFIG_LIPP_6300ETH
+-
+-    /* For national dp83848 phy */
+-    #ifdef CONFIG_USING_DP83848_PHY
+-    #include "tmbslPhyDP83848.h"
+-    #include "tmbslPhyDP83848.c"
+-    #endif
+-
+-    /* For smsc 8700 ethernet phy */
+-    #ifdef CONFIG_USING_SMSC8700_PHY
+-    #include "tmbslPhySMSC8700.h"        
+-    #include "tmbslPhySMSC8700.c"    
+-    #endif
+-
+-    /* For smsc 8700 ethernet phy */
+-    #ifdef CONFIG_USING_SMSC8710_PHY
+-    #include "tmbslPhySMSC8710.h"        
+-    #include "tmbslPhySMSC8710.c"    
+-    #endif
+-
+-    /* For smsc 8700 ethernet phy */
+-    #ifdef CONFIG_USING_EMU_PHY
+-    #include "tmbslPhyEmu.h"        
+-    #include "tmbslPhyEmu.c"    
+-    #endif
+-
+-    #ifdef CONFIG_USING_RTL8211_PHY
+-    #include "tmbslPhyRTL8211BN.h"        
+-    #include "tmbslPhyRTL8211BN.c"    
+-    #endif
+-
+-    #ifdef CONFIG_USING_RTLMYSTI110E_PHY
+-    #include "tmbslPhyRTLMYSTI110E.h"        
+-    #include "tmbslPhyRTLMYSTI110E.c"    
+-    #endif
+-    /* Files which are must for ethernet driver, utilizing 
+-    ** macros in config.h, tv55x.h
+-    */
+-
+-    #include "tmbslPhyAccess.c"
+-    #include "tmhwLIPP6100Eth_Cfg.c"
+-    #include "tmhwLIPP6100Eth.c"
+-
+-#endif /* CONFIG_LIPP_6300ETH */
+-
+-
+-
+-
+-
+-
+-
++#include "lipp_6300eth_common.h"
++
++/* config.h, included in lipp_6300eth_common.h has defines for 
++** CONFIG_LIPP_6300ETH & one of the PHY to be compiled
++** as CONFIG_USING_<phy type>_PHY. 
++**
++** PHY source files are included as part of this file, so as to 
++** keep the make file constant, even if a different PHY is used.
++*/
++
++/* pnx85500 on board ethernet */
++
++#ifdef CONFIG_LIPP_6300ETH
++
++    /* For national dp83848 phy */
++    #ifdef CONFIG_USING_DP83848_PHY
++    #include "tmbslPhyDP83848.h"
++    #include "tmbslPhyDP83848.c"
++    #endif
++
++    /* For smsc 8700 ethernet phy */
++    #ifdef CONFIG_USING_SMSC8700_PHY
++    #include "tmbslPhySMSC8700.h"        
++    #include "tmbslPhySMSC8700.c"    
++    #endif
++
++    /* For smsc 8700 ethernet phy */
++    #ifdef CONFIG_USING_SMSC8710_PHY
++    #include "tmbslPhySMSC8710.h"        
++    #include "tmbslPhySMSC8710.c"    
++    #endif
++
++    /* For smsc 8700 ethernet phy */
++    #ifdef CONFIG_USING_EMU_PHY
++    #include "tmbslPhyEmu.h"        
++    #include "tmbslPhyEmu.c"    
++    #endif
++
++    #ifdef CONFIG_USING_RTL8211_PHY
++    #include "tmbslPhyRTL8211BN.h"        
++    #include "tmbslPhyRTL8211BN.c"    
++    #endif
++
++    #ifdef CONFIG_USING_RTLMYSTI110E_PHY
++    #include "tmbslPhyRTLMYSTI110E.h"        
++    #include "tmbslPhyRTLMYSTI110E.c"    
++    #endif
++    /* Files which are must for ethernet driver, utilizing 
++    ** macros in config.h, tv55x.h
++    */
++
++    #include "tmbslPhyAccess.c"
++    #include "tmhwLIPP6100Eth_Cfg.c"
++    #include "tmhwLIPP6100Eth.c"
++
++#endif /* CONFIG_LIPP_6300ETH */
++
++
++
++
++
++
++
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhySMSC8700.c u-boot-2009.08_new/drivers/net/lipp_6300eth/tmbslPhySMSC8700.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhySMSC8700.c	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/tmbslPhySMSC8700.c	2010-02-08 01:52:05.000000000 -0600
+@@ -1,1151 +1,1151 @@
+-/*
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+- *
+- * Copyright (c) 2006-2007, LIPP Alliance
+- * All Rights Reserved.
+- *
+- *---------------------------------------------------------------------------
+- * %filename:     tmbslPhySMSC8700.c %
+- * %pid_version:           1.2                %
+- *---------------------------------------------------------------------------
+- * DESCRIPTION: Macros and function prototypes for SMSC8700 PHY
+- *
+- * DOCUMENT REF: Datasheet SMSC LAN8700/LAN8700i  
+- *               Revision 2.1 (03-06-09)
+- *
+- *
+- *-----------------------------------------------------------------------------
+- *
+-*/
+-
+-#include "tmNxTypes.h"
+-#include "tmNxCompId.h"
+-
+-#include "lipp_6300eth_common.h"
+-
+-/*  Project include files */
+-#include "tmbslPhy.h"
+-#include "tmbslPhySMSC8700.h"
+-#include "tmhwLIPP6100Eth_Cfg.h"
+-
+-/* Timeout in case of linux */
+-#ifdef __LIPP_6300ETH__
+-#include "i2c_ip3203.h"
+-#define AUTO_NEG_DELAY_MULTIPLIER (800)
+-#endif /* __LINUX_GMAC_DRV__*/
+-
+-/* Defines */
+-#define PHY_UNIT_ID_COUNT  			1
+-
+-#define PHY_TIMEOUT                 (0x0FFFFFFF)
+-
+-#define TMBSLPHYSMSC8700_PHY_MMIO_ADDRESS0 ((0x1be00000+0x38000))
+-
+-#define ANAR_DEFAULT_VAL (0x1E1)
+-
+-/* gEthContext[] is filled with MAC base address in the tmbslPhySMSC8700Init() 
+-** function 
+-*/
+-
+-tmbslPhySMSC8700Context_t gEthContext[PHY_UNIT_ID_COUNT] = {{TMBSLPHYSMSC8700_PHY_MMIO_ADDRESS0}}; 
+-
+-typedef enum _tmbslPhySMSC8700Reg_t
+-{
+-    /* Basic mode control */
+-    tmbslPhySMSC8700Bmcr		      = 0,  
+-
+-    /* Basic mode status */    
+-    tmbslPhySMSC8700Bmsr		      =1,  
+-
+-    /* PHY ID1 register */        
+-    tmbslPhySMSC8700PhyIdr1		=2,
+-
+-    /* PHY ID2 register */            
+-    tmbslPhySMSC8700PhyIdr2		=3,
+-
+-    /* Auto negotiation advertisement register */                
+-    tmbslPhySMSC8700Anar			=4,
+-
+-    /* Auto negotiation link partner ability register */                    
+-    tmbslPhySMSC8700Anlpar		=5,
+-
+-    /* Auto negotiation expansion register */                        
+-    tmbslPhySMSC8700Aner			=6,
+-
+-    /* 0x7 to 0xF reserved-*/
+-
+-    /* Silicon Revision register */
+-    tmbslPhySMSC8700Srr=16,
+-
+-    /* Mode control & status register */
+-    tmbslPhySMSC8700Mcsr=17,
+-
+-    /* Special modes register */
+-    tmbslPhySMSC8700Smr=18,
+-
+-    /* 19-25 reserved */
+-
+-    /* Symbol error counter register */    
+-    tmbslPhySMSC8700Secr	= 26,
+-    
+-    /* Control/Status indication register */        
+-    tmbslPhySMSC8700Csir = 27,    
+-
+-    /* Special internal testability controls register*/            
+-    tmbslPhySMSC8700Sitcr = 28,        
+-    
+-    /* Interrupt source register */
+-    tmbslPhySMSC8700Isr = 29,
+-
+-    /* Interrupt mask register */
+-    tmbslPhySMSC8700Imr = 30,    
+-
+-    /* PHY special control & status register */    
+-    tmbslPhySMSC8700Pscsr = 31,    
+-
+-} tmbslPhySMSC8700Reg_t, *ptmbslPhySMSC8700Reg_t;
+-
+-
+-/* Static functions definition */
+-
+-static tmErrorCode_t 
+-tmbslPhySMSC8700Read (
+-	tmUnitSelect_t				ethUnitId,
+-    tmbslPhySMSC8700Reg_t				reg,   
+-    pUInt16						pVal
+-	);
+-	
+-	
+-static tmErrorCode_t	
+-tmbslPhySMSC8700Write (
+-    tmUnitSelect_t				ethUnitId,
+-    tmbslPhySMSC8700Reg_t				reg,   
+-    UInt16						val
+-	);
+-
+-#ifdef __LIPP_6300ETH__
+-static void get_phy_out_of_rst( void);
+-#endif
+-
+-/* Exported functions */
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700GetSWVersion:
+-//
+-// DESCRIPTION: This function returns the PHY device interface software version 
+-//				information
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       This API can be called anytime i.e. before initializing the PHY 
+-//				or in PowerOff state.
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700GetSWVersion (
+-	ptmSWVersion_t					pPhyVersion
+-	)
+-{
+-	
+-	pPhyVersion->compatibilityNr = TMBSL_PHY_COMPATIBILITY_NR;
+-	pPhyVersion->majorVersionNr = TMBSL_PHY_MAJOR_VERSION_NR;
+-	pPhyVersion->minorVersionNr = TMBSL_PHY_MINOR_VERSION_NR;
+-	
+-	return TM_OK;
+-
+-}
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700GetCapabilities:
+-//
+-// DESCRIPTION: This function returns the PHY capabilities for the specified PHY
+-//				unit. The function is callable at any time to return the unit's 
+-//				capabilities (PHY unit initialization is not necessary). 
+-//				Capabilities may be different among multiple PHY units.For completeness, 
+-//				a PHY BSL user should call this function for each PHY unit to 
+-//				determine its individual capabilities. 
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       This API can be called anytime i.e. before initializing the PHY. 
+-//				 
+-//-----------------------------------------------------------------------------
+-
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700GetCapabilities (
+-    tmUnitSelect_t                			ethUnitId,  
+-    ptmbslPhyCapabilities_t  				pPhyCaps    
+-    )
+-
+-{
+-
+-    UInt16 bmsr;
+-
+-    /*  Read the PHY capabilites from the BMSR register */
+-    tmbslPhySMSC8700Read(ethUnitId, tmbslPhySMSC8700Bmsr, &bmsr);
+-
+-    pPhyCaps->T4Support100Base = 
+-        (((bmsr & TMBSL_PHYSMSC8700_BMSR_T4100BASE) > 0) ? True : False);
+-
+-    pPhyCaps->Tx_FullDuplexSupport100Base = 
+-        (((bmsr &TMBSL_PHYSMSC8700_BMSR_X100BASEFD) > 0) ? True : False);
+-
+-    pPhyCaps->Tx_HalfDuplexSupport100Base = 
+-        (((bmsr &TMBSL_PHYSMSC8700_BMSR_X100BASEHD) > 0) ? True : False);
+-
+-    pPhyCaps->Tx_FullDuplexSupport10Base = 
+-        (((bmsr &TMBSL_PHYSMSC8700_BMSR_10MBPSFD) > 0) ? True : False);        
+-
+-    pPhyCaps->Tx_HalfDuplexSupport10Base = 
+-        (((bmsr &TMBSL_PHYSMSC8700_BMSR_10MBPSHD) > 0) ? True : False);
+-
+-
+-    pPhyCaps->autoNegotiationAbility = 
+-                (((bmsr &TMBSL_PHYSMSC8700_BMSR_AN_ABLE) > 0) ? True : False);
+-
+-    pPhyCaps->ledStatusSupport = True ;		
+-
+-    /* Other capabilites set to False */   
+-    pPhyCaps->nextPageIndication = False;
+-
+-    pPhyCaps->force100MbpsTxOff = False;
+-
+-    pPhyCaps->bypassSymbolAlignment =False;
+-
+-    pPhyCaps->badSSDDetectionConfig = False;
+-	
+-    return TM_OK;
+-
+-}   
+-    
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700Init:
+-//
+-// DESCRIPTION: This function initializes the PHY device. It should be called
+-//				before any access to the device is made. 
+-//
+-// RETURN:      TM_OK 
+-//
+-// NOTES:       This function initializes the PHY device with the following 
+-//				default initial configuration. No Autonegotiation is done in the 
+-//				initialization function
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700Init(
+-    tmUnitSelect_t  						ethUnitId   
+-    )
+-{
+-
+-    tmErrorCode_t       		ethStatus = TM_OK;     		
+-    UInt32                         timeout=0;
+-    UInt16 regval=0;
+-    UInt16 id1, id2;
+-
+-
+-    #ifdef __LIPP_6300ETH__
+-    get_phy_out_of_rst();
+-    #endif
+-
+-//    printf("\nIn SMSC Init\n");           
+-
+-    gEthContext[ethUnitId].pRegs = gtmhwLIPP6100Eth_Base[ethUnitId].baseAddress;
+-
+-    /* Set the mode register to default value */
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
+-//    printf("\nSMR val: %08x\n",regval);           
+-
+-    regval &= 0xBF1F; /* Set to 100Mbps FD, MII mode */
+-    regval |= 0x60;    
+-    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Smr,regval);        
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
+-//    printf("\nSMR val: %08x\n",regval);           
+-
+-    regval = TMBSL_PHYSMSC8700_BMCR_RST_VAL;
+-
+-    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,regval);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus;
+-    }
+-
+-    /* Check if PHY is back to normal condition */
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&regval);
+-
+-    while( (regval & TMBSL_PHYSMSC8700_BMCR_RST_VAL) && (timeout < PHY_TIMEOUT) )
+-    {
+-
+-        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&regval);
+-
+-        if(ethStatus != TM_OK)
+-        {
+-            break;
+-        }
+-
+-        timeout++;
+-
+-    }  
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return(ethStatus);
+-    }
+-
+-    if( (timeout == PHY_TIMEOUT) && (regval & TMBSL_PHYSMSC8700_BMCR_RST_VAL) )
+-    {
+-        return(TMBSL_ERR_PHY_INIT_FAILED);	
+-    } 
+-
+-    /* Read PHY Identification Register */
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700PhyIdr1,&id1);
+-
+-    if (ethStatus != TM_OK)
+-    {
+-        return (ethStatus);
+-    }
+-
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700PhyIdr2,&id2);
+-
+-    if (ethStatus != TM_OK)
+-    {
+-        return (ethStatus);
+-    }
+-
+-//    printf("\nETHERNET CLOCK1:%08x\n",*(unsigned long *)(0xbbe47710));                    
+-//    printf("\nETHERNET CLOCK2:%08x\n",*(unsigned long *)(0xbbe47714));                    
+-//    printf("\nETHERNET CLOCK3:%08x\n",*(unsigned long *)(0xbbe47718));                       
+-//    printf("\nSMSC PHY INIT successful\n\n\n");    
+-
+-    return TM_OK;
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700Deinit:
+-//
+-// DESCRIPTION: This function de-initializes the PHY device. Once the device is
+-//				deinitilized device will no more be available to access 
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       
+-//-----------------------------------------------------------------------------
+-//
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700Deinit(
+-    tmUnitSelect_t  						ethUnitId   
+-    )
+-
+-{
+-
+-    tmErrorCode_t       		ethStatus=TM_OK;     		
+-    UInt16 bmcr =0;
+-
+-    bmcr |= TMBSL_PHYSMSC8700_BMCR_RST_VAL;
+-
+-    /* All the registers will be reset */
+-    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,bmcr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus;
+-    }
+-    else	
+-    {
+-        return TM_OK;
+-    }
+-
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700SetPowerState:
+-//
+-// DESCRIPTION: This function will set the Power State of the PHY device to specified 
+-//				power state
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700SetPowerState(
+-    tmUnitSelect_t           				ethUnitId ,  
+-    tmPowerState_t          				phyPowerState
+-    )
+-
+-{
+-    tmErrorCode_t ethStatus=TM_OK;     		
+-    UInt16 bmcr = 0;
+-
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId, tmbslPhySMSC8700Bmcr, &bmcr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus;
+-    }
+-
+-    if( (phyPowerState == tmPowerOn) || (phyPowerState == tmPowerOff) )
+-    {
+-        if(phyPowerState == tmPowerOff)
+-        {
+-            bmcr |= TMBSL_PHYSMSC8700_BMCR_PWRDN_EN;
+-        }
+-        else
+-        {
+-            bmcr &=TMBSL_PHYSMSC8700_BMCR_PWRDN_CLR;
+-        }
+-
+-        ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,bmcr);
+-
+-        return ethStatus;
+-
+-    }
+-    else
+-    {
+-        return TMBSL_ERR_PHY_NOT_SUPPORTED;
+-    }
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700GetPowerState:
+-//
+-// DESCRIPTION: This function will get the preset power state of the PHY device
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700GetPowerState(
+-    tmUnitSelect_t                  		ethUnitId ,  
+-    ptmPowerState_t				phyPowerState
+-    )
+-
+-{
+-
+-    tmErrorCode_t       		ethStatus=TM_OK;     		
+-    UInt16 regVal=0;
+-
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&regVal);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    *phyPowerState = (((regVal & TMBSL_PHYSMSC8700_BMCR_PWRDN_EN) > 0) ? tmPowerOff : tmPowerOn);
+-
+-    return TM_OK;
+-
+-}   
+-
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700GetBasicModeControl:
+-//
+-// DESCRIPTION: This function will get the basic configuration of the PHY device. 
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       See #define for the Basic Mode Control 
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t 
+-tmbslPhySMSC8700GetBasicModeControl (
+-    tmUnitSelect_t                   		ethUnitId,   
+-    ptmbslPhyBasicModeControl_t       pPhyBasicModeControl
+-    )
+-{
+-    tmErrorCode_t ethStatus=TM_OK;     		
+-    UInt16 bmcr;
+-
+-    /* Read the present settings of the BMCR register */
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&bmcr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus;
+-    }
+-
+-    pPhyBasicModeControl->enableCollisionTest = 
+-                (((bmcr & TMBSL_PHYSMSC8700_BMCR_COLTEST ) > 0) ? True : False);
+-
+-    pPhyBasicModeControl->duplexMode = 
+-                (((bmcr & TMBSL_PHYSMSC8700_BMCR_FD_EN ) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
+-
+-    if(bmcr & TMBSL_PHYSMSC8700_BMCR_SPEED_MSK)
+-    {
+-        pPhyBasicModeControl->speed = tmbslPhySpeed100Mbps;            
+-    }
+-    else
+-    {
+-        pPhyBasicModeControl->speed = tmbslPhySpeed10Mbps;                            
+-    }
+-
+-    return TM_OK;
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700SetBasicModeControl:
+-//
+-// DESCRIPTION: This function will configure the PHY device for the Basic Mode. 
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t 
+-tmbslPhySMSC8700SetBasicModeControl (
+-    tmUnitSelect_t                           ethUnitId,   
+-    ptmbslPhyBasicModeControl_t        pPhyBasicModeControl
+-    )
+-{
+-
+-    tmErrorCode_t       		ethStatus=TM_OK;     		
+-    UInt16 bmcr =0;
+-    UInt16 regval;
+-
+-    if(pPhyBasicModeControl->enableCollisionTest == True)
+-    {
+-        bmcr |= TMBSL_PHYSMSC8700_BMCR_COLTEST;
+-    }
+-
+-    if(pPhyBasicModeControl->duplexMode == True)
+-    {
+-        bmcr |= TMBSL_PHYSMSC8700_BMCR_FD_EN;
+-    }
+-
+-    switch(pPhyBasicModeControl->speed)
+-    {
+-
+-        case tmbslPhySpeed100Mbps :       
+-//            bmcr |= TMBSL_PHYSMSC8700_BMCR_SPEED_100;                
+-        /* Set the mode register to default value */
+-        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
+-
+-        /* Clear the mode bits */
+-        regval &= 0xFF1F;
+-
+-        regval |= 0x60;
+-        ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Smr,regval);        
+-
+-        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
+-        printf("\nSMR val: %08x\n",regval);           
+-            break;
+-
+-        case tmbslPhySpeed10Mbps :       
+-//            bmcr |= TMBSL_PHYSMSC8700_BMCR_SPEED_10;                
+-        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
+-
+-        /* Clear the mode bits */
+-        regval &= 0xFF1F;
+-
+-        regval |= 0x20;
+-
+-        ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Smr,regval);        
+-        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
+-        printf("\nSMR val: %08x\n",regval);           
+-            
+-                
+-            break;
+-
+-        default:
+-            break;
+-
+-    }
+-
+-    ethStatus = tmbslPhySMSC8700SoftReset(ethUnitId);
+-
+-    mdelay(10);
+-    printf("\nSPEED/MODE updated from MODE pins\n");               
+-
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Pscsr,&regval);
+-    printf("\nPHY STS reg:%04x\n",regval);               
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        printf("\nRESET failed after mode change\n");           
+-    }
+-
+-    /* Write the result to the BMC register */
+-//    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,bmcr);
+-
+-    return ethStatus;
+-
+-}   
+-
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700GetBasicModeStatus:
+-//
+-// DESCRIPTION: This function will get the Basic Mode Status of the PHY device 
+-//				such as the speed, duplex mode and other statuses
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700GetBasicModeStatus (
+-    tmUnitSelect_t                  		ethUnitId,   
+-    ptmbslPhyBasicModeStatus_t    	pPhyBasicModeStatus     
+-    )
+-
+-{
+-    tmErrorCode_t ethStatus=TM_OK;     		
+-    UInt16           bmsr,bmcr,phySts;
+-
+-    /* Read the PHY status from the BMSR register */
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId, tmbslPhySMSC8700Bmsr, &bmsr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    /* Read the PHY control register from the BMCR register */
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId, tmbslPhySMSC8700Bmcr, &bmcr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    /* Read the autonegotiation status from PHY status register */
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId, tmbslPhySMSC8700Pscsr, &phySts);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    pPhyBasicModeStatus->jabberDetect = (((bmsr & TMBSL_PHYSMSC8700_BMSR_JAB_VAL) > 0) ? True : False);
+-
+-    pPhyBasicModeStatus->remoteFaultDetected = (((bmsr & TMBSL_PHYSMSC8700_BMSR_RF_VAL) > 0) ? True : False);
+-
+-    pPhyBasicModeStatus->autoNegotiationComplete = (((bmsr & TMBSL_PHYSMSC8700_BMSR_AN_VAL) > 0) ? True : False);
+-
+-    pPhyBasicModeStatus->loopBackEnabled = (((bmcr & TMBSL_PHYSMSC8700_BMCR_LPBK_VAL) > 0) ? True : False);
+-
+-    if((bmcr & TMBSL_PHYSMSC8700_BMCR_AN_EN) == 0) 
+-    {
+-        /* Not an auto negotiation. So read the values from BMCR */
+-        pPhyBasicModeStatus->duplexMode = 
+-                (((bmcr & TMBSL_PHYSMSC8700_BMCR_FD_EN ) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
+-
+-        if(bmcr & TMBSL_PHYSMSC8700_BMCR_SPEED_MSK)
+-        {
+-            pPhyBasicModeStatus->speed = tmbslPhySpeed100Mbps;            
+-        }
+-        else
+-        {
+-            pPhyBasicModeStatus->speed = tmbslPhySpeed10Mbps;                        
+-        }
+-
+-    }
+-    else 
+-    {
+-        /* If autonegotiation is enabled, read from PHYSTS register */
+-        pPhyBasicModeStatus->duplexMode = 
+-                (((phySts & TMBSL_PHYSMSC8700_PHYSTS_DUP_MODE) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
+-
+-        pPhyBasicModeStatus->speed= 
+-                (((phySts & TMBSL_PHYSMSC8700_PHYSTS_SPEED_MSK) == 0x4) ? tmbslPhySpeed10Mbps : tmbslPhySpeed100Mbps);
+-
+-    }
+-
+-    return TM_OK;
+-
+-}   
+-
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700AutoNegotiate:
+-//
+-// DESCRIPTION: This function will enable the Auto negotiation of the PHY device 
+-//				with Link Partner. Best possible performance configuration is 
+-//				selected automatically during this process
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700AutoNegotiate (
+-    tmUnitSelect_t                       	      ethUnitId,   
+-    ptmbslPhyAutoNegotitationMask_t      	pAutoNegotiationMask
+-    )
+-{
+-
+-    tmErrorCode_t   ethStatus=TM_OK;
+-    UInt32             timeout=AUTO_NEG_DELAY_MULTIPLIER; 
+-
+-    UInt16 regVal = ANAR_DEFAULT_VAL;
+-    UInt16 mask =0;
+-
+-    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Anar,regVal);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    if(pAutoNegotiationMask->masknextPageDesired == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8700_ANAR_NP;        
+-    }
+-
+-    if(pAutoNegotiationMask->maskRemoteFault == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8700_ANAR_ADV_RF;        
+-    }
+-
+-    if(pAutoNegotiationMask->maskAsymmetricPause == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8700_ANAR_AP;        
+-    }
+-
+-    if(pAutoNegotiationMask->maskPauseFrame == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8700_ANAR_PAUSE;        
+-    }
+-
+-    if(pAutoNegotiationMask->mask100BaseTxFullDuplexSupport == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8700_ANAR_100B_TX_FD;        
+-    }
+-
+-    if(pAutoNegotiationMask->mask100BaseTxSupport == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8700_ANAR_100B_TX_HD;        
+-    }
+-
+-    if(pAutoNegotiationMask->mask10BaseTFullDuplexSupport == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8700_ANAR_10B_TX_FD;        
+-    }    
+-
+-    if(pAutoNegotiationMask->mask10BaseTSupport == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8700_ANAR_10B_TX_HD;        
+-    }    
+-
+-    /* Clear the corresponding bits in the regVal*/
+-    regVal &= ~(mask);
+-
+-//    printf("\nANAR val: %08x\n",regVal);
+-   
+-    /* Program the Auto negotiation mask */
+-    tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Anar,regVal);
+-
+-    /* Enable the Auto negotiation in the BMCR register 
+-    ** First clear the auto negotiate bit and then enable
+-    */
+-    tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&regVal);
+-
+-    /* Clear autonegotiation bit */
+-    regVal &= TMBSL_PHYSMSC8700_BMCR_AN_CLR;
+-
+-    regVal |= TMBSL_PHYSMSC8700_BMCR_AN_EN |
+-              TMBSL_PHYSMSC8700_BMCR_AN_RESTART;
+-    
+-//    printf("\nBMCR val: %08x\n",regVal);
+-   
+-    tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,regVal);
+-
+-    /* Wait till the Auto negotiation is complete */
+-    tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmsr,&regVal);
+-
+-    /* While the Autonegotiation is not complete, stay in loop */
+-    while(((regVal & TMBSL_PHYSMSC8700_BMSR_AN_VAL) != TMBSL_PHYSMSC8700_BMSR_AN_VAL) && 
+-           (timeout != 0 ) )
+-    {
+-        mdelay(5);
+-        
+-        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmsr,&regVal);
+-
+-        if(ethStatus != TM_OK) 
+-        {
+-            return ethStatus;
+-        }
+-
+-        timeout--;
+-    }
+-
+-    if(  (timeout <= 0) && 
+-         ( (regVal & TMBSL_PHYSMSC8700_BMSR_AN_VAL) != TMBSL_PHYSMSC8700_BMSR_AN_VAL)
+-      )
+-    {
+-        return(-1);
+-    }
+-
+-    GMAC_DBG("Autonegotiation Time:%d msec\n",(AUTO_NEG_DELAY_MULTIPLIER-timeout)*5);
+-    
+-    return TM_OK;
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700LoopBack:
+-//
+-// DESCRIPTION: Function will enable or disable the PHY device in the Loopback 
+-//				mode.
+-//
+-// RETURN:      TM_OK
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700LoopBack (
+-    tmUnitSelect_t                  ethUnitId,   
+-    tmbslPhyEnableDisable_t     loopbackMode
+-    )
+-{
+-
+-    tmErrorCode_t ethStatus=TM_OK;     		
+-    UInt16 bmcr;
+-
+-    /* Read the existing settings of the BMCR register */
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&bmcr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    if(tmbslPhyEnable == loopbackMode)
+-    {
+-        bmcr |= TMBSL_PHYSMSC8700_BMCR_LPBK_VAL;
+-    }
+-    else if(tmbslPhyDisable == loopbackMode)
+-    {
+-        bmcr &= TMBSL_PHYSMSC8700_BMCR_LPBK_CLR;
+-    }
+-    else
+-    {
+-        ethStatus = TMBSL_ERR_PHY_NOT_SUPPORTED;
+-    }
+-
+-    /* Write the Loopback setting to the BMCR register */
+-    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,bmcr);
+-
+-    return ethStatus;
+-
+-}   
+-
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700SoftReset:
+-//
+-// DESCRIPTION: Function will do the soft reset of the PHY device
+-
+-// RETURN:      TM_OK
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-//
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700SoftReset (
+-    tmUnitSelect_t                     		ethUnitId      
+-	)
+-
+-{
+-    tmErrorCode_t       		ethStatus=TM_OK;     		
+-
+-    /* All the registers will be reset */
+-    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,TMBSL_PHYSMSC8700_BMCR_RST_VAL);
+-
+-    return ethStatus;
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700GetLinkStatus:
+-//
+-// DESCRIPTION: Function will get the link status
+-
+-// RETURN:      TM_OK
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8700GetLinkStatus (
+-    tmUnitSelect_t                          ethUnitId,   
+-    ptmbslPhyEnableDisable_t            pLinkStatus
+-    )
+-{
+-    tmErrorCode_t ethStatus=TM_OK;     		
+-    UInt16 physts;
+-
+-    /* Read the BMSR register twice, as per datasheet */
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmsr,&physts);
+-    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmsr,&physts);    
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    *pLinkStatus =
+-        (((physts & TMBSL_PHYSMSC8700_PHYSTS_LINK_STAT) > 0) ? tmbslPhyEnable : tmbslPhyDisable);
+-
+-    return(TM_OK);
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-//	Local static functions	
+-//-----------------------------------------------------------------------------
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700Read:
+-//
+-// DESCRIPTION: Function will read from the Specified PHY register
+-
+-// RETURN:      
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-//
+-
+-static tmErrorCode_t
+-tmbslPhySMSC8700Read (
+-    tmUnitSelect_t				ethUnitId,
+-    tmbslPhySMSC8700Reg_t		reg,   
+-    pUInt16						pVal
+-	)
+-
+-{
+-
+-    UInt32  timeout=0;
+-    UInt32 pEthRegs;       
+-    volatile UInt32 *pAdrReg;
+-    volatile  UInt32 *pDataReg;
+-    UInt32 regValue;        
+-
+-    /* get Ethernet Module Reg Pointer  */
+-    pEthRegs = gEthContext[ethUnitId].pRegs;
+-
+-    /* Get the Address register */  
+-    pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
+-    pDataReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_DATA_REG_OFFSET) ;
+-
+-    /* Program the Register address in the MII */
+-    regValue = *pAdrReg;
+-       
+-    /* Clear the earlier register value in Address register and write the new value */
+-    regValue &= TMHW_LIPP6100ETH_ADR_PHY_REG_CLR;  
+-    regValue |= reg << TMHW_LIPP6100ETH_ADR_PHY_REG_POS;
+-
+-    /* Clear the bit GMII write for read operation */
+-    regValue &= TMHW_LIPP6100ETH_ADR_PHY_RD_CLR;
+-
+-    regValue |= TMHW_LIPP6100ETH_ADR_PHY_EN_VAL;
+-
+-    *pAdrReg = regValue;        
+-
+-    /* Wait till the read operation is complete */
+-
+-    do
+-    {
+-        timeout++;
+-
+-    }while ( ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) && 
+-                   (timeout < PHY_TIMEOUT) );
+-
+-    if( (timeout == PHY_TIMEOUT) && 
+-        ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) )
+-    {
+-        printf("\n&*&*&*PHY READ FAILED\n");    
+-        return(TMBSL_ERR_PHY_READ_FAILED);
+-    }  
+-	
+-    /* Read the data from the data register */
+-
+-    *pVal = (UInt16) *pDataReg;
+-    
+-    return TM_OK;
+-
+-}   
+-
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8700Write:
+-//
+-// DESCRIPTION: Function will Write to the Specified PHY register
+-
+-// RETURN:      
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-//
+-
+-static tmErrorCode_t
+-tmbslPhySMSC8700Write (
+-    tmUnitSelect_t				ethUnitId,
+-    tmbslPhySMSC8700Reg_t		reg,   
+-    UInt16						val
+-	)
+-
+-{
+-
+-    UInt32 pEthRegs;       
+-    volatile UInt32 *pAdrReg;
+-    volatile  UInt32 *pDataReg;
+-    UInt32 regValue;
+-
+-    UInt32      timeout=0;
+-
+-    /* Get the Ethernet Module Reg pointer */
+-    pEthRegs = gEthContext[ethUnitId].pRegs;
+-
+-    /* Get the Address register */  
+-    pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
+-    pDataReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_DATA_REG_OFFSET) ;
+-
+-    /* Write the data into data register  */
+-    *pDataReg = 0;
+-    *pDataReg = val;
+-
+-    /* Program the Register address */
+-    regValue = *pAdrReg;
+-       
+-    /* Clear the earlier register value in Address register */
+-    regValue &= TMHW_LIPP6100ETH_ADR_PHY_REG_CLR;  
+-    regValue |= reg << TMHW_LIPP6100ETH_ADR_PHY_REG_POS;
+-
+-    /* Set Write operation bit and enable write */
+-    regValue |= TMHW_LIPP6100ETH_ADR_PHY_WR_VAL | 
+-               TMHW_LIPP6100ETH_ADR_PHY_EN_VAL ;
+-
+-    /* Write the value back to Address register */
+-    *pAdrReg = regValue;        
+-
+-    /* wait till the write operation is complete */
+-
+-    do
+-    {
+-        timeout++;
+-
+-    }while ( ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) && 
+-             (timeout < PHY_TIMEOUT) );
+-	
+-	if( (timeout == PHY_TIMEOUT) && 
+-           ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) )
+-	{
+-        printf("\n&*&*&*PHY WRITE FAILED\n");
+-	    return(TMBSL_ERR_PHY_WRITE_FAILED);
+-	}  
+-
+-	return TM_OK;
+-    
+-}   
+-
+-//-----------------------------------------------------------------------------
+-
+-#if 0
+-static tmErrorCode_t
+-set_regs (void );
+-
+-static tmErrorCode_t
+-    set_regs (void )
+-{
+-
+-    tmErrorCode_t err = TM_OK;
+-    UInt16 regVal=0;
+-    tmUnitSelect_t ethUnitId = 0;
+-
+-    regVal =0x0;
+-    err = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Mcsr,regVal);
+-    err = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Mcsr,&regVal);
+-    printf("\nMCSR val: %08x\n",regVal);           
+-
+-    regVal = 0xF6;
+-    err = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Smr,regVal);        
+-    err = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regVal);
+-    printf("\nSMR val: %08x\n",regVal);           
+-
+-    regVal =0;
+-    err = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Csir,regVal);        
+-    err = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Csir,&regVal);
+-    printf("\nCSIR val: %08x\n",regVal);           
+-
+-    err = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Pscsr,&regVal);
+-    printf("\nPSCSR val: %08x\n",regVal);  
+-
+-    return err;
+-}           
+-#endif
+-
+-#ifdef __LIPP_6300ETH__
+-static void get_phy_out_of_rst( void)
+-{
+-    //Msg for High, to bring PHY out of reset
+-    unsigned char msg[]={0x00,0x04,0x00,0x02,0x07,0x01}; 
+-
+-    //Msg for Low, to put PHY in reset     
+-//    unsigned char msg[]={0x00,0x04,0x00,0x02,0x07,0x00}; 
+-
+-    pnx8xxx_ip3203_init();
+-    pnx8xxx_ip3203_write(msg, sizeof(msg));
+-
+-    /*Wait till the PHY is out of reset */    
+-    mdelay(1);
+-
+-    /* Turn the clocks to MAC from PHY */
+-
+-#if 0
+-    /* PHY clocks */
+-    writel(0x00000003, (unsigned long *)(0xbbe47710));	
+-    writel(0x00000003, (unsigned long *)(0xbbe47714));	
+-    writel(0x00000003, (unsigned long *)(0xbbe47718));	
+-#endif 
+-
+-    #ifdef __LIPP_6300ETH__
+-    /* PHY clocks */
+-    *(unsigned long *)(MMIO_BASE) = 0x00000003;
+-    *(unsigned long *)(MMIO_BASE) = 0x00000003;
+-    *(unsigned long *)(MMIO_BASE) = 0x00000003;
+-    #endif
+-
+-
+-    mdelay(1);
+-//    GMAC_DBG("\nETHERNET CLOCK1:%08x\n",*(unsigned int *)(0x1be47710));                    
+-//    GMAC_DBG("\nETHERNET CLOCK2:%08x\n",*(unsigned int *)(0x1be47714));                    
+-//    GMAC_DBG("\nETHERNET CLOCK3:%08x\n",*(unsigned int*)(0x1be47718));                       
+-//    GMAC_DBG("\nSMSC PHY INIT successful\n\n\n");    
+-
+-    return;
+-
+-}
+-
+-#endif 
+-
+-
+-
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ *
++ * Copyright (c) 2006-2007, LIPP Alliance
++ * All Rights Reserved.
++ *
++ *---------------------------------------------------------------------------
++ * %filename:     tmbslPhySMSC8700.c %
++ * %pid_version:           1.2                %
++ *---------------------------------------------------------------------------
++ * DESCRIPTION: Macros and function prototypes for SMSC8700 PHY
++ *
++ * DOCUMENT REF: Datasheet SMSC LAN8700/LAN8700i  
++ *               Revision 2.1 (03-06-09)
++ *
++ *
++ *-----------------------------------------------------------------------------
++ *
++*/
++
++#include "tmNxTypes.h"
++#include "tmNxCompId.h"
++
++#include "lipp_6300eth_common.h"
++
++/*  Project include files */
++#include "tmbslPhy.h"
++#include "tmbslPhySMSC8700.h"
++#include "tmhwLIPP6100Eth_Cfg.h"
++
++/* Timeout in case of linux */
++#ifdef __LIPP_6300ETH__
++#include "i2c_ip3203.h"
++#define AUTO_NEG_DELAY_MULTIPLIER (800)
++#endif /* __LINUX_GMAC_DRV__*/
++
++/* Defines */
++#define PHY_UNIT_ID_COUNT  			1
++
++#define PHY_TIMEOUT                 (0x0FFFFFFF)
++
++#define TMBSLPHYSMSC8700_PHY_MMIO_ADDRESS0 ((0x1be00000+0x38000))
++
++#define ANAR_DEFAULT_VAL (0x1E1)
++
++/* gEthContext[] is filled with MAC base address in the tmbslPhySMSC8700Init() 
++** function 
++*/
++
++tmbslPhySMSC8700Context_t gEthContext[PHY_UNIT_ID_COUNT] = {{TMBSLPHYSMSC8700_PHY_MMIO_ADDRESS0}}; 
++
++typedef enum _tmbslPhySMSC8700Reg_t
++{
++    /* Basic mode control */
++    tmbslPhySMSC8700Bmcr		      = 0,  
++
++    /* Basic mode status */    
++    tmbslPhySMSC8700Bmsr		      =1,  
++
++    /* PHY ID1 register */        
++    tmbslPhySMSC8700PhyIdr1		=2,
++
++    /* PHY ID2 register */            
++    tmbslPhySMSC8700PhyIdr2		=3,
++
++    /* Auto negotiation advertisement register */                
++    tmbslPhySMSC8700Anar			=4,
++
++    /* Auto negotiation link partner ability register */                    
++    tmbslPhySMSC8700Anlpar		=5,
++
++    /* Auto negotiation expansion register */                        
++    tmbslPhySMSC8700Aner			=6,
++
++    /* 0x7 to 0xF reserved-*/
++
++    /* Silicon Revision register */
++    tmbslPhySMSC8700Srr=16,
++
++    /* Mode control & status register */
++    tmbslPhySMSC8700Mcsr=17,
++
++    /* Special modes register */
++    tmbslPhySMSC8700Smr=18,
++
++    /* 19-25 reserved */
++
++    /* Symbol error counter register */    
++    tmbslPhySMSC8700Secr	= 26,
++    
++    /* Control/Status indication register */        
++    tmbslPhySMSC8700Csir = 27,    
++
++    /* Special internal testability controls register*/            
++    tmbslPhySMSC8700Sitcr = 28,        
++    
++    /* Interrupt source register */
++    tmbslPhySMSC8700Isr = 29,
++
++    /* Interrupt mask register */
++    tmbslPhySMSC8700Imr = 30,    
++
++    /* PHY special control & status register */    
++    tmbslPhySMSC8700Pscsr = 31,    
++
++} tmbslPhySMSC8700Reg_t, *ptmbslPhySMSC8700Reg_t;
++
++
++/* Static functions definition */
++
++static tmErrorCode_t 
++tmbslPhySMSC8700Read (
++	tmUnitSelect_t				ethUnitId,
++    tmbslPhySMSC8700Reg_t				reg,   
++    pUInt16						pVal
++	);
++	
++	
++static tmErrorCode_t	
++tmbslPhySMSC8700Write (
++    tmUnitSelect_t				ethUnitId,
++    tmbslPhySMSC8700Reg_t				reg,   
++    UInt16						val
++	);
++
++#ifdef __LIPP_6300ETH__
++static void get_phy_out_of_rst( void);
++#endif
++
++/* Exported functions */
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700GetSWVersion:
++//
++// DESCRIPTION: This function returns the PHY device interface software version 
++//				information
++//
++// RETURN:      TM_OK
++//
++// NOTES:       This API can be called anytime i.e. before initializing the PHY 
++//				or in PowerOff state.
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8700GetSWVersion (
++	ptmSWVersion_t					pPhyVersion
++	)
++{
++	
++	pPhyVersion->compatibilityNr = TMBSL_PHY_COMPATIBILITY_NR;
++	pPhyVersion->majorVersionNr = TMBSL_PHY_MAJOR_VERSION_NR;
++	pPhyVersion->minorVersionNr = TMBSL_PHY_MINOR_VERSION_NR;
++	
++	return TM_OK;
++
++}
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700GetCapabilities:
++//
++// DESCRIPTION: This function returns the PHY capabilities for the specified PHY
++//				unit. The function is callable at any time to return the unit's 
++//				capabilities (PHY unit initialization is not necessary). 
++//				Capabilities may be different among multiple PHY units.For completeness, 
++//				a PHY BSL user should call this function for each PHY unit to 
++//				determine its individual capabilities. 
++//
++// RETURN:      TM_OK
++//
++// NOTES:       This API can be called anytime i.e. before initializing the PHY. 
++//				 
++//-----------------------------------------------------------------------------
++
++
++tmErrorCode_t
++tmbslPhySMSC8700GetCapabilities (
++    tmUnitSelect_t                			ethUnitId,  
++    ptmbslPhyCapabilities_t  				pPhyCaps    
++    )
++
++{
++
++    UInt16 bmsr;
++
++    /*  Read the PHY capabilites from the BMSR register */
++    tmbslPhySMSC8700Read(ethUnitId, tmbslPhySMSC8700Bmsr, &bmsr);
++
++    pPhyCaps->T4Support100Base = 
++        (((bmsr & TMBSL_PHYSMSC8700_BMSR_T4100BASE) > 0) ? True : False);
++
++    pPhyCaps->Tx_FullDuplexSupport100Base = 
++        (((bmsr &TMBSL_PHYSMSC8700_BMSR_X100BASEFD) > 0) ? True : False);
++
++    pPhyCaps->Tx_HalfDuplexSupport100Base = 
++        (((bmsr &TMBSL_PHYSMSC8700_BMSR_X100BASEHD) > 0) ? True : False);
++
++    pPhyCaps->Tx_FullDuplexSupport10Base = 
++        (((bmsr &TMBSL_PHYSMSC8700_BMSR_10MBPSFD) > 0) ? True : False);        
++
++    pPhyCaps->Tx_HalfDuplexSupport10Base = 
++        (((bmsr &TMBSL_PHYSMSC8700_BMSR_10MBPSHD) > 0) ? True : False);
++
++
++    pPhyCaps->autoNegotiationAbility = 
++                (((bmsr &TMBSL_PHYSMSC8700_BMSR_AN_ABLE) > 0) ? True : False);
++
++    pPhyCaps->ledStatusSupport = True ;		
++
++    /* Other capabilites set to False */   
++    pPhyCaps->nextPageIndication = False;
++
++    pPhyCaps->force100MbpsTxOff = False;
++
++    pPhyCaps->bypassSymbolAlignment =False;
++
++    pPhyCaps->badSSDDetectionConfig = False;
++	
++    return TM_OK;
++
++}   
++    
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700Init:
++//
++// DESCRIPTION: This function initializes the PHY device. It should be called
++//				before any access to the device is made. 
++//
++// RETURN:      TM_OK 
++//
++// NOTES:       This function initializes the PHY device with the following 
++//				default initial configuration. No Autonegotiation is done in the 
++//				initialization function
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8700Init(
++    tmUnitSelect_t  						ethUnitId   
++    )
++{
++
++    tmErrorCode_t       		ethStatus = TM_OK;     		
++    UInt32                         timeout=0;
++    UInt16 regval=0;
++    UInt16 id1, id2;
++
++
++    #ifdef __LIPP_6300ETH__
++    get_phy_out_of_rst();
++    #endif
++
++//    printf("\nIn SMSC Init\n");           
++
++    gEthContext[ethUnitId].pRegs = gtmhwLIPP6100Eth_Base[ethUnitId].baseAddress;
++
++    /* Set the mode register to default value */
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
++//    printf("\nSMR val: %08x\n",regval);           
++
++    regval &= 0xBF1F; /* Set to 100Mbps FD, MII mode */
++    regval |= 0x60;    
++    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Smr,regval);        
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
++//    printf("\nSMR val: %08x\n",regval);           
++
++    regval = TMBSL_PHYSMSC8700_BMCR_RST_VAL;
++
++    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,regval);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus;
++    }
++
++    /* Check if PHY is back to normal condition */
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&regval);
++
++    while( (regval & TMBSL_PHYSMSC8700_BMCR_RST_VAL) && (timeout < PHY_TIMEOUT) )
++    {
++
++        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&regval);
++
++        if(ethStatus != TM_OK)
++        {
++            break;
++        }
++
++        timeout++;
++
++    }  
++
++    if(ethStatus != TM_OK)
++    {
++        return(ethStatus);
++    }
++
++    if( (timeout == PHY_TIMEOUT) && (regval & TMBSL_PHYSMSC8700_BMCR_RST_VAL) )
++    {
++        return(TMBSL_ERR_PHY_INIT_FAILED);	
++    } 
++
++    /* Read PHY Identification Register */
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700PhyIdr1,&id1);
++
++    if (ethStatus != TM_OK)
++    {
++        return (ethStatus);
++    }
++
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700PhyIdr2,&id2);
++
++    if (ethStatus != TM_OK)
++    {
++        return (ethStatus);
++    }
++
++//    printf("\nETHERNET CLOCK1:%08x\n",*(unsigned long *)(0xbbe47710));                    
++//    printf("\nETHERNET CLOCK2:%08x\n",*(unsigned long *)(0xbbe47714));                    
++//    printf("\nETHERNET CLOCK3:%08x\n",*(unsigned long *)(0xbbe47718));                       
++//    printf("\nSMSC PHY INIT successful\n\n\n");    
++
++    return TM_OK;
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700Deinit:
++//
++// DESCRIPTION: This function de-initializes the PHY device. Once the device is
++//				deinitilized device will no more be available to access 
++//
++// RETURN:      TM_OK
++//
++// NOTES:       
++//-----------------------------------------------------------------------------
++//
++
++tmErrorCode_t
++tmbslPhySMSC8700Deinit(
++    tmUnitSelect_t  						ethUnitId   
++    )
++
++{
++
++    tmErrorCode_t       		ethStatus=TM_OK;     		
++    UInt16 bmcr =0;
++
++    bmcr |= TMBSL_PHYSMSC8700_BMCR_RST_VAL;
++
++    /* All the registers will be reset */
++    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,bmcr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus;
++    }
++    else	
++    {
++        return TM_OK;
++    }
++
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700SetPowerState:
++//
++// DESCRIPTION: This function will set the Power State of the PHY device to specified 
++//				power state
++//
++// RETURN:      TM_OK
++//
++// NOTES:       
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8700SetPowerState(
++    tmUnitSelect_t           				ethUnitId ,  
++    tmPowerState_t          				phyPowerState
++    )
++
++{
++    tmErrorCode_t ethStatus=TM_OK;     		
++    UInt16 bmcr = 0;
++
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId, tmbslPhySMSC8700Bmcr, &bmcr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus;
++    }
++
++    if( (phyPowerState == tmPowerOn) || (phyPowerState == tmPowerOff) )
++    {
++        if(phyPowerState == tmPowerOff)
++        {
++            bmcr |= TMBSL_PHYSMSC8700_BMCR_PWRDN_EN;
++        }
++        else
++        {
++            bmcr &=TMBSL_PHYSMSC8700_BMCR_PWRDN_CLR;
++        }
++
++        ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,bmcr);
++
++        return ethStatus;
++
++    }
++    else
++    {
++        return TMBSL_ERR_PHY_NOT_SUPPORTED;
++    }
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700GetPowerState:
++//
++// DESCRIPTION: This function will get the preset power state of the PHY device
++//
++// RETURN:      TM_OK
++//
++// NOTES:       
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8700GetPowerState(
++    tmUnitSelect_t                  		ethUnitId ,  
++    ptmPowerState_t				phyPowerState
++    )
++
++{
++
++    tmErrorCode_t       		ethStatus=TM_OK;     		
++    UInt16 regVal=0;
++
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&regVal);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    *phyPowerState = (((regVal & TMBSL_PHYSMSC8700_BMCR_PWRDN_EN) > 0) ? tmPowerOff : tmPowerOn);
++
++    return TM_OK;
++
++}   
++
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700GetBasicModeControl:
++//
++// DESCRIPTION: This function will get the basic configuration of the PHY device. 
++//
++// RETURN:      TM_OK
++//
++// NOTES:       See #define for the Basic Mode Control 
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t 
++tmbslPhySMSC8700GetBasicModeControl (
++    tmUnitSelect_t                   		ethUnitId,   
++    ptmbslPhyBasicModeControl_t       pPhyBasicModeControl
++    )
++{
++    tmErrorCode_t ethStatus=TM_OK;     		
++    UInt16 bmcr;
++
++    /* Read the present settings of the BMCR register */
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&bmcr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus;
++    }
++
++    pPhyBasicModeControl->enableCollisionTest = 
++                (((bmcr & TMBSL_PHYSMSC8700_BMCR_COLTEST ) > 0) ? True : False);
++
++    pPhyBasicModeControl->duplexMode = 
++                (((bmcr & TMBSL_PHYSMSC8700_BMCR_FD_EN ) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
++
++    if(bmcr & TMBSL_PHYSMSC8700_BMCR_SPEED_MSK)
++    {
++        pPhyBasicModeControl->speed = tmbslPhySpeed100Mbps;            
++    }
++    else
++    {
++        pPhyBasicModeControl->speed = tmbslPhySpeed10Mbps;                            
++    }
++
++    return TM_OK;
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700SetBasicModeControl:
++//
++// DESCRIPTION: This function will configure the PHY device for the Basic Mode. 
++//
++// RETURN:      TM_OK
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t 
++tmbslPhySMSC8700SetBasicModeControl (
++    tmUnitSelect_t                           ethUnitId,   
++    ptmbslPhyBasicModeControl_t        pPhyBasicModeControl
++    )
++{
++
++    tmErrorCode_t       		ethStatus=TM_OK;     		
++    UInt16 bmcr =0;
++    UInt16 regval;
++
++    if(pPhyBasicModeControl->enableCollisionTest == True)
++    {
++        bmcr |= TMBSL_PHYSMSC8700_BMCR_COLTEST;
++    }
++
++    if(pPhyBasicModeControl->duplexMode == True)
++    {
++        bmcr |= TMBSL_PHYSMSC8700_BMCR_FD_EN;
++    }
++
++    switch(pPhyBasicModeControl->speed)
++    {
++
++        case tmbslPhySpeed100Mbps :       
++//            bmcr |= TMBSL_PHYSMSC8700_BMCR_SPEED_100;                
++        /* Set the mode register to default value */
++        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
++
++        /* Clear the mode bits */
++        regval &= 0xFF1F;
++
++        regval |= 0x60;
++        ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Smr,regval);        
++
++        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
++        printf("\nSMR val: %08x\n",regval);           
++            break;
++
++        case tmbslPhySpeed10Mbps :       
++//            bmcr |= TMBSL_PHYSMSC8700_BMCR_SPEED_10;                
++        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
++
++        /* Clear the mode bits */
++        regval &= 0xFF1F;
++
++        regval |= 0x20;
++
++        ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Smr,regval);        
++        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regval);
++        printf("\nSMR val: %08x\n",regval);           
++            
++                
++            break;
++
++        default:
++            break;
++
++    }
++
++    ethStatus = tmbslPhySMSC8700SoftReset(ethUnitId);
++
++    mdelay(10);
++    printf("\nSPEED/MODE updated from MODE pins\n");               
++
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Pscsr,&regval);
++    printf("\nPHY STS reg:%04x\n",regval);               
++
++    if(ethStatus != TM_OK)
++    {
++        printf("\nRESET failed after mode change\n");           
++    }
++
++    /* Write the result to the BMC register */
++//    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,bmcr);
++
++    return ethStatus;
++
++}   
++
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700GetBasicModeStatus:
++//
++// DESCRIPTION: This function will get the Basic Mode Status of the PHY device 
++//				such as the speed, duplex mode and other statuses
++//
++// RETURN:      TM_OK
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8700GetBasicModeStatus (
++    tmUnitSelect_t                  		ethUnitId,   
++    ptmbslPhyBasicModeStatus_t    	pPhyBasicModeStatus     
++    )
++
++{
++    tmErrorCode_t ethStatus=TM_OK;     		
++    UInt16           bmsr,bmcr,phySts;
++
++    /* Read the PHY status from the BMSR register */
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId, tmbslPhySMSC8700Bmsr, &bmsr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    /* Read the PHY control register from the BMCR register */
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId, tmbslPhySMSC8700Bmcr, &bmcr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    /* Read the autonegotiation status from PHY status register */
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId, tmbslPhySMSC8700Pscsr, &phySts);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    pPhyBasicModeStatus->jabberDetect = (((bmsr & TMBSL_PHYSMSC8700_BMSR_JAB_VAL) > 0) ? True : False);
++
++    pPhyBasicModeStatus->remoteFaultDetected = (((bmsr & TMBSL_PHYSMSC8700_BMSR_RF_VAL) > 0) ? True : False);
++
++    pPhyBasicModeStatus->autoNegotiationComplete = (((bmsr & TMBSL_PHYSMSC8700_BMSR_AN_VAL) > 0) ? True : False);
++
++    pPhyBasicModeStatus->loopBackEnabled = (((bmcr & TMBSL_PHYSMSC8700_BMCR_LPBK_VAL) > 0) ? True : False);
++
++    if((bmcr & TMBSL_PHYSMSC8700_BMCR_AN_EN) == 0) 
++    {
++        /* Not an auto negotiation. So read the values from BMCR */
++        pPhyBasicModeStatus->duplexMode = 
++                (((bmcr & TMBSL_PHYSMSC8700_BMCR_FD_EN ) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
++
++        if(bmcr & TMBSL_PHYSMSC8700_BMCR_SPEED_MSK)
++        {
++            pPhyBasicModeStatus->speed = tmbslPhySpeed100Mbps;            
++        }
++        else
++        {
++            pPhyBasicModeStatus->speed = tmbslPhySpeed10Mbps;                        
++        }
++
++    }
++    else 
++    {
++        /* If autonegotiation is enabled, read from PHYSTS register */
++        pPhyBasicModeStatus->duplexMode = 
++                (((phySts & TMBSL_PHYSMSC8700_PHYSTS_DUP_MODE) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
++
++        pPhyBasicModeStatus->speed= 
++                (((phySts & TMBSL_PHYSMSC8700_PHYSTS_SPEED_MSK) == 0x4) ? tmbslPhySpeed10Mbps : tmbslPhySpeed100Mbps);
++
++    }
++
++    return TM_OK;
++
++}   
++
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700AutoNegotiate:
++//
++// DESCRIPTION: This function will enable the Auto negotiation of the PHY device 
++//				with Link Partner. Best possible performance configuration is 
++//				selected automatically during this process
++//
++// RETURN:      TM_OK
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8700AutoNegotiate (
++    tmUnitSelect_t                       	      ethUnitId,   
++    ptmbslPhyAutoNegotitationMask_t      	pAutoNegotiationMask
++    )
++{
++
++    tmErrorCode_t   ethStatus=TM_OK;
++    UInt32             timeout=AUTO_NEG_DELAY_MULTIPLIER; 
++
++    UInt16 regVal = ANAR_DEFAULT_VAL;
++    UInt16 mask =0;
++
++    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Anar,regVal);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    if(pAutoNegotiationMask->masknextPageDesired == True)
++    {
++        mask |= TMBSL_PHYSMSC8700_ANAR_NP;        
++    }
++
++    if(pAutoNegotiationMask->maskRemoteFault == True)
++    {
++        mask |= TMBSL_PHYSMSC8700_ANAR_ADV_RF;        
++    }
++
++    if(pAutoNegotiationMask->maskAsymmetricPause == True)
++    {
++        mask |= TMBSL_PHYSMSC8700_ANAR_AP;        
++    }
++
++    if(pAutoNegotiationMask->maskPauseFrame == True)
++    {
++        mask |= TMBSL_PHYSMSC8700_ANAR_PAUSE;        
++    }
++
++    if(pAutoNegotiationMask->mask100BaseTxFullDuplexSupport == True)
++    {
++        mask |= TMBSL_PHYSMSC8700_ANAR_100B_TX_FD;        
++    }
++
++    if(pAutoNegotiationMask->mask100BaseTxSupport == True)
++    {
++        mask |= TMBSL_PHYSMSC8700_ANAR_100B_TX_HD;        
++    }
++
++    if(pAutoNegotiationMask->mask10BaseTFullDuplexSupport == True)
++    {
++        mask |= TMBSL_PHYSMSC8700_ANAR_10B_TX_FD;        
++    }    
++
++    if(pAutoNegotiationMask->mask10BaseTSupport == True)
++    {
++        mask |= TMBSL_PHYSMSC8700_ANAR_10B_TX_HD;        
++    }    
++
++    /* Clear the corresponding bits in the regVal*/
++    regVal &= ~(mask);
++
++//    printf("\nANAR val: %08x\n",regVal);
++   
++    /* Program the Auto negotiation mask */
++    tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Anar,regVal);
++
++    /* Enable the Auto negotiation in the BMCR register 
++    ** First clear the auto negotiate bit and then enable
++    */
++    tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&regVal);
++
++    /* Clear autonegotiation bit */
++    regVal &= TMBSL_PHYSMSC8700_BMCR_AN_CLR;
++
++    regVal |= TMBSL_PHYSMSC8700_BMCR_AN_EN |
++              TMBSL_PHYSMSC8700_BMCR_AN_RESTART;
++    
++//    printf("\nBMCR val: %08x\n",regVal);
++   
++    tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,regVal);
++
++    /* Wait till the Auto negotiation is complete */
++    tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmsr,&regVal);
++
++    /* While the Autonegotiation is not complete, stay in loop */
++    while(((regVal & TMBSL_PHYSMSC8700_BMSR_AN_VAL) != TMBSL_PHYSMSC8700_BMSR_AN_VAL) && 
++           (timeout != 0 ) )
++    {
++        mdelay(5);
++        
++        ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmsr,&regVal);
++
++        if(ethStatus != TM_OK) 
++        {
++            return ethStatus;
++        }
++
++        timeout--;
++    }
++
++    if(  (timeout <= 0) && 
++         ( (regVal & TMBSL_PHYSMSC8700_BMSR_AN_VAL) != TMBSL_PHYSMSC8700_BMSR_AN_VAL)
++      )
++    {
++        return(-1);
++    }
++
++    GMAC_DBG("Autonegotiation Time:%d msec\n",(AUTO_NEG_DELAY_MULTIPLIER-timeout)*5);
++    
++    return TM_OK;
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700LoopBack:
++//
++// DESCRIPTION: Function will enable or disable the PHY device in the Loopback 
++//				mode.
++//
++// RETURN:      TM_OK
++// NOTES:      
++//-----------------------------------------------------------------------------
++
++
++tmErrorCode_t
++tmbslPhySMSC8700LoopBack (
++    tmUnitSelect_t                  ethUnitId,   
++    tmbslPhyEnableDisable_t     loopbackMode
++    )
++{
++
++    tmErrorCode_t ethStatus=TM_OK;     		
++    UInt16 bmcr;
++
++    /* Read the existing settings of the BMCR register */
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmcr,&bmcr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    if(tmbslPhyEnable == loopbackMode)
++    {
++        bmcr |= TMBSL_PHYSMSC8700_BMCR_LPBK_VAL;
++    }
++    else if(tmbslPhyDisable == loopbackMode)
++    {
++        bmcr &= TMBSL_PHYSMSC8700_BMCR_LPBK_CLR;
++    }
++    else
++    {
++        ethStatus = TMBSL_ERR_PHY_NOT_SUPPORTED;
++    }
++
++    /* Write the Loopback setting to the BMCR register */
++    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,bmcr);
++
++    return ethStatus;
++
++}   
++
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700SoftReset:
++//
++// DESCRIPTION: Function will do the soft reset of the PHY device
++
++// RETURN:      TM_OK
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++//
++
++tmErrorCode_t
++tmbslPhySMSC8700SoftReset (
++    tmUnitSelect_t                     		ethUnitId      
++	)
++
++{
++    tmErrorCode_t       		ethStatus=TM_OK;     		
++
++    /* All the registers will be reset */
++    ethStatus = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Bmcr,TMBSL_PHYSMSC8700_BMCR_RST_VAL);
++
++    return ethStatus;
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700GetLinkStatus:
++//
++// DESCRIPTION: Function will get the link status
++
++// RETURN:      TM_OK
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8700GetLinkStatus (
++    tmUnitSelect_t                          ethUnitId,   
++    ptmbslPhyEnableDisable_t            pLinkStatus
++    )
++{
++    tmErrorCode_t ethStatus=TM_OK;     		
++    UInt16 physts;
++
++    /* Read the BMSR register twice, as per datasheet */
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmsr,&physts);
++    ethStatus = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Bmsr,&physts);    
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    *pLinkStatus =
++        (((physts & TMBSL_PHYSMSC8700_PHYSTS_LINK_STAT) > 0) ? tmbslPhyEnable : tmbslPhyDisable);
++
++    return(TM_OK);
++
++}   
++
++//-----------------------------------------------------------------------------
++//	Local static functions	
++//-----------------------------------------------------------------------------
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700Read:
++//
++// DESCRIPTION: Function will read from the Specified PHY register
++
++// RETURN:      
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++//
++
++static tmErrorCode_t
++tmbslPhySMSC8700Read (
++    tmUnitSelect_t				ethUnitId,
++    tmbslPhySMSC8700Reg_t		reg,   
++    pUInt16						pVal
++	)
++
++{
++
++    UInt32  timeout=0;
++    UInt32 pEthRegs;       
++    volatile UInt32 *pAdrReg;
++    volatile  UInt32 *pDataReg;
++    UInt32 regValue;        
++
++    /* get Ethernet Module Reg Pointer  */
++    pEthRegs = gEthContext[ethUnitId].pRegs;
++
++    /* Get the Address register */  
++    pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
++    pDataReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_DATA_REG_OFFSET) ;
++
++    /* Program the Register address in the MII */
++    regValue = *pAdrReg;
++       
++    /* Clear the earlier register value in Address register and write the new value */
++    regValue &= TMHW_LIPP6100ETH_ADR_PHY_REG_CLR;  
++    regValue |= reg << TMHW_LIPP6100ETH_ADR_PHY_REG_POS;
++
++    /* Clear the bit GMII write for read operation */
++    regValue &= TMHW_LIPP6100ETH_ADR_PHY_RD_CLR;
++
++    regValue |= TMHW_LIPP6100ETH_ADR_PHY_EN_VAL;
++
++    *pAdrReg = regValue;        
++
++    /* Wait till the read operation is complete */
++
++    do
++    {
++        timeout++;
++
++    }while ( ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) && 
++                   (timeout < PHY_TIMEOUT) );
++
++    if( (timeout == PHY_TIMEOUT) && 
++        ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) )
++    {
++        printf("\n&*&*&*PHY READ FAILED\n");    
++        return(TMBSL_ERR_PHY_READ_FAILED);
++    }  
++	
++    /* Read the data from the data register */
++
++    *pVal = (UInt16) *pDataReg;
++    
++    return TM_OK;
++
++}   
++
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8700Write:
++//
++// DESCRIPTION: Function will Write to the Specified PHY register
++
++// RETURN:      
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++//
++
++static tmErrorCode_t
++tmbslPhySMSC8700Write (
++    tmUnitSelect_t				ethUnitId,
++    tmbslPhySMSC8700Reg_t		reg,   
++    UInt16						val
++	)
++
++{
++
++    UInt32 pEthRegs;       
++    volatile UInt32 *pAdrReg;
++    volatile  UInt32 *pDataReg;
++    UInt32 regValue;
++
++    UInt32      timeout=0;
++
++    /* Get the Ethernet Module Reg pointer */
++    pEthRegs = gEthContext[ethUnitId].pRegs;
++
++    /* Get the Address register */  
++    pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
++    pDataReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_DATA_REG_OFFSET) ;
++
++    /* Write the data into data register  */
++    *pDataReg = 0;
++    *pDataReg = val;
++
++    /* Program the Register address */
++    regValue = *pAdrReg;
++       
++    /* Clear the earlier register value in Address register */
++    regValue &= TMHW_LIPP6100ETH_ADR_PHY_REG_CLR;  
++    regValue |= reg << TMHW_LIPP6100ETH_ADR_PHY_REG_POS;
++
++    /* Set Write operation bit and enable write */
++    regValue |= TMHW_LIPP6100ETH_ADR_PHY_WR_VAL | 
++               TMHW_LIPP6100ETH_ADR_PHY_EN_VAL ;
++
++    /* Write the value back to Address register */
++    *pAdrReg = regValue;        
++
++    /* wait till the write operation is complete */
++
++    do
++    {
++        timeout++;
++
++    }while ( ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) && 
++             (timeout < PHY_TIMEOUT) );
++	
++	if( (timeout == PHY_TIMEOUT) && 
++           ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) )
++	{
++        printf("\n&*&*&*PHY WRITE FAILED\n");
++	    return(TMBSL_ERR_PHY_WRITE_FAILED);
++	}  
++
++	return TM_OK;
++    
++}   
++
++//-----------------------------------------------------------------------------
++
++#if 0
++static tmErrorCode_t
++set_regs (void );
++
++static tmErrorCode_t
++    set_regs (void )
++{
++
++    tmErrorCode_t err = TM_OK;
++    UInt16 regVal=0;
++    tmUnitSelect_t ethUnitId = 0;
++
++    regVal =0x0;
++    err = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Mcsr,regVal);
++    err = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Mcsr,&regVal);
++    printf("\nMCSR val: %08x\n",regVal);           
++
++    regVal = 0xF6;
++    err = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Smr,regVal);        
++    err = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Smr,&regVal);
++    printf("\nSMR val: %08x\n",regVal);           
++
++    regVal =0;
++    err = tmbslPhySMSC8700Write(ethUnitId,tmbslPhySMSC8700Csir,regVal);        
++    err = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Csir,&regVal);
++    printf("\nCSIR val: %08x\n",regVal);           
++
++    err = tmbslPhySMSC8700Read(ethUnitId,tmbslPhySMSC8700Pscsr,&regVal);
++    printf("\nPSCSR val: %08x\n",regVal);  
++
++    return err;
++}           
++#endif
++
++#ifdef __LIPP_6300ETH__
++static void get_phy_out_of_rst( void)
++{
++    //Msg for High, to bring PHY out of reset
++    unsigned char msg[]={0x00,0x04,0x00,0x02,0x07,0x01}; 
++
++    //Msg for Low, to put PHY in reset     
++//    unsigned char msg[]={0x00,0x04,0x00,0x02,0x07,0x00}; 
++
++    pnx8xxx_ip3203_init();
++    pnx8xxx_ip3203_write(msg, sizeof(msg));
++
++    /*Wait till the PHY is out of reset */    
++    mdelay(1);
++
++    /* Turn the clocks to MAC from PHY */
++
++#if 0
++    /* PHY clocks */
++    writel(0x00000003, (unsigned long *)(0xbbe47710));	
++    writel(0x00000003, (unsigned long *)(0xbbe47714));	
++    writel(0x00000003, (unsigned long *)(0xbbe47718));	
++#endif 
++
++    #ifdef __LIPP_6300ETH__
++    /* PHY clocks */
++    *(unsigned long *)(MMIO_BASE) = 0x00000003;
++    *(unsigned long *)(MMIO_BASE) = 0x00000003;
++    *(unsigned long *)(MMIO_BASE) = 0x00000003;
++    #endif
++
++
++    mdelay(1);
++//    GMAC_DBG("\nETHERNET CLOCK1:%08x\n",*(unsigned int *)(0x1be47710));                    
++//    GMAC_DBG("\nETHERNET CLOCK2:%08x\n",*(unsigned int *)(0x1be47714));                    
++//    GMAC_DBG("\nETHERNET CLOCK3:%08x\n",*(unsigned int*)(0x1be47718));                       
++//    GMAC_DBG("\nSMSC PHY INIT successful\n\n\n");    
++
++    return;
++
++}
++
++#endif 
++
++
++
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhySMSC8710.c u-boot-2009.08_new/drivers/net/lipp_6300eth/tmbslPhySMSC8710.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmbslPhySMSC8710.c	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/tmbslPhySMSC8710.c	2010-02-08 01:52:05.000000000 -0600
+@@ -1,1153 +1,1153 @@
+-/*
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+- *
+- * Copyright (c) 2006-2007, LIPP Alliance
+- * All Rights Reserved.
+- *
+- *---------------------------------------------------------------------------
+- * %filename:     tmbslPhySMSC8710.c %
+- * %pid_version:           1.2                %
+- *---------------------------------------------------------------------------
+- * DESCRIPTION: Macros and function prototypes for SMSC8710 PHY
+- *
+- * DOCUMENT REF: Datasheet SMSC LAN8710/LAN8710i  
+- *               Revision 2.1 (03-06-09)
+- *
+- *
+- *-----------------------------------------------------------------------------
+- *
+-*/
+-
+-#include "tmNxTypes.h"
+-#include "tmNxCompId.h"
+-
+-#include "lipp_6300eth_common.h"
+-
+-/*  Project include files */
+-#include "tmbslPhy.h"
+-#include "tmbslPhySMSC8710.h"
+-#include "tmhwLIPP6100Eth_Cfg.h"
+-
+-/* Timeout in case of linux */
+-#ifdef __LIPP_6300ETH__
+-#include "i2c_ip3203.h"
+-#define AUTO_NEG_DELAY_MULTIPLIER (800)
+-#endif /* __LINUX_GMAC_DRV__*/
+-
+-/* Defines */
+-#define PHY_UNIT_ID_COUNT  			1
+-
+-#define PHY_TIMEOUT                 (0x0FFFFFFF)
+-
+-#define TMBSLPHYSMSC8710_PHY_MMIO_ADDRESS0 ((0x1be00000+0x38000))
+-
+-#define ANAR_DEFAULT_VAL (0x1E1)
+-
+-/* gEthContext[] is filled with MAC base address in the tmbslPhySMSC8710Init() 
+-** function 
+-*/
+-
+-tmbslPhySMSC8710Context_t gEthContext[PHY_UNIT_ID_COUNT] = {{TMBSLPHYSMSC8710_PHY_MMIO_ADDRESS0}}; 
+-
+-typedef enum _tmbslPhySMSC8710Reg_t
+-{
+-    /* Basic mode control */
+-    tmbslPhySMSC8710Bmcr		      = 0,  
+-
+-    /* Basic mode status */    
+-    tmbslPhySMSC8710Bmsr		      =1,  
+-
+-    /* PHY ID1 register */        
+-    tmbslPhySMSC8710PhyIdr1		=2,
+-
+-    /* PHY ID2 register */            
+-    tmbslPhySMSC8710PhyIdr2		=3,
+-
+-    /* Auto negotiation advertisement register */                
+-    tmbslPhySMSC8710Anar			=4,
+-
+-    /* Auto negotiation link partner ability register */                    
+-    tmbslPhySMSC8710Anlpar		=5,
+-
+-    /* Auto negotiation expansion register */                        
+-    tmbslPhySMSC8710Aner			=6,
+-
+-    /* 0x7 to 0xF reserved-*/
+-
+-    /* Silicon Revision register */
+-    tmbslPhySMSC8710Srr=16,
+-
+-    /* Mode control & status register */
+-    tmbslPhySMSC8710Mcsr=17,
+-
+-    /* Special modes register */
+-    tmbslPhySMSC8710Smr=18,
+-
+-    /* 19-25 reserved */
+-
+-    /* Symbol error counter register */    
+-    tmbslPhySMSC8710Secr	= 26,
+-    
+-    /* Control/Status indication register */        
+-    tmbslPhySMSC8710Csir = 27,    
+-
+-    /* Special internal testability controls register*/            
+-    tmbslPhySMSC8710Sitcr = 28,        
+-    
+-    /* Interrupt source register */
+-    tmbslPhySMSC8710Isr = 29,
+-
+-    /* Interrupt mask register */
+-    tmbslPhySMSC8710Imr = 30,    
+-
+-    /* PHY special control & status register */    
+-    tmbslPhySMSC8710Pscsr = 31,    
+-
+-} tmbslPhySMSC8710Reg_t, *ptmbslPhySMSC8710Reg_t;
+-
+-
+-/* Static functions definition */
+-
+-static tmErrorCode_t 
+-tmbslPhySMSC8710Read (
+-	tmUnitSelect_t				ethUnitId,
+-    tmbslPhySMSC8710Reg_t				reg,   
+-    pUInt16						pVal
+-	);
+-	
+-	
+-static tmErrorCode_t	
+-tmbslPhySMSC8710Write (
+-    tmUnitSelect_t				ethUnitId,
+-    tmbslPhySMSC8710Reg_t				reg,   
+-    UInt16						val
+-	);
+-
+-#ifdef __LIPP_6300ETH__
+-static void get_phy_out_of_rst( void);
+-#endif
+-
+-/* Exported functions */
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710GetSWVersion:
+-//
+-// DESCRIPTION: This function returns the PHY device interface software version 
+-//				information
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       This API can be called anytime i.e. before initializing the PHY 
+-//				or in PowerOff state.
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710GetSWVersion (
+-	ptmSWVersion_t					pPhyVersion
+-	)
+-{
+-	
+-	pPhyVersion->compatibilityNr = TMBSL_PHY_COMPATIBILITY_NR;
+-	pPhyVersion->majorVersionNr = TMBSL_PHY_MAJOR_VERSION_NR;
+-	pPhyVersion->minorVersionNr = TMBSL_PHY_MINOR_VERSION_NR;
+-	
+-	return TM_OK;
+-
+-}
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710GetCapabilities:
+-//
+-// DESCRIPTION: This function returns the PHY capabilities for the specified PHY
+-//				unit. The function is callable at any time to return the unit's 
+-//				capabilities (PHY unit initialization is not necessary). 
+-//				Capabilities may be different among multiple PHY units.For completeness, 
+-//				a PHY BSL user should call this function for each PHY unit to 
+-//				determine its individual capabilities. 
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       This API can be called anytime i.e. before initializing the PHY. 
+-//				 
+-//-----------------------------------------------------------------------------
+-
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710GetCapabilities (
+-    tmUnitSelect_t                			ethUnitId,  
+-    ptmbslPhyCapabilities_t  				pPhyCaps    
+-    )
+-
+-{
+-
+-    UInt16 bmsr;
+-
+-    /*  Read the PHY capabilites from the BMSR register */
+-    tmbslPhySMSC8710Read(ethUnitId, tmbslPhySMSC8710Bmsr, &bmsr);
+-
+-    pPhyCaps->T4Support100Base = 
+-        (((bmsr & TMBSL_PHYSMSC8710_BMSR_T4100BASE) > 0) ? True : False);
+-
+-    pPhyCaps->Tx_FullDuplexSupport100Base = 
+-        (((bmsr &TMBSL_PHYSMSC8710_BMSR_X100BASEFD) > 0) ? True : False);
+-
+-    pPhyCaps->Tx_HalfDuplexSupport100Base = 
+-        (((bmsr &TMBSL_PHYSMSC8710_BMSR_X100BASEHD) > 0) ? True : False);
+-
+-    pPhyCaps->Tx_FullDuplexSupport10Base = 
+-        (((bmsr &TMBSL_PHYSMSC8710_BMSR_10MBPSFD) > 0) ? True : False);        
+-
+-    pPhyCaps->Tx_HalfDuplexSupport10Base = 
+-        (((bmsr &TMBSL_PHYSMSC8710_BMSR_10MBPSHD) > 0) ? True : False);
+-
+-
+-    pPhyCaps->autoNegotiationAbility = 
+-                (((bmsr &TMBSL_PHYSMSC8710_BMSR_AN_ABLE) > 0) ? True : False);
+-
+-    pPhyCaps->ledStatusSupport = True ;		
+-
+-    /* Other capabilites set to False */   
+-    pPhyCaps->nextPageIndication = False;
+-
+-    pPhyCaps->force100MbpsTxOff = False;
+-
+-    pPhyCaps->bypassSymbolAlignment =False;
+-
+-    pPhyCaps->badSSDDetectionConfig = False;
+-	
+-    return TM_OK;
+-
+-}   
+-    
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710Init:
+-//
+-// DESCRIPTION: This function initializes the PHY device. It should be called
+-//				before any access to the device is made. 
+-//
+-// RETURN:      TM_OK 
+-//
+-// NOTES:       This function initializes the PHY device with the following 
+-//				default initial configuration. No Autonegotiation is done in the 
+-//				initialization function
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710Init(
+-    tmUnitSelect_t  						ethUnitId   
+-    )
+-{
+-
+-    tmErrorCode_t       		ethStatus = TM_OK;     		
+-    UInt32                         timeout=0;
+-    UInt16 regval=0;
+-    UInt16 id1, id2;
+-
+-    #ifdef __LIPP_6300ETH__
+-    get_phy_out_of_rst();
+-    #endif
+-
+-//    printf("\nIn SMSC Init\n");           
+-
+-    gEthContext[ethUnitId].pRegs = gtmhwLIPP6100Eth_Base[ethUnitId].baseAddress;
+-
+-    /* Set the mode register to default value */
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
+-//    printf("\nSMR val: %08x\n",regval);           
+-
+-    regval &= 0xBF1F; /* Set to 100Mbps FD, MII mode */
+-    regval |= 0x60;    
+-    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Smr,regval);        
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
+-//    printf("\nSMR val: %08x\n",regval);           
+-
+-    regval = TMBSL_PHYSMSC8710_BMCR_RST_VAL;
+-
+-    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,regval);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus;
+-    }
+-
+-    /* Check if PHY is back to normal condition */
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&regval);
+-
+-    while( (regval & TMBSL_PHYSMSC8710_BMCR_RST_VAL) && (timeout < PHY_TIMEOUT) )
+-    {
+-
+-
+-        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&regval);
+-
+-        if(ethStatus != TM_OK)
+-        {
+-            break;
+-        }
+-
+-        timeout++;
+-
+-    }  
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return(ethStatus);
+-    }
+-
+-    if( (timeout == PHY_TIMEOUT) && (regval & TMBSL_PHYSMSC8710_BMCR_RST_VAL) )
+-    {
+-        return(TMBSL_ERR_PHY_INIT_FAILED);	
+-    } 
+-
+-#if 0
+-    /* Read PHY Identification Register */
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710PhyIdr1,&id1);
+-
+-    if (ethStatus != TM_OK)
+-    {
+-        return (ethStatus);
+-    }
+-
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710PhyIdr2,&id2);
+-
+-    if (ethStatus != TM_OK)
+-    {
+-        return (ethStatus);
+-    }
+-
+-//    printf("\nETHERNET CLOCK1:%08x\n",*(unsigned long *)(0xbbe47710));                    
+-//    printf("\nETHERNET CLOCK2:%08x\n",*(unsigned long *)(0xbbe47714));                    
+-//    printf("\nETHERNET CLOCK3:%08x\n",*(unsigned long *)(0xbbe47718));                       
+-//    printf("\nSMSC PHY INIT successful\n\n\n");    
+-#endif
+-
+-    return TM_OK;
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710Deinit:
+-//
+-// DESCRIPTION: This function de-initializes the PHY device. Once the device is
+-//				deinitilized device will no more be available to access 
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       
+-//-----------------------------------------------------------------------------
+-//
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710Deinit(
+-    tmUnitSelect_t  						ethUnitId   
+-    )
+-
+-{
+-
+-    tmErrorCode_t       		ethStatus=TM_OK;     		
+-    UInt16 bmcr =0;
+-
+-    bmcr |= TMBSL_PHYSMSC8710_BMCR_RST_VAL;
+-
+-    /* All the registers will be reset */
+-    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,bmcr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus;
+-    }
+-    else	
+-    {
+-        return TM_OK;
+-    }
+-
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710SetPowerState:
+-//
+-// DESCRIPTION: This function will set the Power State of the PHY device to specified 
+-//				power state
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710SetPowerState(
+-    tmUnitSelect_t           				ethUnitId ,  
+-    tmPowerState_t          				phyPowerState
+-    )
+-
+-{
+-    tmErrorCode_t ethStatus=TM_OK;     		
+-    UInt16 bmcr = 0;
+-
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId, tmbslPhySMSC8710Bmcr, &bmcr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus;
+-    }
+-
+-    if( (phyPowerState == tmPowerOn) || (phyPowerState == tmPowerOff) )
+-    {
+-        if(phyPowerState == tmPowerOff)
+-        {
+-            bmcr |= TMBSL_PHYSMSC8710_BMCR_PWRDN_EN;
+-        }
+-        else
+-        {
+-            bmcr &=TMBSL_PHYSMSC8710_BMCR_PWRDN_CLR;
+-        }
+-
+-        ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,bmcr);
+-
+-        return ethStatus;
+-
+-    }
+-    else
+-    {
+-        return TMBSL_ERR_PHY_NOT_SUPPORTED;
+-    }
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710GetPowerState:
+-//
+-// DESCRIPTION: This function will get the preset power state of the PHY device
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710GetPowerState(
+-    tmUnitSelect_t                  		ethUnitId ,  
+-    ptmPowerState_t				phyPowerState
+-    )
+-
+-{
+-
+-    tmErrorCode_t       		ethStatus=TM_OK;     		
+-    UInt16 regVal=0;
+-
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&regVal);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    *phyPowerState = (((regVal & TMBSL_PHYSMSC8710_BMCR_PWRDN_EN) > 0) ? tmPowerOff : tmPowerOn);
+-
+-    return TM_OK;
+-
+-}   
+-
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710GetBasicModeControl:
+-//
+-// DESCRIPTION: This function will get the basic configuration of the PHY device. 
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:       See #define for the Basic Mode Control 
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t 
+-tmbslPhySMSC8710GetBasicModeControl (
+-    tmUnitSelect_t                   		ethUnitId,   
+-    ptmbslPhyBasicModeControl_t       pPhyBasicModeControl
+-    )
+-{
+-    tmErrorCode_t ethStatus=TM_OK;     		
+-    UInt16 bmcr;
+-
+-    /* Read the present settings of the BMCR register */
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&bmcr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus;
+-    }
+-
+-    pPhyBasicModeControl->enableCollisionTest = 
+-                (((bmcr & TMBSL_PHYSMSC8710_BMCR_COLTEST ) > 0) ? True : False);
+-
+-    pPhyBasicModeControl->duplexMode = 
+-                (((bmcr & TMBSL_PHYSMSC8710_BMCR_FD_EN ) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
+-
+-    if(bmcr & TMBSL_PHYSMSC8710_BMCR_SPEED_MSK)
+-    {
+-        pPhyBasicModeControl->speed = tmbslPhySpeed100Mbps;            
+-    }
+-    else
+-    {
+-        pPhyBasicModeControl->speed = tmbslPhySpeed10Mbps;                            
+-    }
+-
+-    return TM_OK;
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710SetBasicModeControl:
+-//
+-// DESCRIPTION: This function will configure the PHY device for the Basic Mode. 
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t 
+-tmbslPhySMSC8710SetBasicModeControl (
+-    tmUnitSelect_t                           ethUnitId,   
+-    ptmbslPhyBasicModeControl_t        pPhyBasicModeControl
+-    )
+-{
+-
+-    tmErrorCode_t       		ethStatus=TM_OK;     		
+-    UInt16 bmcr =0;
+-    UInt16 regval;
+-
+-    if(pPhyBasicModeControl->enableCollisionTest == True)
+-    {
+-        bmcr |= TMBSL_PHYSMSC8710_BMCR_COLTEST;
+-    }
+-
+-    if(pPhyBasicModeControl->duplexMode == True)
+-    {
+-        bmcr |= TMBSL_PHYSMSC8710_BMCR_FD_EN;
+-    }
+-
+-    switch(pPhyBasicModeControl->speed)
+-    {
+-
+-        case tmbslPhySpeed100Mbps :       
+-//            bmcr |= TMBSL_PHYSMSC8710_BMCR_SPEED_100;                
+-        /* Set the mode register to default value */
+-        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
+-
+-        /* Clear the mode bits */
+-        regval &= 0xFF1F;
+-
+-        regval |= 0x60;
+-        ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Smr,regval);        
+-
+-        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
+-        printf("\nSMR val: %08x\n",regval);           
+-            break;
+-
+-        case tmbslPhySpeed10Mbps :       
+-//            bmcr |= TMBSL_PHYSMSC8710_BMCR_SPEED_10;                
+-        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
+-
+-        /* Clear the mode bits */
+-        regval &= 0xFF1F;
+-
+-        regval |= 0x20;
+-
+-        ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Smr,regval);        
+-        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
+-        printf("\nSMR val: %08x\n",regval);           
+-            
+-                
+-            break;
+-
+-        default:
+-            break;
+-
+-    }
+-
+-    ethStatus = tmbslPhySMSC8710SoftReset(ethUnitId);
+-
+-    mdelay(10);
+-    printf("\nSPEED/MODE updated from MODE pins\n");               
+-
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Pscsr,&regval);
+-    printf("\nPHY STS reg:%04x\n",regval);               
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        printf("\nRESET failed after mode change\n");           
+-    }
+-
+-    /* Write the result to the BMC register */
+-//    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,bmcr);
+-
+-    return ethStatus;
+-
+-}   
+-
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710GetBasicModeStatus:
+-//
+-// DESCRIPTION: This function will get the Basic Mode Status of the PHY device 
+-//				such as the speed, duplex mode and other statuses
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710GetBasicModeStatus (
+-    tmUnitSelect_t                  		ethUnitId,   
+-    ptmbslPhyBasicModeStatus_t    	pPhyBasicModeStatus     
+-    )
+-
+-{
+-    tmErrorCode_t ethStatus=TM_OK;     		
+-    UInt16           bmsr,bmcr,phySts;
+-
+-    /* Read the PHY status from the BMSR register */
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId, tmbslPhySMSC8710Bmsr, &bmsr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    /* Read the PHY control register from the BMCR register */
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId, tmbslPhySMSC8710Bmcr, &bmcr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    /* Read the autonegotiation status from PHY status register */
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId, tmbslPhySMSC8710Pscsr, &phySts);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    pPhyBasicModeStatus->jabberDetect = (((bmsr & TMBSL_PHYSMSC8710_BMSR_JAB_VAL) > 0) ? True : False);
+-
+-    pPhyBasicModeStatus->remoteFaultDetected = (((bmsr & TMBSL_PHYSMSC8710_BMSR_RF_VAL) > 0) ? True : False);
+-
+-    pPhyBasicModeStatus->autoNegotiationComplete = (((bmsr & TMBSL_PHYSMSC8710_BMSR_AN_VAL) > 0) ? True : False);
+-
+-    pPhyBasicModeStatus->loopBackEnabled = (((bmcr & TMBSL_PHYSMSC8710_BMCR_LPBK_VAL) > 0) ? True : False);
+-
+-    if((bmcr & TMBSL_PHYSMSC8710_BMCR_AN_EN) == 0) 
+-    {
+-        /* Not an auto negotiation. So read the values from BMCR */
+-        pPhyBasicModeStatus->duplexMode = 
+-                (((bmcr & TMBSL_PHYSMSC8710_BMCR_FD_EN ) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
+-
+-        if(bmcr & TMBSL_PHYSMSC8710_BMCR_SPEED_MSK)
+-        {
+-            pPhyBasicModeStatus->speed = tmbslPhySpeed100Mbps;            
+-        }
+-        else
+-        {
+-            pPhyBasicModeStatus->speed = tmbslPhySpeed10Mbps;                        
+-        }
+-
+-    }
+-    else 
+-    {
+-        /* If autonegotiation is enabled, read from PHYSTS register */
+-        pPhyBasicModeStatus->duplexMode = 
+-                (((phySts & TMBSL_PHYSMSC8710_PHYSTS_DUP_MODE) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
+-
+-        pPhyBasicModeStatus->speed= 
+-                (((phySts & TMBSL_PHYSMSC8710_PHYSTS_SPEED_MSK) == 0x4) ? tmbslPhySpeed10Mbps : tmbslPhySpeed100Mbps);
+-
+-    }
+-
+-    return TM_OK;
+-
+-}   
+-
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710AutoNegotiate:
+-//
+-// DESCRIPTION: This function will enable the Auto negotiation of the PHY device 
+-//				with Link Partner. Best possible performance configuration is 
+-//				selected automatically during this process
+-//
+-// RETURN:      TM_OK
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710AutoNegotiate (
+-    tmUnitSelect_t                       	      ethUnitId,   
+-    ptmbslPhyAutoNegotitationMask_t      	pAutoNegotiationMask
+-    )
+-{
+-
+-    tmErrorCode_t   ethStatus=TM_OK;
+-    UInt32             timeout=AUTO_NEG_DELAY_MULTIPLIER; 
+-
+-    UInt16 regVal = ANAR_DEFAULT_VAL;
+-    UInt16 mask =0;
+-
+-    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Anar,regVal);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    if(pAutoNegotiationMask->masknextPageDesired == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8710_ANAR_NP;        
+-    }
+-
+-    if(pAutoNegotiationMask->maskRemoteFault == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8710_ANAR_ADV_RF;        
+-    }
+-
+-    if(pAutoNegotiationMask->maskAsymmetricPause == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8710_ANAR_AP;        
+-    }
+-
+-    if(pAutoNegotiationMask->maskPauseFrame == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8710_ANAR_PAUSE;        
+-    }
+-
+-    if(pAutoNegotiationMask->mask100BaseTxFullDuplexSupport == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8710_ANAR_100B_TX_FD;        
+-    }
+-
+-    if(pAutoNegotiationMask->mask100BaseTxSupport == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8710_ANAR_100B_TX_HD;        
+-    }
+-
+-    if(pAutoNegotiationMask->mask10BaseTFullDuplexSupport == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8710_ANAR_10B_TX_FD;        
+-    }    
+-
+-    if(pAutoNegotiationMask->mask10BaseTSupport == True)
+-    {
+-        mask |= TMBSL_PHYSMSC8710_ANAR_10B_TX_HD;        
+-    }    
+-
+-    /* Clear the corresponding bits in the regVal*/
+-    regVal &= ~(mask);
+-
+-//    printf("\nANAR val: %08x\n",regVal);
+-   
+-    /* Program the Auto negotiation mask */
+-    tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Anar,regVal);
+-
+-    /* Enable the Auto negotiation in the BMCR register 
+-    ** First clear the auto negotiate bit and then enable
+-    */
+-    tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&regVal);
+-
+-    /* Clear autonegotiation bit */
+-    regVal &= TMBSL_PHYSMSC8710_BMCR_AN_CLR;
+-
+-    regVal |= TMBSL_PHYSMSC8710_BMCR_AN_EN |
+-              TMBSL_PHYSMSC8710_BMCR_AN_RESTART;
+-    
+-//    printf("\nBMCR val: %08x\n",regVal);
+-   
+-    tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,regVal);
+-
+-    /* Wait till the Auto negotiation is complete */
+-    tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmsr,&regVal);
+-
+-    /* While the Autonegotiation is not complete, stay in loop */
+-    while(((regVal & TMBSL_PHYSMSC8710_BMSR_AN_VAL) != TMBSL_PHYSMSC8710_BMSR_AN_VAL) && 
+-           (timeout != 0 ) )
+-    {
+-        mdelay(5);
+-        
+-        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmsr,&regVal);
+-
+-        if(ethStatus != TM_OK) 
+-        {
+-            return ethStatus;
+-        }
+-
+-        timeout--;
+-    }
+-
+-    if(  (timeout <= 0) && 
+-         ( (regVal & TMBSL_PHYSMSC8710_BMSR_AN_VAL) != TMBSL_PHYSMSC8710_BMSR_AN_VAL)
+-      )
+-    {
+-        return(-1);
+-    }
+-
+-    GMAC_DBG("Autonegotiation Time:%d msec\n",(AUTO_NEG_DELAY_MULTIPLIER-timeout)*5);
+-    
+-    return TM_OK;
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710LoopBack:
+-//
+-// DESCRIPTION: Function will enable or disable the PHY device in the Loopback 
+-//				mode.
+-//
+-// RETURN:      TM_OK
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710LoopBack (
+-    tmUnitSelect_t                  ethUnitId,   
+-    tmbslPhyEnableDisable_t     loopbackMode
+-    )
+-{
+-
+-    tmErrorCode_t ethStatus=TM_OK;     		
+-    UInt16 bmcr;
+-
+-    /* Read the existing settings of the BMCR register */
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&bmcr);
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    if(tmbslPhyEnable == loopbackMode)
+-    {
+-        bmcr |= TMBSL_PHYSMSC8710_BMCR_LPBK_VAL;
+-    }
+-    else if(tmbslPhyDisable == loopbackMode)
+-    {
+-        bmcr &= TMBSL_PHYSMSC8710_BMCR_LPBK_CLR;
+-    }
+-    else
+-    {
+-        ethStatus = TMBSL_ERR_PHY_NOT_SUPPORTED;
+-    }
+-
+-    /* Write the Loopback setting to the BMCR register */
+-    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,bmcr);
+-
+-    return ethStatus;
+-
+-}   
+-
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710SoftReset:
+-//
+-// DESCRIPTION: Function will do the soft reset of the PHY device
+-
+-// RETURN:      TM_OK
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-//
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710SoftReset (
+-    tmUnitSelect_t                     		ethUnitId      
+-	)
+-
+-{
+-    tmErrorCode_t       		ethStatus=TM_OK;     		
+-
+-    /* All the registers will be reset */
+-    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,TMBSL_PHYSMSC8710_BMCR_RST_VAL);
+-
+-    return ethStatus;
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710GetLinkStatus:
+-//
+-// DESCRIPTION: Function will get the link status
+-
+-// RETURN:      TM_OK
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-
+-tmErrorCode_t
+-tmbslPhySMSC8710GetLinkStatus (
+-    tmUnitSelect_t                          ethUnitId,   
+-    ptmbslPhyEnableDisable_t            pLinkStatus
+-    )
+-{
+-    tmErrorCode_t ethStatus=TM_OK;     		
+-    UInt16 physts;
+-
+-    /* Read the BMSR register twice, as per datasheet */
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmsr,&physts);
+-    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmsr,&physts);    
+-
+-    if(ethStatus != TM_OK)
+-    {
+-        return ethStatus ;
+-    }
+-
+-    *pLinkStatus =
+-        (((physts & TMBSL_PHYSMSC8710_PHYSTS_LINK_STAT) > 0) ? tmbslPhyEnable : tmbslPhyDisable);
+-
+-    return(TM_OK);
+-
+-}   
+-
+-//-----------------------------------------------------------------------------
+-//	Local static functions	
+-//-----------------------------------------------------------------------------
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710Read:
+-//
+-// DESCRIPTION: Function will read from the Specified PHY register
+-
+-// RETURN:      
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-//
+-
+-static tmErrorCode_t
+-tmbslPhySMSC8710Read (
+-    tmUnitSelect_t				ethUnitId,
+-    tmbslPhySMSC8710Reg_t		reg,   
+-    pUInt16						pVal
+-	)
+-
+-{
+-
+-    UInt32  timeout=0;
+-    UInt32 pEthRegs;       
+-    volatile UInt32 *pAdrReg;
+-    volatile  UInt32 *pDataReg;
+-    UInt32 regValue;        
+-
+-    /* get Ethernet Module Reg Pointer  */
+-    pEthRegs = gEthContext[ethUnitId].pRegs;
+-
+-    /* Get the Address register */  
+-    pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
+-    pDataReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_DATA_REG_OFFSET) ;
+-
+-    /* Program the Register address in the MII */
+-    regValue = *pAdrReg;
+-       
+-    /* Clear the earlier register value in Address register and write the new value */
+-    regValue &= TMHW_LIPP6100ETH_ADR_PHY_REG_CLR;  
+-    regValue |= reg << TMHW_LIPP6100ETH_ADR_PHY_REG_POS;
+-
+-    /* Clear the bit GMII write for read operation */
+-    regValue &= TMHW_LIPP6100ETH_ADR_PHY_RD_CLR;
+-
+-    regValue |= TMHW_LIPP6100ETH_ADR_PHY_EN_VAL;
+-
+-    *pAdrReg = regValue;        
+-
+-    /* Wait till the read operation is complete */
+-
+-    do
+-    {
+-        timeout++;
+-
+-    }while ( ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) && 
+-                   (timeout < PHY_TIMEOUT) );
+-
+-    if( (timeout == PHY_TIMEOUT) && 
+-        ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) )
+-    {
+-        printf("\n&*&*&*PHY READ FAILED\n");    
+-        return(TMBSL_ERR_PHY_READ_FAILED);
+-    }  
+-	
+-    /* Read the data from the data register */
+-
+-    *pVal = (UInt16) *pDataReg;
+-    
+-    return TM_OK;
+-
+-}   
+-
+-
+-//-----------------------------------------------------------------------------
+-// FUNCTION:    tmbslPhySMSC8710Write:
+-//
+-// DESCRIPTION: Function will Write to the Specified PHY register
+-
+-// RETURN:      
+-//
+-// NOTES:      
+-//-----------------------------------------------------------------------------
+-//
+-
+-static tmErrorCode_t
+-tmbslPhySMSC8710Write (
+-    tmUnitSelect_t				ethUnitId,
+-    tmbslPhySMSC8710Reg_t		reg,   
+-    UInt16						val
+-	)
+-
+-{
+-
+-    UInt32 pEthRegs;       
+-    volatile UInt32 *pAdrReg;
+-    volatile  UInt32 *pDataReg;
+-    UInt32 regValue;
+-
+-    UInt32      timeout=0;
+-
+-    /* Get the Ethernet Module Reg pointer */
+-    pEthRegs = gEthContext[ethUnitId].pRegs;
+-
+-    /* Get the Address register */  
+-    pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
+-    pDataReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_DATA_REG_OFFSET) ;
+-
+-    /* Write the data into data register  */
+-    *pDataReg = 0;
+-    *pDataReg = val;
+-
+-    /* Program the Register address */
+-    regValue = *pAdrReg;
+-       
+-    /* Clear the earlier register value in Address register */
+-    regValue &= TMHW_LIPP6100ETH_ADR_PHY_REG_CLR;  
+-    regValue |= reg << TMHW_LIPP6100ETH_ADR_PHY_REG_POS;
+-
+-    /* Set Write operation bit and enable write */
+-    regValue |= TMHW_LIPP6100ETH_ADR_PHY_WR_VAL | 
+-               TMHW_LIPP6100ETH_ADR_PHY_EN_VAL ;
+-
+-    /* Write the value back to Address register */
+-    *pAdrReg = regValue;        
+-
+-    /* wait till the write operation is complete */
+-
+-    do
+-    {
+-        timeout++;
+-
+-    }while ( ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) && 
+-             (timeout < PHY_TIMEOUT) );
+-	
+-	if( (timeout == PHY_TIMEOUT) && 
+-           ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) )
+-	{
+-        printf("\n&*&*&*PHY WRITE FAILED\n");
+-	    return(TMBSL_ERR_PHY_WRITE_FAILED);
+-	}  
+-
+-	return TM_OK;
+-    
+-}   
+-
+-//-----------------------------------------------------------------------------
+-
+-#if 0
+-static tmErrorCode_t
+-set_regs (void );
+-
+-static tmErrorCode_t
+-    set_regs (void )
+-{
+-
+-    tmErrorCode_t err = TM_OK;
+-    UInt16 regVal=0;
+-    tmUnitSelect_t ethUnitId = 0;
+-
+-    regVal =0x0;
+-    err = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Mcsr,regVal);
+-    err = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Mcsr,&regVal);
+-    printf("\nMCSR val: %08x\n",regVal);           
+-
+-    regVal = 0xF6;
+-    err = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Smr,regVal);        
+-    err = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regVal);
+-    printf("\nSMR val: %08x\n",regVal);           
+-
+-    regVal =0;
+-    err = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Csir,regVal);        
+-    err = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Csir,&regVal);
+-    printf("\nCSIR val: %08x\n",regVal);           
+-
+-    err = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Pscsr,&regVal);
+-    printf("\nPSCSR val: %08x\n",regVal);  
+-
+-    return err;
+-}           
+-#endif
+-
+-#ifdef __LIPP_6300ETH__
+-static void get_phy_out_of_rst( void)
+-{
+-    //Msg for High, to bring PHY out of reset
+-//    unsigned char msg[]={0x00,0x04,0x00,0x02,0x07,0x01}; 
+-
+-    //Msg for Low, to put PHY in reset     
+-//    unsigned char msg[]={0x00,0x04,0x00,0x02,0x07,0x00}; 
+-
+-//    pnx8xxx_ip3203_init();
+-//    pnx8xxx_ip3203_write(msg, sizeof(msg));
+-
+-    /*Wait till the PHY is out of reset */    
+-    mdelay(1);
+-
+-    /* Turn the clocks to MAC from PHY */
+-
+-#if 0
+-    /* PHY clocks */
+-    writel(0x00000003, (unsigned long *)(0xbbe47710));	
+-    writel(0x00000003, (unsigned long *)(0xbbe47714));	
+-    writel(0x00000003, (unsigned long *)(0xbbe47718));	
+-#endif 
+-
+-    #ifdef __LIPP_6300ETH__
+-    /* PHY clocks */
+-    *(unsigned long *)(MMIO_BASE) = 0x00000003;
+-    *(unsigned long *)(MMIO_BASE) = 0x00000003;
+-    *(unsigned long *)(MMIO_BASE) = 0x00000003;
+-    #endif
+-
+-
+-    mdelay(1);
+-//    GMAC_DBG("\nETHERNET CLOCK1:%08x\n",*(unsigned int *)(0x1be47710));                    
+-//    GMAC_DBG("\nETHERNET CLOCK2:%08x\n",*(unsigned int *)(0x1be47714));                    
+-//    GMAC_DBG("\nETHERNET CLOCK3:%08x\n",*(unsigned int*)(0x1be47718));                       
+-//    GMAC_DBG("\nSMSC PHY INIT successful\n\n\n");    
+-
+-    return;
+-
+-}
+-
+-#endif 
+-
+-
+-
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ *
++ * Copyright (c) 2006-2007, LIPP Alliance
++ * All Rights Reserved.
++ *
++ *---------------------------------------------------------------------------
++ * %filename:     tmbslPhySMSC8710.c %
++ * %pid_version:           1.2                %
++ *---------------------------------------------------------------------------
++ * DESCRIPTION: Macros and function prototypes for SMSC8710 PHY
++ *
++ * DOCUMENT REF: Datasheet SMSC LAN8710/LAN8710i  
++ *               Revision 2.1 (03-06-09)
++ *
++ *
++ *-----------------------------------------------------------------------------
++ *
++*/
++
++#include "tmNxTypes.h"
++#include "tmNxCompId.h"
++
++#include "lipp_6300eth_common.h"
++
++/*  Project include files */
++#include "tmbslPhy.h"
++#include "tmbslPhySMSC8710.h"
++#include "tmhwLIPP6100Eth_Cfg.h"
++
++/* Timeout in case of linux */
++#ifdef __LIPP_6300ETH__
++#include "i2c_ip3203.h"
++#define AUTO_NEG_DELAY_MULTIPLIER (800)
++#endif /* __LINUX_GMAC_DRV__*/
++
++/* Defines */
++#define PHY_UNIT_ID_COUNT  			1
++
++#define PHY_TIMEOUT                 (0x0FFFFFFF)
++
++#define TMBSLPHYSMSC8710_PHY_MMIO_ADDRESS0 ((0x1be00000+0x38000))
++
++#define ANAR_DEFAULT_VAL (0x1E1)
++
++/* gEthContext[] is filled with MAC base address in the tmbslPhySMSC8710Init() 
++** function 
++*/
++
++tmbslPhySMSC8710Context_t gEthContext[PHY_UNIT_ID_COUNT] = {{TMBSLPHYSMSC8710_PHY_MMIO_ADDRESS0}}; 
++
++typedef enum _tmbslPhySMSC8710Reg_t
++{
++    /* Basic mode control */
++    tmbslPhySMSC8710Bmcr		      = 0,  
++
++    /* Basic mode status */    
++    tmbslPhySMSC8710Bmsr		      =1,  
++
++    /* PHY ID1 register */        
++    tmbslPhySMSC8710PhyIdr1		=2,
++
++    /* PHY ID2 register */            
++    tmbslPhySMSC8710PhyIdr2		=3,
++
++    /* Auto negotiation advertisement register */                
++    tmbslPhySMSC8710Anar			=4,
++
++    /* Auto negotiation link partner ability register */                    
++    tmbslPhySMSC8710Anlpar		=5,
++
++    /* Auto negotiation expansion register */                        
++    tmbslPhySMSC8710Aner			=6,
++
++    /* 0x7 to 0xF reserved-*/
++
++    /* Silicon Revision register */
++    tmbslPhySMSC8710Srr=16,
++
++    /* Mode control & status register */
++    tmbslPhySMSC8710Mcsr=17,
++
++    /* Special modes register */
++    tmbslPhySMSC8710Smr=18,
++
++    /* 19-25 reserved */
++
++    /* Symbol error counter register */    
++    tmbslPhySMSC8710Secr	= 26,
++    
++    /* Control/Status indication register */        
++    tmbslPhySMSC8710Csir = 27,    
++
++    /* Special internal testability controls register*/            
++    tmbslPhySMSC8710Sitcr = 28,        
++    
++    /* Interrupt source register */
++    tmbslPhySMSC8710Isr = 29,
++
++    /* Interrupt mask register */
++    tmbslPhySMSC8710Imr = 30,    
++
++    /* PHY special control & status register */    
++    tmbslPhySMSC8710Pscsr = 31,    
++
++} tmbslPhySMSC8710Reg_t, *ptmbslPhySMSC8710Reg_t;
++
++
++/* Static functions definition */
++
++static tmErrorCode_t 
++tmbslPhySMSC8710Read (
++	tmUnitSelect_t				ethUnitId,
++    tmbslPhySMSC8710Reg_t				reg,   
++    pUInt16						pVal
++	);
++	
++	
++static tmErrorCode_t	
++tmbslPhySMSC8710Write (
++    tmUnitSelect_t				ethUnitId,
++    tmbslPhySMSC8710Reg_t				reg,   
++    UInt16						val
++	);
++
++#ifdef __LIPP_6300ETH__
++static void get_phy_out_of_rst( void);
++#endif
++
++/* Exported functions */
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710GetSWVersion:
++//
++// DESCRIPTION: This function returns the PHY device interface software version 
++//				information
++//
++// RETURN:      TM_OK
++//
++// NOTES:       This API can be called anytime i.e. before initializing the PHY 
++//				or in PowerOff state.
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8710GetSWVersion (
++	ptmSWVersion_t					pPhyVersion
++	)
++{
++	
++	pPhyVersion->compatibilityNr = TMBSL_PHY_COMPATIBILITY_NR;
++	pPhyVersion->majorVersionNr = TMBSL_PHY_MAJOR_VERSION_NR;
++	pPhyVersion->minorVersionNr = TMBSL_PHY_MINOR_VERSION_NR;
++	
++	return TM_OK;
++
++}
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710GetCapabilities:
++//
++// DESCRIPTION: This function returns the PHY capabilities for the specified PHY
++//				unit. The function is callable at any time to return the unit's 
++//				capabilities (PHY unit initialization is not necessary). 
++//				Capabilities may be different among multiple PHY units.For completeness, 
++//				a PHY BSL user should call this function for each PHY unit to 
++//				determine its individual capabilities. 
++//
++// RETURN:      TM_OK
++//
++// NOTES:       This API can be called anytime i.e. before initializing the PHY. 
++//				 
++//-----------------------------------------------------------------------------
++
++
++tmErrorCode_t
++tmbslPhySMSC8710GetCapabilities (
++    tmUnitSelect_t                			ethUnitId,  
++    ptmbslPhyCapabilities_t  				pPhyCaps    
++    )
++
++{
++
++    UInt16 bmsr;
++
++    /*  Read the PHY capabilites from the BMSR register */
++    tmbslPhySMSC8710Read(ethUnitId, tmbslPhySMSC8710Bmsr, &bmsr);
++
++    pPhyCaps->T4Support100Base = 
++        (((bmsr & TMBSL_PHYSMSC8710_BMSR_T4100BASE) > 0) ? True : False);
++
++    pPhyCaps->Tx_FullDuplexSupport100Base = 
++        (((bmsr &TMBSL_PHYSMSC8710_BMSR_X100BASEFD) > 0) ? True : False);
++
++    pPhyCaps->Tx_HalfDuplexSupport100Base = 
++        (((bmsr &TMBSL_PHYSMSC8710_BMSR_X100BASEHD) > 0) ? True : False);
++
++    pPhyCaps->Tx_FullDuplexSupport10Base = 
++        (((bmsr &TMBSL_PHYSMSC8710_BMSR_10MBPSFD) > 0) ? True : False);        
++
++    pPhyCaps->Tx_HalfDuplexSupport10Base = 
++        (((bmsr &TMBSL_PHYSMSC8710_BMSR_10MBPSHD) > 0) ? True : False);
++
++
++    pPhyCaps->autoNegotiationAbility = 
++                (((bmsr &TMBSL_PHYSMSC8710_BMSR_AN_ABLE) > 0) ? True : False);
++
++    pPhyCaps->ledStatusSupport = True ;		
++
++    /* Other capabilites set to False */   
++    pPhyCaps->nextPageIndication = False;
++
++    pPhyCaps->force100MbpsTxOff = False;
++
++    pPhyCaps->bypassSymbolAlignment =False;
++
++    pPhyCaps->badSSDDetectionConfig = False;
++	
++    return TM_OK;
++
++}   
++    
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710Init:
++//
++// DESCRIPTION: This function initializes the PHY device. It should be called
++//				before any access to the device is made. 
++//
++// RETURN:      TM_OK 
++//
++// NOTES:       This function initializes the PHY device with the following 
++//				default initial configuration. No Autonegotiation is done in the 
++//				initialization function
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8710Init(
++    tmUnitSelect_t  						ethUnitId   
++    )
++{
++
++    tmErrorCode_t       		ethStatus = TM_OK;     		
++    UInt32                         timeout=0;
++    UInt16 regval=0;
++    UInt16 id1, id2;
++
++    #ifdef __LIPP_6300ETH__
++    get_phy_out_of_rst();
++    #endif
++
++//    printf("\nIn SMSC Init\n");           
++
++    gEthContext[ethUnitId].pRegs = gtmhwLIPP6100Eth_Base[ethUnitId].baseAddress;
++
++    /* Set the mode register to default value */
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
++//    printf("\nSMR val: %08x\n",regval);           
++
++    regval &= 0xBF1F; /* Set to 100Mbps FD, MII mode */
++    regval |= 0x60;    
++    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Smr,regval);        
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
++//    printf("\nSMR val: %08x\n",regval);           
++
++    regval = TMBSL_PHYSMSC8710_BMCR_RST_VAL;
++
++    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,regval);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus;
++    }
++
++    /* Check if PHY is back to normal condition */
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&regval);
++
++    while( (regval & TMBSL_PHYSMSC8710_BMCR_RST_VAL) && (timeout < PHY_TIMEOUT) )
++    {
++
++
++        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&regval);
++
++        if(ethStatus != TM_OK)
++        {
++            break;
++        }
++
++        timeout++;
++
++    }  
++
++    if(ethStatus != TM_OK)
++    {
++        return(ethStatus);
++    }
++
++    if( (timeout == PHY_TIMEOUT) && (regval & TMBSL_PHYSMSC8710_BMCR_RST_VAL) )
++    {
++        return(TMBSL_ERR_PHY_INIT_FAILED);	
++    } 
++
++#if 0
++    /* Read PHY Identification Register */
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710PhyIdr1,&id1);
++
++    if (ethStatus != TM_OK)
++    {
++        return (ethStatus);
++    }
++
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710PhyIdr2,&id2);
++
++    if (ethStatus != TM_OK)
++    {
++        return (ethStatus);
++    }
++
++//    printf("\nETHERNET CLOCK1:%08x\n",*(unsigned long *)(0xbbe47710));                    
++//    printf("\nETHERNET CLOCK2:%08x\n",*(unsigned long *)(0xbbe47714));                    
++//    printf("\nETHERNET CLOCK3:%08x\n",*(unsigned long *)(0xbbe47718));                       
++//    printf("\nSMSC PHY INIT successful\n\n\n");    
++#endif
++
++    return TM_OK;
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710Deinit:
++//
++// DESCRIPTION: This function de-initializes the PHY device. Once the device is
++//				deinitilized device will no more be available to access 
++//
++// RETURN:      TM_OK
++//
++// NOTES:       
++//-----------------------------------------------------------------------------
++//
++
++tmErrorCode_t
++tmbslPhySMSC8710Deinit(
++    tmUnitSelect_t  						ethUnitId   
++    )
++
++{
++
++    tmErrorCode_t       		ethStatus=TM_OK;     		
++    UInt16 bmcr =0;
++
++    bmcr |= TMBSL_PHYSMSC8710_BMCR_RST_VAL;
++
++    /* All the registers will be reset */
++    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,bmcr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus;
++    }
++    else	
++    {
++        return TM_OK;
++    }
++
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710SetPowerState:
++//
++// DESCRIPTION: This function will set the Power State of the PHY device to specified 
++//				power state
++//
++// RETURN:      TM_OK
++//
++// NOTES:       
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8710SetPowerState(
++    tmUnitSelect_t           				ethUnitId ,  
++    tmPowerState_t          				phyPowerState
++    )
++
++{
++    tmErrorCode_t ethStatus=TM_OK;     		
++    UInt16 bmcr = 0;
++
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId, tmbslPhySMSC8710Bmcr, &bmcr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus;
++    }
++
++    if( (phyPowerState == tmPowerOn) || (phyPowerState == tmPowerOff) )
++    {
++        if(phyPowerState == tmPowerOff)
++        {
++            bmcr |= TMBSL_PHYSMSC8710_BMCR_PWRDN_EN;
++        }
++        else
++        {
++            bmcr &=TMBSL_PHYSMSC8710_BMCR_PWRDN_CLR;
++        }
++
++        ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,bmcr);
++
++        return ethStatus;
++
++    }
++    else
++    {
++        return TMBSL_ERR_PHY_NOT_SUPPORTED;
++    }
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710GetPowerState:
++//
++// DESCRIPTION: This function will get the preset power state of the PHY device
++//
++// RETURN:      TM_OK
++//
++// NOTES:       
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8710GetPowerState(
++    tmUnitSelect_t                  		ethUnitId ,  
++    ptmPowerState_t				phyPowerState
++    )
++
++{
++
++    tmErrorCode_t       		ethStatus=TM_OK;     		
++    UInt16 regVal=0;
++
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&regVal);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    *phyPowerState = (((regVal & TMBSL_PHYSMSC8710_BMCR_PWRDN_EN) > 0) ? tmPowerOff : tmPowerOn);
++
++    return TM_OK;
++
++}   
++
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710GetBasicModeControl:
++//
++// DESCRIPTION: This function will get the basic configuration of the PHY device. 
++//
++// RETURN:      TM_OK
++//
++// NOTES:       See #define for the Basic Mode Control 
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t 
++tmbslPhySMSC8710GetBasicModeControl (
++    tmUnitSelect_t                   		ethUnitId,   
++    ptmbslPhyBasicModeControl_t       pPhyBasicModeControl
++    )
++{
++    tmErrorCode_t ethStatus=TM_OK;     		
++    UInt16 bmcr;
++
++    /* Read the present settings of the BMCR register */
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&bmcr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus;
++    }
++
++    pPhyBasicModeControl->enableCollisionTest = 
++                (((bmcr & TMBSL_PHYSMSC8710_BMCR_COLTEST ) > 0) ? True : False);
++
++    pPhyBasicModeControl->duplexMode = 
++                (((bmcr & TMBSL_PHYSMSC8710_BMCR_FD_EN ) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
++
++    if(bmcr & TMBSL_PHYSMSC8710_BMCR_SPEED_MSK)
++    {
++        pPhyBasicModeControl->speed = tmbslPhySpeed100Mbps;            
++    }
++    else
++    {
++        pPhyBasicModeControl->speed = tmbslPhySpeed10Mbps;                            
++    }
++
++    return TM_OK;
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710SetBasicModeControl:
++//
++// DESCRIPTION: This function will configure the PHY device for the Basic Mode. 
++//
++// RETURN:      TM_OK
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t 
++tmbslPhySMSC8710SetBasicModeControl (
++    tmUnitSelect_t                           ethUnitId,   
++    ptmbslPhyBasicModeControl_t        pPhyBasicModeControl
++    )
++{
++
++    tmErrorCode_t       		ethStatus=TM_OK;     		
++    UInt16 bmcr =0;
++    UInt16 regval;
++
++    if(pPhyBasicModeControl->enableCollisionTest == True)
++    {
++        bmcr |= TMBSL_PHYSMSC8710_BMCR_COLTEST;
++    }
++
++    if(pPhyBasicModeControl->duplexMode == True)
++    {
++        bmcr |= TMBSL_PHYSMSC8710_BMCR_FD_EN;
++    }
++
++    switch(pPhyBasicModeControl->speed)
++    {
++
++        case tmbslPhySpeed100Mbps :       
++//            bmcr |= TMBSL_PHYSMSC8710_BMCR_SPEED_100;                
++        /* Set the mode register to default value */
++        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
++
++        /* Clear the mode bits */
++        regval &= 0xFF1F;
++
++        regval |= 0x60;
++        ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Smr,regval);        
++
++        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
++        printf("\nSMR val: %08x\n",regval);           
++            break;
++
++        case tmbslPhySpeed10Mbps :       
++//            bmcr |= TMBSL_PHYSMSC8710_BMCR_SPEED_10;                
++        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
++
++        /* Clear the mode bits */
++        regval &= 0xFF1F;
++
++        regval |= 0x20;
++
++        ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Smr,regval);        
++        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regval);
++        printf("\nSMR val: %08x\n",regval);           
++            
++                
++            break;
++
++        default:
++            break;
++
++    }
++
++    ethStatus = tmbslPhySMSC8710SoftReset(ethUnitId);
++
++    mdelay(10);
++    printf("\nSPEED/MODE updated from MODE pins\n");               
++
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Pscsr,&regval);
++    printf("\nPHY STS reg:%04x\n",regval);               
++
++    if(ethStatus != TM_OK)
++    {
++        printf("\nRESET failed after mode change\n");           
++    }
++
++    /* Write the result to the BMC register */
++//    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,bmcr);
++
++    return ethStatus;
++
++}   
++
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710GetBasicModeStatus:
++//
++// DESCRIPTION: This function will get the Basic Mode Status of the PHY device 
++//				such as the speed, duplex mode and other statuses
++//
++// RETURN:      TM_OK
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8710GetBasicModeStatus (
++    tmUnitSelect_t                  		ethUnitId,   
++    ptmbslPhyBasicModeStatus_t    	pPhyBasicModeStatus     
++    )
++
++{
++    tmErrorCode_t ethStatus=TM_OK;     		
++    UInt16           bmsr,bmcr,phySts;
++
++    /* Read the PHY status from the BMSR register */
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId, tmbslPhySMSC8710Bmsr, &bmsr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    /* Read the PHY control register from the BMCR register */
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId, tmbslPhySMSC8710Bmcr, &bmcr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    /* Read the autonegotiation status from PHY status register */
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId, tmbslPhySMSC8710Pscsr, &phySts);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    pPhyBasicModeStatus->jabberDetect = (((bmsr & TMBSL_PHYSMSC8710_BMSR_JAB_VAL) > 0) ? True : False);
++
++    pPhyBasicModeStatus->remoteFaultDetected = (((bmsr & TMBSL_PHYSMSC8710_BMSR_RF_VAL) > 0) ? True : False);
++
++    pPhyBasicModeStatus->autoNegotiationComplete = (((bmsr & TMBSL_PHYSMSC8710_BMSR_AN_VAL) > 0) ? True : False);
++
++    pPhyBasicModeStatus->loopBackEnabled = (((bmcr & TMBSL_PHYSMSC8710_BMCR_LPBK_VAL) > 0) ? True : False);
++
++    if((bmcr & TMBSL_PHYSMSC8710_BMCR_AN_EN) == 0) 
++    {
++        /* Not an auto negotiation. So read the values from BMCR */
++        pPhyBasicModeStatus->duplexMode = 
++                (((bmcr & TMBSL_PHYSMSC8710_BMCR_FD_EN ) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
++
++        if(bmcr & TMBSL_PHYSMSC8710_BMCR_SPEED_MSK)
++        {
++            pPhyBasicModeStatus->speed = tmbslPhySpeed100Mbps;            
++        }
++        else
++        {
++            pPhyBasicModeStatus->speed = tmbslPhySpeed10Mbps;                        
++        }
++
++    }
++    else 
++    {
++        /* If autonegotiation is enabled, read from PHYSTS register */
++        pPhyBasicModeStatus->duplexMode = 
++                (((phySts & TMBSL_PHYSMSC8710_PHYSTS_DUP_MODE) > 0) ? tmbslPhyFullDuplex : tmbslPhyHalfDuplex);
++
++        pPhyBasicModeStatus->speed= 
++                (((phySts & TMBSL_PHYSMSC8710_PHYSTS_SPEED_MSK) == 0x4) ? tmbslPhySpeed10Mbps : tmbslPhySpeed100Mbps);
++
++    }
++
++    return TM_OK;
++
++}   
++
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710AutoNegotiate:
++//
++// DESCRIPTION: This function will enable the Auto negotiation of the PHY device 
++//				with Link Partner. Best possible performance configuration is 
++//				selected automatically during this process
++//
++// RETURN:      TM_OK
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8710AutoNegotiate (
++    tmUnitSelect_t                       	      ethUnitId,   
++    ptmbslPhyAutoNegotitationMask_t      	pAutoNegotiationMask
++    )
++{
++
++    tmErrorCode_t   ethStatus=TM_OK;
++    UInt32             timeout=AUTO_NEG_DELAY_MULTIPLIER; 
++
++    UInt16 regVal = ANAR_DEFAULT_VAL;
++    UInt16 mask =0;
++
++    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Anar,regVal);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    if(pAutoNegotiationMask->masknextPageDesired == True)
++    {
++        mask |= TMBSL_PHYSMSC8710_ANAR_NP;        
++    }
++
++    if(pAutoNegotiationMask->maskRemoteFault == True)
++    {
++        mask |= TMBSL_PHYSMSC8710_ANAR_ADV_RF;        
++    }
++
++    if(pAutoNegotiationMask->maskAsymmetricPause == True)
++    {
++        mask |= TMBSL_PHYSMSC8710_ANAR_AP;        
++    }
++
++    if(pAutoNegotiationMask->maskPauseFrame == True)
++    {
++        mask |= TMBSL_PHYSMSC8710_ANAR_PAUSE;        
++    }
++
++    if(pAutoNegotiationMask->mask100BaseTxFullDuplexSupport == True)
++    {
++        mask |= TMBSL_PHYSMSC8710_ANAR_100B_TX_FD;        
++    }
++
++    if(pAutoNegotiationMask->mask100BaseTxSupport == True)
++    {
++        mask |= TMBSL_PHYSMSC8710_ANAR_100B_TX_HD;        
++    }
++
++    if(pAutoNegotiationMask->mask10BaseTFullDuplexSupport == True)
++    {
++        mask |= TMBSL_PHYSMSC8710_ANAR_10B_TX_FD;        
++    }    
++
++    if(pAutoNegotiationMask->mask10BaseTSupport == True)
++    {
++        mask |= TMBSL_PHYSMSC8710_ANAR_10B_TX_HD;        
++    }    
++
++    /* Clear the corresponding bits in the regVal*/
++    regVal &= ~(mask);
++
++//    printf("\nANAR val: %08x\n",regVal);
++   
++    /* Program the Auto negotiation mask */
++    tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Anar,regVal);
++
++    /* Enable the Auto negotiation in the BMCR register 
++    ** First clear the auto negotiate bit and then enable
++    */
++    tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&regVal);
++
++    /* Clear autonegotiation bit */
++    regVal &= TMBSL_PHYSMSC8710_BMCR_AN_CLR;
++
++    regVal |= TMBSL_PHYSMSC8710_BMCR_AN_EN |
++              TMBSL_PHYSMSC8710_BMCR_AN_RESTART;
++    
++//    printf("\nBMCR val: %08x\n",regVal);
++   
++    tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,regVal);
++
++    /* Wait till the Auto negotiation is complete */
++    tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmsr,&regVal);
++
++    /* While the Autonegotiation is not complete, stay in loop */
++    while(((regVal & TMBSL_PHYSMSC8710_BMSR_AN_VAL) != TMBSL_PHYSMSC8710_BMSR_AN_VAL) && 
++           (timeout != 0 ) )
++    {
++        mdelay(5);
++        
++        ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmsr,&regVal);
++
++        if(ethStatus != TM_OK) 
++        {
++            return ethStatus;
++        }
++
++        timeout--;
++    }
++
++    if(  (timeout <= 0) && 
++         ( (regVal & TMBSL_PHYSMSC8710_BMSR_AN_VAL) != TMBSL_PHYSMSC8710_BMSR_AN_VAL)
++      )
++    {
++        return(-1);
++    }
++
++    GMAC_DBG("Autonegotiation Time:%d msec\n",(AUTO_NEG_DELAY_MULTIPLIER-timeout)*5);
++    
++    return TM_OK;
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710LoopBack:
++//
++// DESCRIPTION: Function will enable or disable the PHY device in the Loopback 
++//				mode.
++//
++// RETURN:      TM_OK
++// NOTES:      
++//-----------------------------------------------------------------------------
++
++
++tmErrorCode_t
++tmbslPhySMSC8710LoopBack (
++    tmUnitSelect_t                  ethUnitId,   
++    tmbslPhyEnableDisable_t     loopbackMode
++    )
++{
++
++    tmErrorCode_t ethStatus=TM_OK;     		
++    UInt16 bmcr;
++
++    /* Read the existing settings of the BMCR register */
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmcr,&bmcr);
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    if(tmbslPhyEnable == loopbackMode)
++    {
++        bmcr |= TMBSL_PHYSMSC8710_BMCR_LPBK_VAL;
++    }
++    else if(tmbslPhyDisable == loopbackMode)
++    {
++        bmcr &= TMBSL_PHYSMSC8710_BMCR_LPBK_CLR;
++    }
++    else
++    {
++        ethStatus = TMBSL_ERR_PHY_NOT_SUPPORTED;
++    }
++
++    /* Write the Loopback setting to the BMCR register */
++    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,bmcr);
++
++    return ethStatus;
++
++}   
++
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710SoftReset:
++//
++// DESCRIPTION: Function will do the soft reset of the PHY device
++
++// RETURN:      TM_OK
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++//
++
++tmErrorCode_t
++tmbslPhySMSC8710SoftReset (
++    tmUnitSelect_t                     		ethUnitId      
++	)
++
++{
++    tmErrorCode_t       		ethStatus=TM_OK;     		
++
++    /* All the registers will be reset */
++    ethStatus = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Bmcr,TMBSL_PHYSMSC8710_BMCR_RST_VAL);
++
++    return ethStatus;
++
++}   
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710GetLinkStatus:
++//
++// DESCRIPTION: Function will get the link status
++
++// RETURN:      TM_OK
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++
++tmErrorCode_t
++tmbslPhySMSC8710GetLinkStatus (
++    tmUnitSelect_t                          ethUnitId,   
++    ptmbslPhyEnableDisable_t            pLinkStatus
++    )
++{
++    tmErrorCode_t ethStatus=TM_OK;     		
++    UInt16 physts;
++
++    /* Read the BMSR register twice, as per datasheet */
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmsr,&physts);
++    ethStatus = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Bmsr,&physts);    
++
++    if(ethStatus != TM_OK)
++    {
++        return ethStatus ;
++    }
++
++    *pLinkStatus =
++        (((physts & TMBSL_PHYSMSC8710_PHYSTS_LINK_STAT) > 0) ? tmbslPhyEnable : tmbslPhyDisable);
++
++    return(TM_OK);
++
++}   
++
++//-----------------------------------------------------------------------------
++//	Local static functions	
++//-----------------------------------------------------------------------------
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710Read:
++//
++// DESCRIPTION: Function will read from the Specified PHY register
++
++// RETURN:      
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++//
++
++static tmErrorCode_t
++tmbslPhySMSC8710Read (
++    tmUnitSelect_t				ethUnitId,
++    tmbslPhySMSC8710Reg_t		reg,   
++    pUInt16						pVal
++	)
++
++{
++
++    UInt32  timeout=0;
++    UInt32 pEthRegs;       
++    volatile UInt32 *pAdrReg;
++    volatile  UInt32 *pDataReg;
++    UInt32 regValue;        
++
++    /* get Ethernet Module Reg Pointer  */
++    pEthRegs = gEthContext[ethUnitId].pRegs;
++
++    /* Get the Address register */  
++    pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
++    pDataReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_DATA_REG_OFFSET) ;
++
++    /* Program the Register address in the MII */
++    regValue = *pAdrReg;
++       
++    /* Clear the earlier register value in Address register and write the new value */
++    regValue &= TMHW_LIPP6100ETH_ADR_PHY_REG_CLR;  
++    regValue |= reg << TMHW_LIPP6100ETH_ADR_PHY_REG_POS;
++
++    /* Clear the bit GMII write for read operation */
++    regValue &= TMHW_LIPP6100ETH_ADR_PHY_RD_CLR;
++
++    regValue |= TMHW_LIPP6100ETH_ADR_PHY_EN_VAL;
++
++    *pAdrReg = regValue;        
++
++    /* Wait till the read operation is complete */
++
++    do
++    {
++        timeout++;
++
++    }while ( ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) && 
++                   (timeout < PHY_TIMEOUT) );
++
++    if( (timeout == PHY_TIMEOUT) && 
++        ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) )
++    {
++        printf("\n&*&*&*PHY READ FAILED\n");    
++        return(TMBSL_ERR_PHY_READ_FAILED);
++    }  
++	
++    /* Read the data from the data register */
++
++    *pVal = (UInt16) *pDataReg;
++    
++    return TM_OK;
++
++}   
++
++
++//-----------------------------------------------------------------------------
++// FUNCTION:    tmbslPhySMSC8710Write:
++//
++// DESCRIPTION: Function will Write to the Specified PHY register
++
++// RETURN:      
++//
++// NOTES:      
++//-----------------------------------------------------------------------------
++//
++
++static tmErrorCode_t
++tmbslPhySMSC8710Write (
++    tmUnitSelect_t				ethUnitId,
++    tmbslPhySMSC8710Reg_t		reg,   
++    UInt16						val
++	)
++
++{
++
++    UInt32 pEthRegs;       
++    volatile UInt32 *pAdrReg;
++    volatile  UInt32 *pDataReg;
++    UInt32 regValue;
++
++    UInt32      timeout=0;
++
++    /* Get the Ethernet Module Reg pointer */
++    pEthRegs = gEthContext[ethUnitId].pRegs;
++
++    /* Get the Address register */  
++    pAdrReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_ADR_REG_OFFSET) ;
++    pDataReg = (UInt32*)(pEthRegs+TMHW_LIPP6100ETH_DATA_REG_OFFSET) ;
++
++    /* Write the data into data register  */
++    *pDataReg = 0;
++    *pDataReg = val;
++
++    /* Program the Register address */
++    regValue = *pAdrReg;
++       
++    /* Clear the earlier register value in Address register */
++    regValue &= TMHW_LIPP6100ETH_ADR_PHY_REG_CLR;  
++    regValue |= reg << TMHW_LIPP6100ETH_ADR_PHY_REG_POS;
++
++    /* Set Write operation bit and enable write */
++    regValue |= TMHW_LIPP6100ETH_ADR_PHY_WR_VAL | 
++               TMHW_LIPP6100ETH_ADR_PHY_EN_VAL ;
++
++    /* Write the value back to Address register */
++    *pAdrReg = regValue;        
++
++    /* wait till the write operation is complete */
++
++    do
++    {
++        timeout++;
++
++    }while ( ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) && 
++             (timeout < PHY_TIMEOUT) );
++	
++	if( (timeout == PHY_TIMEOUT) && 
++           ((*pAdrReg & TMHW_LIPP6100ETH_ADR_PHY_EN_VAL) == tmbslPhyEnable) )
++	{
++        printf("\n&*&*&*PHY WRITE FAILED\n");
++	    return(TMBSL_ERR_PHY_WRITE_FAILED);
++	}  
++
++	return TM_OK;
++    
++}   
++
++//-----------------------------------------------------------------------------
++
++#if 0
++static tmErrorCode_t
++set_regs (void );
++
++static tmErrorCode_t
++    set_regs (void )
++{
++
++    tmErrorCode_t err = TM_OK;
++    UInt16 regVal=0;
++    tmUnitSelect_t ethUnitId = 0;
++
++    regVal =0x0;
++    err = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Mcsr,regVal);
++    err = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Mcsr,&regVal);
++    printf("\nMCSR val: %08x\n",regVal);           
++
++    regVal = 0xF6;
++    err = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Smr,regVal);        
++    err = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Smr,&regVal);
++    printf("\nSMR val: %08x\n",regVal);           
++
++    regVal =0;
++    err = tmbslPhySMSC8710Write(ethUnitId,tmbslPhySMSC8710Csir,regVal);        
++    err = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Csir,&regVal);
++    printf("\nCSIR val: %08x\n",regVal);           
++
++    err = tmbslPhySMSC8710Read(ethUnitId,tmbslPhySMSC8710Pscsr,&regVal);
++    printf("\nPSCSR val: %08x\n",regVal);  
++
++    return err;
++}           
++#endif
++
++#ifdef __LIPP_6300ETH__
++static void get_phy_out_of_rst( void)
++{
++    //Msg for High, to bring PHY out of reset
++//    unsigned char msg[]={0x00,0x04,0x00,0x02,0x07,0x01}; 
++
++    //Msg for Low, to put PHY in reset     
++//    unsigned char msg[]={0x00,0x04,0x00,0x02,0x07,0x00}; 
++
++//    pnx8xxx_ip3203_init();
++//    pnx8xxx_ip3203_write(msg, sizeof(msg));
++
++    /*Wait till the PHY is out of reset */    
++    mdelay(1);
++
++    /* Turn the clocks to MAC from PHY */
++
++#if 0
++    /* PHY clocks */
++    writel(0x00000003, (unsigned long *)(0xbbe47710));	
++    writel(0x00000003, (unsigned long *)(0xbbe47714));	
++    writel(0x00000003, (unsigned long *)(0xbbe47718));	
++#endif 
++
++    #ifdef __LIPP_6300ETH__
++    /* PHY clocks */
++    *(unsigned long *)(MMIO_BASE) = 0x00000003;
++    *(unsigned long *)(MMIO_BASE) = 0x00000003;
++    *(unsigned long *)(MMIO_BASE) = 0x00000003;
++    #endif
++
++
++    mdelay(1);
++//    GMAC_DBG("\nETHERNET CLOCK1:%08x\n",*(unsigned int *)(0x1be47710));                    
++//    GMAC_DBG("\nETHERNET CLOCK2:%08x\n",*(unsigned int *)(0x1be47714));                    
++//    GMAC_DBG("\nETHERNET CLOCK3:%08x\n",*(unsigned int*)(0x1be47718));                       
++//    GMAC_DBG("\nSMSC PHY INIT successful\n\n\n");    
++
++    return;
++
++}
++
++#endif 
++
++
++
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c u-boot-2009.08_new/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.c	2010-02-08 01:52:05.000000000 -0600
+@@ -1514,7 +1514,11 @@
+     {
+         regVal |= TMVH_LIPP6100ETH_BUS_MODE_AAL_VAL;
+     }
+-
++    
++    if(pDmaConfig->enableAltDescSize == True)
++    {
++        regVal |= TMVH_LIPP6100ETH_BUS_MODE_EN_ALTDESC;
++    } 
+     /* Write to Bus mode register */
+      TMVH_GEN_WRITE(pEthRegs +TMVH_LIPP6100ETH_BUS_MODE_REG_OFFSET,regVal);
+ 
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h u-boot-2009.08_new/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Cfg.h	2010-02-08 01:52:05.000000000 -0600
+@@ -64,7 +64,7 @@
+ /*  Scalability Settings Start  */
+ #define TMFL_SD_ALL 0
+ #if (TMFL_SD_ALL == 0)
+-#define TMFL_LIPP6100ETHSD_MMC 0
++#define TMFL_LIPP6100ETHSD_MMC 1
+ #define TMFL_LIPP6100ETHSD_POWER 0 
+ #define TMFL_LIPP6100ETHSD_HASH 0
+ #define TMFL_LIPP6100ETHSD_VLAN 0
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.h u-boot-2009.08_new/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.h
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.h	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/tmhwLIPP6100Eth.h	2010-02-08 01:52:05.000000000 -0600
+@@ -2197,6 +2197,7 @@
+ {
+ 
+     Bool addrAlignedBtsEn;                             /*!< Address aligned beats enable */    
++    Bool enableAltDescSize;                             /* Enable Enhanced Descriptors */
+     Bool fixedBurstEn;                                     /*!< Enable/Disable Fixed Bursting */
+     tmhwLIPP6100Eth_DmaPriority_t priority;/*!< Select the DMA priority */
+     Bool pBL4xmode;                                      /*!< When set, effective PBL becomes (4* burstLen) */
+diff -Naur u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h u-boot-2009.08_new/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h
+--- u-boot-2009.08/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/drivers/net/lipp_6300eth/tmhwLIPP6100Eth_Vhip.h	2010-02-08 01:52:05.000000000 -0600
+@@ -298,6 +298,7 @@
+ #define TMVH_LIPP6100ETH_BUS_MODE_RX_PBL_POS (17)
+ 
+ #define TMVH_LIPP6100ETH_BUS_MODE_AAL_VAL (0x2000000U)
++#define TMVH_LIPP6100ETH_BUS_MODE_EN_ALTDESC (0x0000080U)
+ 
+ #define TMVH_LIPP6100ETH_BUS_MODE_FB_VAL (0x10000U)
+ 
+@@ -393,8 +394,8 @@
+ #define TMVH_LIPP6100ETH_MMC_INTR_RX_REG_OFFSET (0x104)
+ #define TMVH_LIPP6100ETH_MMC_INTR_TX_REG_OFFSET (0x108)
+ 
+-#define TMVH_LIPP6100ETH_MMC_INTR_TXMASK_REG_OFFSET (0x10C)
+-#define TMVH_LIPP6100ETH_MMC_INTR_RXMASK_REG_OFFSET (0x110)
++#define TMVH_LIPP6100ETH_MMC_INTR_RXMASK_REG_OFFSET (0x10C)
++#define TMVH_LIPP6100ETH_MMC_INTR_TXMASK_REG_OFFSET (0x110)
+ 
+ /* Counters  on Transmission side */
+ 
+diff -Naur u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08_new/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/include/configs/vpe_apollo.h	2010-02-08 01:51:45.000000000 -0600
+@@ -137,7 +137,7 @@
+ /* this must be included AFTER the definition of CONFIG_COMMANDS (if any) */
+ #include	<config_cmd_default.h>
+ 
+-/* #define	CONFIG_CMD_DHCP  */
++#define CONFIG_CMD_DHCP  
+ #undef CONFIG_CMD_NET
+ #undef CONFIG_CMD_NFS
+ 
+@@ -177,8 +177,9 @@
+ 
+ 	#define CONFIG_NET_MULTI
+ 	#define CONFIG_BOOTP_SUBNETMASK
+-	#define CONFIG_BOOTP_GATEWAY
+-	#define CONFIG_BOOTP_DNS
++   #define CONFIG_BOOTP_RANDOM_DELAY
++   #define CONFIG_BOOTP_GATEWAY
++   #define CONFIG_BOOTP_DNS
+ 
+ 	#define CONFIG_CMD_NFS		/* NFS support		*/
+ 	#define CONFIG_CMD_NET		/* bootp, tftpboot, rarpboot	*/
+@@ -199,10 +200,18 @@
+     #define CONFIG_LIPP_6300ETH
+ //    #define CONFIG_USING_EMU_PHY
+ //    #define __USING_EMU_PHY__
++    
++#if (CFG_GMAC0_PHY == EXTERNAL_PHY)
+     #define CONFIG_USING_RTL8211_PHY
+     #define __USING_RTL8211_PHY__
+-    #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x4U
++    #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
++    #define TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL 0x1U
++#else
++    #define CONFIG_USING_MYSTI110E_PHY
++    #define __USING_MYSTI110E_PHY__
++    #define TMFL_LIPP6100ETH_GMII_ADDRESS_CSR_VAL 0x1U
+     #define TMFL_LIPP6100ETH_GMII_PHY_ADDRESS_VAL 0x0U
++#endif
+     #define __NULL_PHY__
+  //   #define CONFIG_NET_RETRY_COUNT 50
+ 
+@@ -282,6 +291,7 @@
+ 	"Image=tftp 0x80008000 Image; go 0x80008000\0"			\
+ 	"zImage=tftp 0x80180000 zImage; go 0x80180000\0"		\
+ 	"uImage=tftp 0x80180000 uImage; bootm 0x80180000\0"		\
++	"autoload=n\0"		\
+ 	"uboot=tftp 0x80008000 u-boot.bin; go 0x80008000\0"		\
+ 	"norboot=nor read 0x8000 0x180000 0x400000; go 0x8000\0"	\
+ 	"bootcmd=run norboot;\0"
+@@ -317,7 +327,7 @@
+ 
+ #define	CONFIG_SYS_LONGHELP	/* undef to save memory */
+ #define	CONFIG_SYS_PROMPT	V_PROMPT
+-#define	CONFIG_SYS_CBSIZE	256	/* Console I/O Buffer Size */
++#define	CONFIG_SYS_CBSIZE	512	/* Console I/O Buffer Size */
+ /* Print Buffer Size */
+ #define	CONFIG_SYS_PBSIZE	(CONFIG_SYS_CBSIZE+sizeof(CONFIG_SYS_PROMPT)+16)
+ #define	CONFIG_SYS_MAXARGS	16	/* max number of command args */
+@@ -339,7 +349,7 @@
+ 
+ #define	CONFIG_SYS_PTV	V_PTV	/* 2^(pvt+1) */
+ #define	CONFIG_PERTIMER_CLOCK_HZ (CONFIG_SYS_PERICLK_FREQ)
+-#define	CONFIG_SYS_HZ		 1000
++#define	CONFIG_SYS_HZ		 1000000
+ 
+ /*-----------------------------------------------------------------------
+  * Stack sizes
+diff -Naur u-boot-2009.08/lib_arm/bootm.c u-boot-2009.08_new/lib_arm/bootm.c
+--- u-boot-2009.08/lib_arm/bootm.c	2010-02-08 02:05:45.000000000 -0600
++++ u-boot-2009.08_new/lib_arm/bootm.c	2010-02-08 01:03:46.000000000 -0600
+@@ -345,7 +345,12 @@
+       }
+ //      patch_addr +=cmdline_length;
+       if((u32 )tmp1 & 0x3)
++      {
+         patch_addr =  ((u32)tmp1 & ~(0x3)) + 4 ;
++        *tmp1++ = 0x0;
++        *tmp1++ = 0x0;
++        *tmp1++ = 0x0;
++       }
+       *patch_addr++ = 0x0;
+       *patch_addr++ = 0x0;
+       *patch_addr++ = 0x0;
+diff -Naur u-boot-2009.08/net/bootp.c u-boot-2009.08_new/net/bootp.c
+--- u-boot-2009.08/net/bootp.c	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08_new/net/bootp.c	2010-02-08 01:52:16.000000000 -0600
+@@ -343,6 +343,7 @@
+ static void
+ BootpTimeout(void)
+ {
++#if 0
+ 	if (BootpTry >= TIMEOUT_COUNT) {
+ 		puts ("\nRetry count exceeded; starting again\n");
+ 		NetStartAgain ();
+@@ -350,6 +351,7 @@
+ 		NetSetTimeout (TIMEOUT, BootpTimeout);
+ 		BootpRequest ();
+ 	}
++#endif
+ }
+ 
+ /*

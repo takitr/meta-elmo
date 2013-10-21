@@ -1,0 +1,17 @@
+diff --git a/drivers/mtd/nand/nx_nand_ip2070.c b/drivers/mtd/nand/nx_nand_ip2070.c
+old mode 100644
+new mode 100755
+index 357313b..684023f
+--- a/drivers/mtd/nand/nx_nand_ip2070.c
++++ b/drivers/mtd/nand/nx_nand_ip2070.c
+@@ -1124,8 +1124,8 @@ int board_nand_init(struct nand_chip *chip)
+     nx_nc->ctrl_base = (void __iomem *) KSEG1ADDR(PNX8XXX_EFM_BASE);
+ 
+ #ifdef  CONFIG_PNX84XX
+-    writel(0x02644448, (nx_nc->ctrl_base + DEV_TIMING0_OFFSET));
+-    writel(0x01008444, (nx_nc->ctrl_base + DEV_TIMING1_OFFSET));
++    writel(0x04131314, (nx_nc->ctrl_base + DEV_TIMING0_OFFSET));
++    writel(0x01003232, (nx_nc->ctrl_base + DEV_TIMING1_OFFSET));
+ #endif
+ 
+     /* Enable flow control for memory-to peripheral and peripheral-to-memory DMA*/

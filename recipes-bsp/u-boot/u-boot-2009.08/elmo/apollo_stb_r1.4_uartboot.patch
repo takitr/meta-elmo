@@ -1,0 +1,1074 @@
+diff -Naur u-boot-2009.08/common/cmd_uartboot.c u-boot-2009.08_uartboot/common/cmd_uartboot.c
+--- u-boot-2009.08/common/cmd_uartboot.c	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08_uartboot/common/cmd_uartboot.c	2010-06-09 17:11:13.000000000 -0500
+@@ -0,0 +1,46 @@
++#include <common.h>
++#include <asm/byteorder.h>
++#include "ldr_types.h"
++#include "stbcfg.h"
++
++extern ulong		NetBootFileXferSize;
++
++int do_uartboot(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[]);
++extern  retcode_t  download_from_uart(u32 length, u32 *length_read, u8 *dest);
++
++int do_uartboot(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
++{
++	u32 length=0, length_read, dest;
++	char *cmd, *s;
++	retcode_t ret;
++	
++	/* only one argument please */
++	if (argc > 1)
++		goto usage1;
++
++	cmd = argv[0];
++	if(strncmp(cmd, "uartboot", 8) == 0)
++	{
++		s = getenv ("loadaddr");
++		dest = (int)simple_strtol(s, NULL, 10);
++		ret = download_from_uart(length, &length_read, (u8 *)dest);
++		if(ret == RETCODE_OK)
++		{
++			NetBootFileXferSize  = length_read;
++			return 0;
++		}
++		else 
++			return 1;
++	}
++	else
++		goto usage1;
++usage1:
++	cmd_usage(cmdtp);
++	return 1;
++}
++
++U_BOOT_CMD(uartboot, CONFIG_SYS_MAXARGS, 1, do_uartboot,
++	"Serial sub-system",
++	"cmd usage - \n"	
++	"uartboot\n"	
++);
+\ No newline at end of file
+diff -Naur u-boot-2009.08/common/Makefile u-boot-2009.08_uartboot/common/Makefile
+--- u-boot-2009.08/common/Makefile	2010-06-09 17:22:14.000000000 -0500
++++ u-boot-2009.08_uartboot/common/Makefile	2010-06-09 15:48:39.000000000 -0500
+@@ -117,10 +117,11 @@
+ COBJS-$(CONFIG_CMD_MMC) += cmd_mmc.o
+ COBJS-$(CONFIG_MP) += cmd_mp.o
+ COBJS-$(CONFIG_CMD_MTDPARTS) += cmd_mtdparts.o
+-COBJS-y += cmd_nand.o
++COBJS-$(CONFIG_CMD_NAND) += cmd_nand.o
+ COBJS-$(CONFIG_CMD_NOR) += cmd_nor.o
+ COBJS-$(CONFIG_CMD_SFC) += cmd_sfc.o
+ COBJS-$(CONFIG_CMD_GCS) += cmd_gcs.o
++COBJS-$(CONFIG_CMD_UARTBOOT) += cmd_uartboot.o
+ COBJS-$(CONFIG_CMD_NET) += cmd_net.o
+ COBJS-$(CONFIG_CMD_ONENAND) += cmd_onenand.o
+ COBJS-$(CONFIG_CMD_OTP) += cmd_otp.o
+diff -Naur u-boot-2009.08/drivers/mtd/sfc/nx_sfc.c u-boot-2009.08_uartboot/drivers/mtd/sfc/nx_sfc.c
+--- u-boot-2009.08/drivers/mtd/sfc/nx_sfc.c	2010-06-09 17:22:14.000000000 -0500
++++ u-boot-2009.08_uartboot/drivers/mtd/sfc/nx_sfc.c	2010-06-09 14:06:55.000000000 -0500
+@@ -932,7 +932,7 @@
+ 		flash->mtd.erasesize = info->sector_size;
+ 	}
+ 	flash->mtd.writesize = info->sector_size / 1024;
+-//	printk(KERN_INFO "%s (%d Kbytes)\n", info->name, 	flash->mtd.size / 1024);
++	printk(KERN_INFO "%s (%Ld Kbytes)\n", info->name, flash->mtd.size / 1024);
+ 
+ 	MTDDEBUG(MTD_DEBUG_LEVEL2,
+ 		"mtd .name = %s, .size = 0x%.8Lx (%LuMiB) "
+diff -Naur u-boot-2009.08/drivers/serial/ns16550.c u-boot-2009.08_uartboot/drivers/serial/ns16550.c
+--- u-boot-2009.08/drivers/serial/ns16550.c	2010-06-09 17:22:13.000000000 -0500
++++ u-boot-2009.08_uartboot/drivers/serial/ns16550.c	2010-06-09 17:04:49.000000000 -0500
+@@ -115,8 +115,18 @@
+ {
+ 	/* To access THR,  set DLAB bit in LCR to 0 */
+ 	com_port->lcr &= ~((unsigned int)0x00000080);
++	return ((com_port->lsr & UART_LSR_DR) !=0);
+ 
+-	return ((com_port->lsr & UART_LSR_DR) != 0);
++}
++
++int NS16550_pollc (NS16550_t com_port)
++{
++	/* To access THR,  set DLAB bit in LCR to 0 */
++	com_port->lcr &= ~((unsigned int)0x00000080);
++	if ((com_port->lsr & UART_LSR_DR) == 1)
++		return (com_port->rbr);
++	else
++		return -1;
+ }
+ 
+ #endif /* CONFIG_NS16550_MIN_FUNCTIONS */
+diff -Naur u-boot-2009.08/drivers/serial/serial.c u-boot-2009.08_uartboot/drivers/serial/serial.c
+--- u-boot-2009.08/drivers/serial/serial.c	2010-06-09 17:22:13.000000000 -0500
++++ u-boot-2009.08_uartboot/drivers/serial/serial.c	2010-06-09 17:16:16.000000000 -0500
+@@ -121,8 +121,11 @@
+ 	eserial##port##_putc,\
+ 	eserial##port##_puts, }
+ 
++
+ #endif /* CONFIG_SERIAL_MULTI */
+ 
++extern int NS16550_pollc (NS16550_t com_port);
++
+ static int calc_divisor (NS16550_t port)
+ {
+ #ifdef CONFIG_OMAP1510
+@@ -229,6 +232,12 @@
+ 	return NS16550_tstc(PORT);
+ }
+ 
++int
++_serial_pollc(const int port)
++{
++	return NS16550_pollc(PORT);
++}
++
+ void
+ _serial_setbrg (const int port)
+ {
+@@ -292,6 +301,12 @@
+ {
+ 	return _serial_getc(CONFIG_CONS_INDEX);
+ }
++
++int
++serial_pollc(void)
++{
++	return _serial_pollc(CONFIG_CONS_INDEX);
++}
+ #endif
+ 
+ #if defined(CONFIG_SERIAL_MULTI)
+diff -Naur u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08_uartboot/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-06-09 17:22:14.000000000 -0500
++++ u-boot-2009.08_uartboot/include/configs/vpe_apollo.h	2010-06-09 15:50:03.000000000 -0500
+@@ -176,6 +176,7 @@
+     #define CONFIG_BOOTP_GATEWAY
+     #define CONFIG_BOOTP_DNS
+ 
++    #define CONFIG_CMD_UARTBOOT      /* UARTBOOT support      */
+     #define CONFIG_CMD_NFS      /* NFS support      */
+     #define CONFIG_CMD_NET      /* bootp, tftpboot, rarpboot    */
+     #undef  CONFIG_CMD_ONENAND  /* OneNAND support      */
+diff -Naur u-boot-2009.08/lib_arm/Makefile u-boot-2009.08_uartboot/lib_arm/Makefile
+--- u-boot-2009.08/lib_arm/Makefile	2010-06-09 17:22:14.000000000 -0500
++++ u-boot-2009.08_uartboot/lib_arm/Makefile	2010-06-09 15:05:45.000000000 -0500
+@@ -47,6 +47,7 @@
+ COBJS-y	+= flash.o
+ COBJS-y	+= dmac.o
+ COBJS-y	+= ip2070gcs.o
++COBJS-y	+= uartboot.o
+ 
+ CFLAGS += $(HOSTCFLAGS)
+ 
+diff -Naur u-boot-2009.08/lib_arm/uartboot.c u-boot-2009.08_uartboot/lib_arm/uartboot.c
+--- u-boot-2009.08/lib_arm/uartboot.c	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08_uartboot/lib_arm/uartboot.c	2010-06-09 17:09:20.000000000 -0500
+@@ -0,0 +1,905 @@
++/*
++#=======================================================================
++#        COPYRIGHT (c) NXP B.V. 2009
++#        All rights are reserved. Reproduction in whole or in part is
++#        prohibited without the written consent of the copyright owner.
++#         
++#        Author   : Har Yash Bahadur
++# 
++#        Filename : uartboot.c
++#
++#        Purpose  : Serial download
++#=======================================================================
++*/
++
++/******************/
++/* Include Files  */
++/******************/
++
++#include "ldr_types.h"
++#include "chip.h"
++#include <common.h>
++#include "stbcfg.h"
++#include <environment.h>
++
++
++#define     SOH           0x01
++#define     STX           0x02
++#define     ETX           0x03
++#define     EOT           0x04
++#define     ENQ           0x05
++#define     ACK           0x06
++#define     NAK           0x15
++#define     CAN           0x18
++#define     CRC           0x43
++#define     KCHR          'K'
++#define     LF            0x0A
++#define     CR            0x0D
++#define     SYN           0x16
++#define     ESC           0x1B
++
++#define MAX_FILENAME_LEN (128)
++#define MAX_FILELEN_LEN (128)
++
++#define YMODEM_HEADER_SUCCESS 0
++#define YMODEM_HEADER_HADERRORS 1
++
++#define YMODEM_CRC_ERROR 1
++
++#define YMODEM_PACKETRX_SUCCESS 0
++#define YMODEM_PACKETRX_HADERRORS 1
++#define YMODEM_PACKETRX_LAST 2
++#define YMODEM_PACKETRX_PKT_ERRORS 3
++
++#define YMODEM_DONE_SUCCESS 0
++#define YMODEM_DONE_ERROR 1
++#define MAX_ERR_COUNT 9
++
++#define CRC_MASK 0x8000
++#define CRC_XOR_MASK 0x1021
++
++#define BASE10   (10)
++#define ASCII_ENCODING_FOR_DEC_0      0x30
++#define ASCII_ENCODING_FOR_DEC_9      0x39
++#define ASCII_ENCODING_FOR_NULL_CHAR     (0)
++
++#define UART_RX_BUF_SIZE     1024
++#define MAX_BOOT_IMG_LEN    0x800000
++typedef struct _dnld_gv_table_
++{
++  u8        *membase;  /* uart membase  */
++  u32        uartclk;       /* base uart clock */
++  u32        uartrxerrors;     /* uart rx errors  */
++  int           packetcount;
++  int           totalpacketcount ;
++  u8        *pUartrxbuffer;  
++  u8         uartrxbuffer[UART_RX_BUF_SIZE];
++  int           yModemStartCounter;
++  int           yModemStart;
++}dnld_gv_table;
++
++dnld_gv_table dnld;
++
++void SerialWriteByte(u8 Byte);
++int SerialReadByte(int Timeout);
++/* UART */
++int YModemGetHeader(s8 *filename, s8 *filelen, u32 filename_len, u32 filelen_len );
++int YModemGetPacket(s8 *rxbuffer, u32 *packetsize);
++int YModemDone(void);
++int updateCRC(int c, int crc);
++void SerialPurge(void);
++int SerialGetLastError(void);
++retcode_t ProcessPacket(u8 *dest, u8 *rxbuffer, u32 packetsize)  ;
++retcode_t download_from_uart(u32 length, u32 *length_read, u8 *dest);
++int serial_pollc(void);
++
++
++/********************************************************************/
++/*  updateCRC                                                       */
++/*                                                                  */
++/*  PARAMETERS:                                                     */
++/*      c           an incoming byte                                */
++/*      crc         previous crc                                    */
++/*                                                                  */
++/*  DESCRIPTION:                                                    */
++/*      Calculates crc value based on newly received byte c         */
++/*                                                                  */
++/*  RETURNS:                                                        */
++/*      New crc value                                               */
++/********************************************************************/
++int updateCRC(int c, int crc)  {
++    register int i;
++    crc = crc ^ (int)c << 8;
++    for (i = 0; i < 8; ++i)  {
++        if (crc & CRC_MASK)
++        {
++            crc = (crc << 1) ^ CRC_XOR_MASK;  
++         }
++        else
++        {
++            crc = crc << 1;
++        }
++    }
++    
++    return(crc);
++}
++
++/********************************************************************/
++/*  YModemGetHeader                                                       */
++/*                                                                  */
++/*  PARAMETERS:                                                     */
++/*      filename         OUT-- ptr to array for storing filename  (it is not filled)         */
++/*      filelen             OUT-- ptr to array for storing filelen       */
++/*                                                                  */
++/*  DESCRIPTION:                                                    */
++/*      Establish protocol with the host          */
++/*                                                                  */
++/*  RETURNS:                                                        */
++/*     YMODEM_HEADER_SUCCESS,   YMODEM_HEADER_HADERRORS                   */
++/********************************************************************/
++
++int YModemGetHeader(s8 *filename, s8 *filelen, u32 filename_len, u32 filelen_len ){
++    int i = 0 ;
++    int j = 0 ;
++    int packetsize = 0;
++    int crc=0;
++    int  crc1=0;
++    int ch1= -1;   /* default invalid char */
++    int ch2= -1;   /* default invalid char */
++    int errorcount = 0;
++
++    
++
++  for (;;)  
++  {
++
++#ifndef EMULATION
++      dnld.yModemStart  = 1 ;
++#endif
++
++       for (i = 0, ch1 = -1; ((i < 10) && (ch1 == -1)); i++) 
++       {
++           SerialWriteByte(CRC);          /* Send 'C' for CRC mode Y-modem */
++           ch1 = SerialReadByte(10000);   /* Wait 5 seconds for a reply    */      
++       }
++
++#ifndef EMULATION
++     dnld.yModemStart  = 0 ;
++#endif
++     
++    if ((ch1 == SOH) || (ch1 == STX)) {
++        packetsize = (ch1 == SOH ? 128 : 1024);
++       
++        ch1 = SerialReadByte(5000);  
++        ch2 = SerialReadByte(5000);  
++        crc = 0;
++
++#ifdef UARTBOOT_NEGATIVE_TESTING    
++#ifdef UARTBOOT_NEGATIVE_TEST_YMODEM_HDR_HDR_ERROR
++  if ( errorcount == 0 ){
++    /* Insert impairment */
++    ch1 |= 0xAA ;
++    ch2 |= 0x55 ;
++    /* Eat up the header */
++    for ( i = 0 ; i < (packetsize+2) ; i++ )
++          ch2 = SerialReadByte(5000);        
++  }   
++#endif
++    
++#ifdef UARTBOOT_NEGATIVE_TEST_YMODEM_HDR_UNCORR_ERROR
++    /* Insert impairment */
++    ch1 |= 0xAA ;
++    ch2 |= 0x55 ;
++    /* Eat up the header */
++    for ( i = 0 ; i < (packetsize+2) ; i++ )
++          ch2 = SerialReadByte(5000);        
++#endif
++#endif
++        if ((ch1 == 0) && (ch2 == 0xff))  {
++          //  SerialWriteByte(CRC);
++            i = 0;
++            j = 0;
++            do {
++               ch1 = SerialReadByte(1000);  
++
++               if (ch1 == -1)  {
++                   SerialWriteByte(NAK);  
++                   break; // break out of do -while  
++               }
++               i++;
++               filename[j] =(s8)ch1;  
++               crc = updateCRC(ch1, crc);
++               ++j;
++            } while ((filename[j-1] != 0) && ((j-1) < filename_len)); 
++
++            /* added code here */
++            if (ch1 == -1)
++            {
++              continue;
++            }
++      
++            j = 0;
++            do {
++               ch1 = SerialReadByte(1000);  
++         
++#ifdef UARTBOOT_NEGATIVE_TESTING    
++#ifdef UARTBOOT_NEGATIVE_TEST_YMODEM_HDR_CRC_ERROR
++               if ( errorcount == 0 ){
++                 /* Insert impairment */
++                 ch1 |= 0xAA ;
++               }   
++#endif
++
++#ifdef UARTBOOT_NEGATIVE_TEST_YMODEM_HDR_LEN_ERROR
++               if ( errorcount == 0 ){
++                 /* Insert impairment */
++                 ch1 |= 0xAA ;
++               }   
++#endif
++#endif       
++               if (ch1 == -1) {
++                   SerialWriteByte(NAK);  
++                   break; // break out of do-while 
++               }
++               i++;
++               filelen[j] = (s8)ch1;
++               j++;
++               crc = updateCRC(ch1, crc);
++         } while(((ch1 != 0x20) && (ch1 != 0)) && j<filelen_len);  
++
++         /*  added code here */
++         if (ch1 == -1)
++         {
++           continue;
++         }
++
++         filelen[j-1] = 0;
++
++         while(i < packetsize)  {
++             ch1 = SerialReadByte(1000);  
++
++             if (ch1 == -1)  {
++                 SerialWriteByte(NAK);  
++                break; // break out of do-while 
++             }
++             i++;
++             crc = updateCRC(ch1, crc);
++         }
++
++         /* -- added code here */
++         if (ch1 == -1)
++         {
++           continue;
++         }
++
++
++         ch1 = SerialReadByte(1000);  
++         ch2 = SerialReadByte(1000); 
++         
++         crc1 = ch2 ;
++         crc1 |= ( ch1 << 8 ) ;
++
++         crc1 = crc1<<16 ;      
++         crc1 = crc1>>16 ;
++         crc = crc<<16 ;      
++         crc = crc>>16 ;
++
++        if ( crc == crc1 ) 
++        {
++              SerialWriteByte(ACK);  
++              SerialWriteByte(CRC);  
++         }
++#if 0 /* Added to take care of CRC error in header, currently commented */       
++       else { /* Added -- Makarand */
++            SerialWriteByte(CAN); 
++            SerialWriteByte(CAN); 
++        
++              if (!(GET_REG(OTP_FUNC_CTRL0_REG,OTP_FC0_SSP_CODE_DBG_DIS)))
++              {
++                  SET_REG((SSP_DBG_REG(SSP_DBG_GENERAL)), (BOOTCODE_YMODEM_HDR_CRC_ERROR), (BOOTCODE_YMODEM_HDR_CRC_ERROR));
++              }       
++          return YMODEM_CRC_ERROR;        
++       }
++#endif       
++        } else {
++            SerialPurge();
++            SerialWriteByte(NAK);  
++            errorcount++;
++            if (errorcount > 9) 
++               return(YMODEM_HEADER_HADERRORS);
++            continue;
++          }
++         
++    } else {    
++        SerialPurge();
++    //    SerialWriteByte(NAK);  
++        continue;
++    }
++        
++    return YMODEM_HEADER_SUCCESS;
++  } // end of for (;;)
++}
++
++
++/********************************************************************/
++/*  YModemGetPacket                                                       */
++/*                                                                  */
++/*  PARAMETERS:                                                     */
++/*      rxbuffer         IN/OUT-- ptr to array for storing data received from UART       */
++/*      packetsize     OUT-- ptr to variable storing length of pkt received   */
++/*                                                                  */
++/*  DESCRIPTION:                                                    */
++/*      Obtain the pakcet from the host         */
++/*                                                                  */
++/*  RETURNS:                                                        */
++/*    #define YMODEM_PACKETRX_SUCCESS 0           */
++/*    #define YMODEM_PACKETRX_HADERRORS 1        */
++/*    #define YMODEM_PACKETRX_LAST 2                 */
++/********************************************************************/
++int YModemGetPacket(s8 *rxbuffer, u32 *packetsize) 
++{
++    int i;
++    int j;
++    int crc=0;
++    int  crc1=0;  
++    int ch1;
++    int ch2;
++    int errorcount = 0;
++    int restart=0;
++
++  /* Correct Packer Retransmit handling - Makarand */
++  int retxmit = 0 ;
++
++    *packetsize = 0;
++        
++for (;;)
++{
++    restart = 0;
++    for (j = 0; j < 10; j++) {
++        ch1 = SerialReadByte(5000);  
++    
++        if ((ch1 == STX) || (ch1 == SOH) || (ch1 == EOT)) {
++            break;
++        } else {
++            if (errorcount > 0)  {
++                SerialPurge();
++                SerialWriteByte(( dnld.totalpacketcount == 0 ? CRC : NAK));  
++                   if (j == 9) 
++                   {
++                       return(YMODEM_PACKETRX_HADERRORS);
++                   }
++            }
++        }
++    }
++
++    if (ch1 == STX)  {
++        *packetsize = 1024;
++    } else if (ch1 == SOH)  {
++        *packetsize = 128;
++    } else if (ch1 == EOT) {
++
++    /* Added Makarand */
++        SerialWriteByte(ACK);  
++        SerialWriteByte(CRC);
++    
++        /* End of transmission received. Reset the local static variables used.*/
++         dnld.packetcount= 1;
++         dnld.totalpacketcount = 0;
++        return(YMODEM_PACKETRX_LAST);
++    }
++
++    /* If *packetsize is still 0, we could not figure the sender out. */
++    if (*packetsize == 0)  
++    {
++        return(YMODEM_PACKETRX_HADERRORS);
++    }
++
++    /* If we have a *packetsize then we already received the SOH or STX.  
++         Get the packet number. */
++
++    ch1 = SerialReadByte(1000);  
++    ch2 = SerialReadByte(1000);  
++
++#ifdef UARTBOOT_NEGATIVE_TESTING    
++#ifdef UARTBOOT_NEGATIVE_TEST_YMODEM_PKT_HDR_ERROR
++    /* Insert curruption */
++    ch2 = 0xFF ;
++#endif
++#endif
++
++    /* Correct Packer Retransmit handling - Makarand */
++      if ( (ch1 & 0xff) == ((s8)(dnld.packetcount) - 1) ){
++        dnld.packetcount-- ;
++      retxmit = 1 ;
++      }
++
++        while (errorcount < 10) {
++        /* If packetnumbers jive then get the payload. */
++        if (((s8)(ch1 & 0xff) == (s8)dnld.packetcount) && ((s8)(ch2 & 0xff) == (s8)(255 - dnld.packetcount)))  {
++            for (i = 0; i < *packetsize; i++) {
++                ch1 = SerialReadByte(1000);  
++          
++                if (SerialGetLastError() >= 2) {
++                    SerialPurge();
++                    SerialWriteByte(NAK);  
++                    crc = 0;
++                    errorcount++;
++                    restart = 1;
++                    break;
++                } 
++                
++                if (ch1 == -1)  {
++                    /* timed out mid stream.  send nack and try again. */
++                    SerialWriteByte(NAK);  
++                    crc = 0;
++                    errorcount++;
++                    restart = 1;
++                    break;
++                } else {
++                    rxbuffer[i] =(s8) ch1;
++                    crc = updateCRC(ch1, crc);
++                }
++            } /* for */
++
++            if (1 == restart)
++            {
++                break;
++            }
++
++            ch1 = SerialReadByte(1000); 
++            ch2 = SerialReadByte(1000);  
++
++#ifdef UARTBOOT_NEGATIVE_TESTING    
++#ifdef UARTBOOT_NEGATIVE_TEST_YMODEM_PKT_CRC_ERROR
++    /* Insert curruption */
++    ch1 |= 0xAA ;
++    ch2 |= 0x55 ;
++#endif
++
++#ifdef UARTBOOT_NEGATIVE_TEST_YMODEM_PKT_ERROR
++    /* Insert curruption */
++    ch1 |= 0xAA ;
++    ch2 |= 0x55 ;
++#endif
++#endif
++
++          crc1 = ch2 ;
++          crc1 |= ( ch1 << 8 ) ;
++
++          crc1 = crc1<<16 ;      
++          crc1 = crc1>>16 ;
++          crc = crc<<16 ;      
++          crc = crc>>16 ;
++
++          if ( crc == crc1 )  {
++              SerialWriteByte(ACK);  
++              dnld.totalpacketcount++;
++              dnld.packetcount++;
++
++             /* Correct Packer Retransmit handling - Makarand */
++               if ( retxmit == 1 ){
++               *packetsize = 0 ;
++               retxmit = 0 ;
++               }
++
++                if ( dnld.packetcount> 255)  
++                {
++                   dnld.packetcount= 0;
++                }
++                return(YMODEM_PACKETRX_SUCCESS);
++            } else {
++                SerialPurge();
++                SerialWriteByte(NAK);  
++                crc = 0;
++                errorcount++;
++                restart = 1;
++                break;
++            }
++        }
++        errorcount++; 
++    }
++    
++    if (1 == restart)
++    {
++             continue;
++    }
++
++    /* Errorcount exceeded 10. */
++    SerialWriteByte(CAN);  
++    SerialWriteByte(CAN);  
++    return(YMODEM_PACKETRX_PKT_ERRORS); /* Changed -- Makarand */
++   }
++   
++}
++    
++
++/********************************************************************/
++/*  YModemDone                                                       */
++/*                                                                  */
++/*  PARAMETERS:                                                     */
++/*             None   */
++/*                                                                  */
++/*  DESCRIPTION:                                                    */
++/*      Dis-engage  with the host          */
++/*                                                                  */
++/*  RETURNS:                                                        */
++/*     YMODEM_DONE_SUCCESS,   YMODEM_DONE_ERROR                   */
++/********************************************************************/    
++int YModemDone(void) {
++    int ch1;
++    int ch2;
++    int crc,  crc1 ;  
++    int errorcount = 0;
++    int i=0;
++    int packetsize=0;
++
++    crc = 0 ;
++    crc1 = 0 ;
++
++    while (MAX_ERR_COUNT > errorcount)
++    {
++        ch1 = SerialReadByte(1000);  
++        if (ch1 == SOH  || ch1 == STX)  {
++            packetsize = (ch1 == SOH ? 128 : 1024);
++            ch1 = SerialReadByte(1000);  
++            ch2 = SerialReadByte(1000);  
++#ifdef UARTBOOT_NEGATIVE_TESTING    
++#ifdef UARTBOOT_NEGATIVE_TEST_YMODEM_DONE_HDR_ERROR
++    /* Insert curruption */
++    ch1 |= 0xFF ;
++    ch2 |= 0x00 ;
++    /* Eat up the header */
++    for ( i = 0 ; i < (packetsize+2) ; i++ )
++          ch2 = SerialReadByte(5000);        
++#endif
++#endif      
++            if ((ch1 == 0) && (ch2 == 0xff))  {
++                crc = 0;
++                for (i = 0; i < packetsize; i++) {
++                    ch1 = SerialReadByte(1000);  
++                    if (ch1 == -1)  
++                    {
++                        /* at this point we have everything we need... 
++                                  just make the other side cancel */
++                        SerialWriteByte(CAN);
++                        SerialWriteByte(CAN);
++
++                        SerialPurge();
++                        return YMODEM_DONE_SUCCESS;
++                    }
++                    crc = updateCRC(ch1, crc);
++                }
++                ch1 = SerialReadByte(1000);  
++                ch2 = SerialReadByte(1000);  
++
++#ifdef UARTBOOT_NEGATIVE_TESTING    
++#ifdef UARTBOOT_NEGATIVE_TEST_YMODEM_DONE_CRC_ERROR
++               /* Insert curruption */
++                ch1 |= 0xAA ;
++                ch2 |= 0x55 ;
++#endif
++#endif
++
++                 crc1 = ch2 ;
++                 crc1 |= ( ch1 << 8 ) ;
++
++                 crc1 = crc1<<16 ;      
++                 crc1 = crc1>>16 ;
++                 crc = crc<<16 ;      
++                 crc = crc>>16 ;
++
++                 if ( crc == crc1 )  {
++                          SerialWriteByte(ACK); 
++                  return(YMODEM_DONE_SUCCESS);        
++                 }
++                 else  /* Bad CRC */
++                 {
++                         errorcount++;
++                         SerialWriteByte(NAK);                      
++                 }
++          }
++          else {
++            
++               errorcount++;
++          }
++             }
++          else {
++           
++               errorcount++;
++          }
++    }
++    return(YMODEM_DONE_SUCCESS);
++}
++
++/********************************************************************/
++/*  ProcessPacket                                                       */
++/*                                                                  */
++/*  PARAMETERS:                                                     */
++/*             dest             -- ptr to dest memory   */
++/*             rxbuffer         -- ptr to src memory               */
++/*             packetsize     -- length of pkt to be copied in bytes   */
++/*                                                                  */
++/*  DESCRIPTION:                                                    */
++/*      Copy the packet from IRAM to MRAM       */
++/*                                                                  */
++/*  RETURNS:                                                        */
++/*     RETCODE_BAD_PARAMETER,   RETCODE_OK                   */
++/********************************************************************/    
++
++retcode_t ProcessPacket(u8 *dest, u8 *rxbuffer, u32 packetsize)  
++{
++
++  u32 *dest_tmp, *rxbuffer_tmp ;
++
++  /*make sure there is no overflow */
++ /* Paranoid-- this check is already done before invoking ProcessPkt fn */
++  if (packetsize > UART_RX_BUF_SIZE)
++  {
++     return RETCODE_BAD_PARAMETER; 
++  }
++
++  dest_tmp = (u32*)dest ;
++  rxbuffer_tmp = (u32*)rxbuffer ;
++
++    while (packetsize)
++    {
++      *dest_tmp++ = *rxbuffer_tmp++; 
++    packetsize -= 4 ;
++    }
++
++    return RETCODE_OK;
++}
++
++/********************************************************************/
++/*  download_from_uart                                                       */
++/*                                                                  */
++/*  PARAMETERS:                                                     */
++/*             dest             -- ptr to dest memory   */
++/*             length          -- not used              */
++/*             length_read     -- length of image read from UART port    */
++/*                                                                  */
++/*  DESCRIPTION:                                                    */
++/*        Inits the serial port and downloads boot image from serial port     */
++/*                                                                  */
++/*  RETURNS:                                                        */
++/*     RETCODE_OK                                                  */
++/*     RETCODE_BAD_PARAMETER                                */
++/*     RETCODE_YMODEM_HDR_ERROR                                                            */
++/*     RETCODE_YMODEM_PKT_ERROR                                                            */
++/*     RETCODE_YMODEM_DONE_ERROR                                                          */
++/********************************************************************/    
++retcode_t download_from_uart(u32 length, u32 *length_read, u8 *dest)
++{
++   s8 filename[MAX_FILENAME_LEN];  /* it is filled by ymodem_get_header fn, but it is not used by us */
++   u8 filelen[MAX_FILELEN_LEN];  /* it is filled by ymodem_get_header fn */
++   int  ret=RETCODE_FAILED;
++   int  status = 0;
++  u32  packetsize=0;
++   u8 * pdest = dest;  /* Should be SYS_MRAM_BASE = 0xFFFF0000 */
++   retcode_t pktret=RETCODE_BAD_PARAMETER;
++   u32  count=0;
++//   int len_exceeded_64k_flag = FALSE;
++   int file_len_count = 0;
++   int invalid_len_ascii_code = FALSE;
++   int filelenval = 0;
++   int decval = 0;
++   int mult10 = 1;
++
++
++   /* Init the length_read  OUT param to zero */
++   *length_read = 0;
++
++   /* Init the local array for storing filename */
++   for (count=0; count<MAX_FILENAME_LEN; count++)
++   {
++       filename[count] = 0;
++   }
++  
++   /* Init the local array for storing file length */
++   for (count=0; count<MAX_FILELEN_LEN; count++)
++   {
++       filelen[count] = 0;
++   }
++
++   if (YModemGetHeader(filename, (s8*)filelen, MAX_FILENAME_LEN, MAX_FILELEN_LEN))  
++   {
++        return RETCODE_YMODEM_HDR_ERROR;  
++   }
++   
++   /*  ASCII Table
++    ASCII decimal code                  numeric val
++       48                                    0
++       49                                    1
++       50                                    2
++    ...
++    ...
++       57                                    9
++ 
++   */
++
++   if (filelen[0]  != ASCII_ENCODING_FOR_NULL_CHAR)  /* first byte is not NULL => valid length is being sent, so process it, otherwise ignore it and start getting pkts   */
++   {
++    /* if 5th byte is not NULL then len > 64K, it means length larger than 64K, so abort */
++   /*  if (filelen[5] != ASCII_ENCODING_FOR_NULL_CHAR ) 
++     {
++        len_exceeded_64k_flag = TRUE;
++     }
++     else 
++  */
++     {
++         for (file_len_count = 0; file_len_count < MAX_FILELEN_LEN; file_len_count++)
++         {
++           if ( filelen[file_len_count] == 0 ) {
++             break ;
++           }
++           if ((filelen[file_len_count] < ASCII_ENCODING_FOR_DEC_0)  || \
++                        (filelen[file_len_count] > ASCII_ENCODING_FOR_DEC_9))
++           {
++               invalid_len_ascii_code = TRUE;
++               break;
++           }
++ 
++           
++           filelen[file_len_count] = (u8)(filelen[file_len_count] - ASCII_ENCODING_FOR_DEC_0) ;
++         }
++          
++         file_len_count -= 1 ;
++         for ( ; file_len_count >= 0 ; file_len_count-- ) {
++           decval = filelen[file_len_count] * mult10 ;
++                 filelenval += decval;   /* Add to filelen */
++                 mult10 *= BASE10;  /* update mult10 for next iteration */
++         }
++     
++     }
++  
++#ifdef EMULATION  /* Allowes flexibility of input file length while testing */
++    length = (u32)filelenval ;
++#endif
++
++#ifdef UARTBOOT_NEGATIVE_TESTING    
++#ifdef UARTBOOT_NEGATIVE_TEST_YMODEM_LARGE_PKT_ERROR
++    /* Insert curruption */
++    length = filelenval ;
++#endif
++
++#endif
++#if 0
++    if ((filelenval > SYS_MRAM_SIZE)  || (filelenval != length) || (len_exceeded_64k_flag) || (invalid_len_ascii_code))
++      {
++          SerialWriteByte(CAN); 
++          SerialWriteByte(CAN); 
++          return RETCODE_YMODEM_HDR_ERROR;  /* The len param in header is out of bound or not decoded properly */
++      }
++#endif    
++   }
++  
++   status = YMODEM_PACKETRX_SUCCESS;
++   /* First Packet received was the Header Packet. So initialize the Packet count to 1. */
++   dnld.packetcount= 1;
++   while ((status == YMODEM_PACKETRX_SUCCESS) && (*length_read <= length)) 
++   {
++      status = YModemGetPacket((s8*)(dnld.uartrxbuffer), &packetsize); 
++
++      switch (status) 
++      {
++          case YMODEM_PACKETRX_SUCCESS:
++
++              /* if status == 0 the packet was received successfully */
++              if (packetsize <= UART_RX_BUF_SIZE && (*length_read <= (MAX_BOOT_IMG_LEN - packetsize)))
++              {
++                 pktret = ProcessPacket(pdest,  dnld.pUartrxbuffer, packetsize);
++                 if (RETCODE_OK == pktret)
++                 {
++                    *length_read += packetsize;
++                     pdest += packetsize;  
++                     /* Check your length read here, if (*length_read > length) then bail out; do a CAN CAN  */
++                     if (*length_read > length)
++                     {
++#ifndef PADDED_IMAGE_ONLY /* non padded Packet handling  */
++                        if (packetsize == 1024) {
++                          if ((*length_read - length) > 1023) {
++                                        SerialWriteByte(CAN); 
++                                        SerialWriteByte(CAN); 
++                                        return RETCODE_YMODEM_PKT_ERROR;
++                          } else
++                            length = *length_read ;
++                        } else if (packetsize == 128) {
++                             if ((*length_read - length) > 127) {
++                                           SerialWriteByte(CAN); 
++                                           SerialWriteByte(CAN); 
++                                           return RETCODE_YMODEM_PKT_ERROR;
++                             } else
++                               length = *length_read ;
++                        }
++#else
++                        SerialWriteByte(CAN); 
++                        SerialWriteByte(CAN);
++                        return RETCODE_YMODEM_PKT_ERROR;
++#endif            
++                     }
++                 }
++                 else 
++                 {
++                    /* Paranoid-- we will not come here as packetsize chec is already done before invoking ProcessPkt fn */
++                    return RETCODE_YMODEM_PKT_ERROR; // If pkt>1K we cannot handle it
++                 }
++              }
++              else   
++              {
++                 return RETCODE_YMODEM_PKT_ERROR; // If pkt>1K we cannot handle it
++              }
++
++              break;
++
++          case YMODEM_PACKETRX_HADERRORS:
++              /* If status == 1 getpacket encountered 10  transfer errors
++                Give up and return 0 */
++              return RETCODE_YMODEM_PKT_ERROR;              
++
++          case YMODEM_PACKETRX_LAST:
++              /* status == 2 when the last packet has been received. */
++              ret = YModemDone(); 
++              break;
++
++          case YMODEM_PACKETRX_PKT_ERRORS: 
++              return RETCODE_YMODEM_PKT_ERROR;   
++        
++          default:
++              /* we should not come here */
++              return RETCODE_YMODEM_PKT_ERROR;
++      }
++   }
++
++   if (*length_read > length || *length_read < length)
++   {
++       /* We should not come here, as this case is already handle above in get packet case of the switch */
++#ifdef EMULATION
++          SerialWriteByte(0xB1);        
++#endif
++
++       return RETCODE_YMODEM_PKT_ERROR;
++   }
++   else if (YMODEM_DONE_ERROR == ret)
++   {
++       return RETCODE_YMODEM_DONE_ERROR;
++   }
++   else
++   {
++     /* YModemDone returned correctly */
++     /* Returning successfully from uart boot */
++     return RETCODE_OK;
++   }
++}
++
++int SerialReadByte(int Timeout)
++{
++	int timecounter=0;
++	int ch=-1;
++	do{
++		ch = serial_pollc();
++		if(ch >=0)
++			return ch;
++     		timecounter++;
++    	}while(timecounter< Timeout ); 
++	return ch;
++}
++
++void SerialWriteByte(u8 Byte)
++{
++	serial_putc_raw((const char) Byte);
++}
++
++void SerialPurge(void)
++{
++
++}
++int SerialGetLastError(void)
++{
++	return 0;
++}
++
++/****************************************************************************
++ * Modifications:
++ * $Log$
++ ****************************************************************************/
++

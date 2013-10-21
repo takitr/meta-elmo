@@ -1,0 +1,1201 @@
+diff -Naur u-boot-2009.08.orig/board/nxp/common/Makefile u-boot-2009.08/board/nxp/common/Makefile
+--- u-boot-2009.08.orig/board/nxp/common/Makefile	2010-11-17 14:38:56.618203545 -0600
++++ u-boot-2009.08/board/nxp/common/Makefile	2010-11-17 14:40:14.033952162 -0600
+@@ -31,6 +31,7 @@
+ 
+ COBJS-$(CONFIG_PNX84XX) += power.o
+ COBJS-$(CONFIG_PNX8492) += power.o
++COBJS-$(CONFIG_TRIDENT_KAL) += kal.o
+ 
+ COBJS	:= $(COBJS-y)
+ SRCS	:= $(COBJS:.o=.c)
+diff -Naur u-boot-2009.08.orig/board/nxp/common/kal.c u-boot-2009.08/board/nxp/common/kal.c
+--- u-boot-2009.08.orig/board/nxp/common/kal.c	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08/board/nxp/common/kal.c	2010-11-17 14:47:01.325473380 -0600
+@@ -0,0 +1,703 @@
++/****************************************************************************/
++/*                   TRIDENT PROPRIETARY AND CONFIDENTIAL                   */
++/*                       SOFTWARE FILE/MODULE HEADER                        */
++/*                    Conexant Systems Inc. (c) 2010                        */
++/*                               Austin, TX                                 */
++/*                            All Rights Reserved                           */
++/****************************************************************************/
++/*
++ * Filename:       kal.c
++ *
++ *
++ * Description:    KAL functions for u-boot
++ *
++ *
++ ****************************************************************************/
++
++#include <common.h>
++#include <asm/cache.h>
++#include "kal.h"
++
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_initialize                                           */
++/*                                                                            */
++/*  DESCRIPTION: This function initializes the KAL for CNXT.                   */
++/*                                                                            */
++/*  INPUTS:                                                                   */
++/*                                                                            */
++/*  OUTPUTS:     None.                                                        */
++/*                                                                            */
++/*  RETURNS:     CNXT_STATUS_                                                  */
++/*                  OK             - Success.                                 */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*                                                                            */
++/*  CONTEXT:     This function must be called from non-interrupt context.     */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_initialize(void)
++{
++    return CNXT_STATUS_OK;
++}
++
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_flush_i_cache                                       */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Flush the CPU instruction cache.                                       */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     None.                                                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None.                                                                  */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK             - Success.                                  */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     None                                                                   */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_flush_i_cache(void)
++{
++    cache_flush();
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_disable_i_cache                                     */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Disable the CPU instruction cache.                                     */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     None.                                                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None.                                                                  */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK             - Success.                                  */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     None                                                                   */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_disable_i_cache(void)
++{
++    icache_disable();
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_enable_i_cache                                      */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Enable the CPU instruction cache.                                      */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     None.                                                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None.                                                                  */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK             - Success.                                  */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     None                                                                   */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_enable_i_cache(void)
++{
++    icache_enable();
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_clean_d_cache                                       */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Clean the CPU data cache.                                              */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     None.                                                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None.                                                                  */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK             - Success.                                  */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     None                                                                   */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_clean_d_cache(void)
++{
++    cache_flush();
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_flush_d_cache                                       */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Flush the CPU data cache.                                              */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     None.                                                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None.                                                                  */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK             - Success.                                  */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     None                                                                   */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_flush_d_cache(void)
++{
++    cache_flush();
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_disable_d_cache                                     */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Disable the CPU data cache.                                            */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     None.                                                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None.                                                                  */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK             - Success.                                  */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     None                                                                   */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_disable_d_cache(void)
++{
++    dcache_disable();
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_enable_d_cache                                      */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Enable the CPU data cache.                                             */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     None.                                                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None.                                                                  */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK             - Success.                                  */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     None                                                                   */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_enable_d_cache(void)
++{
++    dcache_enable();
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_clean_and_inval_d_cache_range                       */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Ensure that cached data destined for a particular physical address     */
++/*     is written from the cache to physical memory and that cache lines      */
++/*     holding this data are invalidated to ensure that system memory is      */
++/*     accessed next time the CPU addresses that block.                       */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     pBase - Pointer to region to invalidate.                               */
++/*     uSize - Size of region to invalidate.                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None.                                                                  */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK             - Success.                                  */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     This function is used when sharing a block of cached memory between    */
++/*     the CPU and a hardware unit such as GXA or DMA. Whenever control of    */
++/*     the memory is passed between the CPU and the hardware unit, this       */
++/*     function should be called to ensure that there are no unwritten values */
++/*     in the cache for the block and also to force the CPU to read system    */
++/*     memory when it next accesses the block. This prevents problems caused  */
++/*     by unwritten data in the cache not being seen by the hardware engine   */
++/*     or stale values in the cache being read by the CPU after the hardware  */
++/*     has changed some values in system memory.                              */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_clean_and_inval_d_cache_range(
++               void    *pBase,
++               u_int32 uSize)
++{
++    invalidate_dcache_range((ulong)pBase, ((ulong)pBase + uSize));
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_inval_d_cache_range                                 */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Ensure that all data in an address range are read from main memory     */
++/*     instead of possibly stale data cache lines.                            */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     pBase - Pointer to region to invalidate.                               */
++/*     uSize - Size of region to invalidate.                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None.                                                                  */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK             - Success.                                  */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     This function is used when sharing a block of cached memory between    */
++/*     the CPU and a hardware unit such as GXA or DMA. Whenever control of    */
++/*     the memory is passed from the hardware unit to the CPU, this           */
++/*     function should be called to ensure that the CPU reads system memory   */
++/*     when it next accesses the block. This prevents problems caused by      */
++/*     stale values in the cache being read by the CPU after the hardware has */
++/*     changed some values in system memory.                                  */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_inval_d_cache_range(
++               void    *pBase,
++               u_int32 uSize)
++{
++    invalidate_dcache_range((ulong)pBase, ((ulong)pBase + uSize));
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_clean_invalidate_d_cache                           */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Clean and Invalidate the CPU data cache.                               */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     None.                                                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None.                                                                  */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK             - Success.                                  */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     None                                                                   */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_clean_invalidate_d_cache(void)
++{
++    cache_flush();
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_memcpy                                              */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Copy a block of bytes from one location in memory to another           */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     pSrc       - Pointer to the first byte to be copied                    */
++/*     uSize      - Number of bytes to be copied                              */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     pDest      - Pointer to the buffer into which bytes will be copied.    */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK          - Success                                      */
++/*     CNXT_STATUS_BAD_PARAMETER  - A parameter was invalid (NULL)            */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     This is a simple wrapper over the similarly-named C-runtime function.  */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_memcpy( void *pDest,
++                             const void *pSrc,
++                             u_int32 uSize)
++{
++    memcpy(pDest, pSrc, uSize);
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_memcmp                                              */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Compare the contents of two memory buffers.                            */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     p1         - Pointer to the first buffer                               */
++/*     p2         - Pointer to the second buffer                              */
++/*     uSize      - Number of bytes to compare                                */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     pComparison - Pointer to storage for the value returned by the         */
++/*                   comparison. 0 indicates that the buffer contents are     */
++/*                   the same.                                                */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK          - Success                                      */
++/*     CNXT_STATUS_BAD_PARAMETER  - A parameter was invalid (NULL)            */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     This is a simple wrapper over the similarly-named C-runtime function.  */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_memcmp( const void *p1,
++                             const void *p2,
++                             u_int32 uSize,
++                             int32 *pComparison )
++{
++    *pComparison = (int32)memcmp(p1, p2, uSize);
++
++    return CNXT_STATUS_OK;
++}
++
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_memset                                              */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Fill a block of memory with a given byte value.                        */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     p1         - Pointer to the memory to be filled.                       */
++/*     uVal       - The byte value to fill the memory with                    */
++/*     uSize      - Number of bytes to write                                  */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     None                                                                   */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK          - Success                                      */
++/*     CNXT_STATUS_BAD_PARAMETER  - A parameter was invalid (NULL)            */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     This is a simple wrapper over the similarly-named C-runtime function.  */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_memset( void *p1,
++                             u_int8 uVal,
++                             u_int32 uSize)
++{
++    memset(p1, uVal, uSize);
++
++    return CNXT_STATUS_OK;
++}
++
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_strlen                                              */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Calculate the length of a zero-terminated ASCII string.                */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     pszString  - Pointer to the string whose length is being queried.      */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     pSize      - The number of ASCII characters in the string.             */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK          - Success                                      */
++/*     CNXT_STATUS_BAD_PARAMETER  - A parameter was invalid (NULL)            */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     This is a simple wrapper over the similarly-named C-runtime function.  */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_strlen( const char *pszString,
++                             u_int32 *pSize)
++{
++    *pSize = strlen(pszString);
++
++    return CNXT_STATUS_OK;
++}
++
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_strcpy                                              */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Copy an ASCII string from one buffer into another.                     */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     pszSrc     - Pointer to the string to be copied.                       */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     pszDest    - Pointer to the buffer into which the string will be       */
++/*                  copied.                                                   */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK          - Success                                      */
++/*     CNXT_STATUS_BAD_PARAMETER  - A parameter was invalid (NULL)            */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     This is a simple wrapper over the similarly-named C-runtime function.  */
++/*                                                                            */
++/*     The copy operation ends when a NULL character is found in the source   */
++/*     string. The client must ensure that the buffer pointed to by pszDest   */
++/*     is large enough to hold all the characters of pszSrc or memory         */
++/*     corruption will occur.                                                 */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_strcpy( char *pszDest,
++                             const char *pszSrc)
++{
++    strcpy((char *)pszSrc, pszDest);
++
++    return CNXT_STATUS_OK;
++}
++
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_strncpy                                             */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Copy an ASCII string from one buffer into another, stopping the copy   */
++/*     either when the destination buffer is full or a NULL character is      */
++/*     reached in the source string.                                          */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     pszSrc     - Pointer to the string to be copied.                       */
++/*     uSize      - The size of the buffer pointed to by pszDest              */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     pszDest    - Pointer to the buffer into which the string will be       */
++/*                  copied.                                                   */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK         - Success                                       */
++/*     CNXT_STATUS_BAD_PARAMETER  - A parameter was invalid (NULL)            */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     This is a simple wrapper over the similarly-named C-runtime function.  */
++/*                                                                            */
++/*     If the copy operation ends before the destination has been filled,     */
++/*     the remaining bytes in the destination will be written to 0.           */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_strncpy(char *pszDest,
++                             const char *pszSrc,
++                             u_int32 uSize)
++{
++    strncpy(pszDest, pszSrc, uSize);
++
++    return CNXT_STATUS_OK;
++}
++
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_strcmp                                              */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Compare the contents of two NULL terminated ASCII strings.             */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     pszStr1    - Pointer to the first string                               */
++/*     pszStr2    - Pointer to the second string                              */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     pComparison - Pointer to storage for the value returned by the         */
++/*                   comparison. 0 indicates that the strings are identical.  */
++/*                   A positive value indicates that pszStr1 is lexically     */
++/*                   greater than pszStr2 and a negative value that pszStr2   */
++/*                   is lexically greater than pszStr1.                       */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK          - Success                                      */
++/*     CNXT_STATUS_BAD_PARAMETER  - A parameter was invalid (NULL)            */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     This is a simple wrapper over the similarly-named C-runtime function.  */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_strcmp( const char *pszStr1,
++                             const char *pszStr2,
++                             int32 *pComparison )
++{
++    *pComparison = strcmp(pszStr1, pszStr2);
++
++    return CNXT_STATUS_OK;
++}
++
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_strncmp                                             */
++/*                                                                            */
++/*  DESCRIPTION:                                                              */
++/*     Compare the first uSize characters of two NULL terminated ASCII        */
++/*     strings.                                                               */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*     pszStr1    - Pointer to the first string                               */
++/*     pszStr2    - Pointer to the second string                              */
++/*     uSize      - The number of characters to compare.                      */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*     pComparison - Pointer to storage for the value returned by the         */
++/*                   comparison. 0 indicates that the strings are identical.  */
++/*                   A positive value indicates that pszStr1 is lexically     */
++/*                   greater than pszStr2 and a negative value that pszStr2   */
++/*                   is lexically greater than pszStr1.                       */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*     CNXT_STATUS_OK          - Success                                      */
++/*     CNXT_STATUS_BAD_PARAMETER  - A parameter was invalid (NULL)            */
++/*                                                                            */
++/*  NOTES:                                                                    */
++/*     This is a simple wrapper over the similarly-named C-runtime function.  */
++/*                                                                            */
++/*     The comparison ends either when uSize characters have been compared    */
++/*     or when a NULL character is found in either string.                    */
++/*                                                                            */
++/*  CONTEXT:                                                                  */
++/*     This function may be called from any context                           */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_strncmp(const char *pszStr1,
++                             const char *pszStr2,
++                             u_int32 uSize,
++                             int32 *pComparison )
++{
++    *pComparison = strncmp(pszStr1, pszStr2, uSize);
++
++    return CNXT_STATUS_OK;
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_fatal_exit_internal                                 */
++/*                                                                            */
++/*  DESCRIPTION: This function reports a fatal error then terminate the       */
++/*               application, jumping into a console debugger or rebooting the*/
++/*               hardware as appropriate                                      */
++/*                                                                            */
++/*  INPUTS:      uCosmicConstant - An arbitrary number possibly indicating    */
++/*                                 the source of the failure.                 */
++/*               pszFilename - File name where fatal exit occurred.           */
++/*               iLineNum - Line number where fatal exit occurred.            */
++/*                                                                            */
++/*  OUTPUTS:     None.                                                        */
++/*                                                                            */
++/*  RETURNS:     CNXT_KAL_                                                    */
++/*                  OK             - Success.                                 */
++/*                  BAD_PARAMETER  - pName was NULL.                          */
++/*                                                                            */
++/*  NOTES:       None.                                                        */
++/*                                                                            */
++/*  CONTEXT:     This function must be called from non-interrupt context.     */
++/*                                                                            */
++/******************************************************************************/
++void cnxt_kal_fatal_exit_internal(u_int32 uCosmicConstant,
++                                  char *pszFilename,
++                                  int iLineNum)
++{
++    reset_cpu(0);
++}
++
++/******************************************************************************/
++/*  FUNCTION:    cnxt_kal_thread_time_sleep                                   */
++/*                                                                            */
++/*  DESCRIPTION: This function puts the current thread of execution           */
++/*               to sleep for the specified number of milliseconds.           */
++/*                                                                            */
++/*  INPUT PARAMETERS:                                                         */
++/*    uMs -       The number of milliseconds that the thread                  */
++/*                will stay asleep unless explicitly woken.                   */
++/*                                                                            */
++/*  OUTPUT PARAMETERS:                                                        */
++/*    None.                                                                   */
++/*                                                                            */
++/*  RETURN VALUES:                                                            */
++/*    CNXT_STATUS_OK             - Thread sleep successful.                   */
++/*                                                                            */
++/******************************************************************************/
++CNXT_STATUS cnxt_kal_thread_time_sleep(u_int32 uMs)
++{
++    int i;
++
++    for (i = 0; i < uMs; i++) {
++        udelay(1000);
++    }
++
++    return CNXT_STATUS_OK;
++}
++
++
+diff -Naur u-boot-2009.08.orig/board/nxp/common/kal.h u-boot-2009.08/board/nxp/common/kal.h
+--- u-boot-2009.08.orig/board/nxp/common/kal.h	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08/board/nxp/common/kal.h	2010-11-17 14:40:14.037952234 -0600
+@@ -0,0 +1,141 @@
++/******************************************************************************/
++/*                   CONEXANT PROPRIETARY AND CONFIDENTIAL                    */
++/*                        SOFTWARE FILE/MODULE HEADER                         */
++/*                 Copyright Conexant Systems Inc. 2007                       */
++/*                                 Austin, TX                                 */
++/*                            All Rights Reserved                             */
++/******************************************************************************/
++/*
++ * Filename:       kal.h
++ *
++ * Description:    Public header file for the Conexant Kernel Adaptation Layer
++ *                 (version 3.0).
++ *
++ * Author:         Dave Wilson
++ *
++******************************************************************************/
++
++#ifndef _KAL_H_
++#define _KAL_H_
++
++/********************/
++/* Type definitions */
++/********************/
++//#include <stdint.h>
++#include "kal_types.h"
++
++/******************************/
++/******************************/
++/** Initialisation Functions **/
++/******************************/
++/******************************/
++
++CNXT_STATUS cnxt_kal_initialize(void);
++
++/*******************************************/
++/*******************************************/
++/** Thread Creation/Destruction functions **/
++/*******************************************/
++/*******************************************/
++
++CNXT_STATUS cnxt_kal_thread_time_sleep(u_int32 uMs);
++
++/********************************/
++/********************************/
++/** Fall over and die horribly **/
++/********************************/
++/********************************/
++void cnxt_kal_fatal_exit_internal(
++    u_int32 uCosmicConstant,
++    char *pszFilename,
++    int iLineNum);
++
++#define cnxt_kal_fatal_exit(uError) cnxt_kal_fatal_exit_internal(       \
++        (uError),                                                       \
++        __FILE__,                                                       \
++        __LINE__)
++
++/*****************************/
++/*****************************/
++/** Cache Control Functions **/
++/*****************************/
++/*****************************/
++
++CNXT_STATUS cnxt_kal_flush_i_cache(void);
++
++CNXT_STATUS cnxt_kal_disable_i_cache(void);
++
++CNXT_STATUS cnxt_kal_enable_i_cache(void);
++
++CNXT_STATUS cnxt_kal_clean_d_cache(void);
++
++CNXT_STATUS cnxt_kal_flush_d_cache(void);
++
++CNXT_STATUS cnxt_kal_disable_d_cache(void);
++
++CNXT_STATUS cnxt_kal_enable_d_cache(void);
++
++CNXT_STATUS cnxt_kal_clean_and_inval_d_cache_range(
++    void    *pBase,
++    u_int32 uSize);
++
++CNXT_STATUS cnxt_kal_inval_d_cache_range(
++    void    *pBase,
++    u_int32 uSize);
++
++CNXT_STATUS cnxt_kal_clean_invalidate_d_cache(void);
++
++
++/************************/
++/************************/
++/** C Runtime Wrappers **/
++/************************/
++/************************/
++
++CNXT_STATUS cnxt_kal_memcpy(
++    void       *p1,
++    const void *p2,
++    u_int32    uSize);
++
++CNXT_STATUS cnxt_kal_memcmp(
++    const void *p1,
++    const void *p2,
++    u_int32    uSize,
++    int32      *pComparison );
++
++CNXT_STATUS cnxt_kal_memset(
++    void    *p1,
++    u_int8  uVal,
++    u_int32 uSize);
++
++CNXT_STATUS cnxt_kal_strlen(
++    const char *pszString,
++    u_int32    *pSize);
++
++CNXT_STATUS cnxt_kal_strcpy(
++    char       *pszDest,
++    const char *pszSrc);
++
++CNXT_STATUS cnxt_kal_strncpy(
++    char       *pszDest,
++    const char *pszSrc,
++    u_int32    uSize);
++
++CNXT_STATUS cnxt_kal_strcmp(
++    const char *pszStr1,
++    const char *pszStr2,
++    int32      *pComparison );
++
++CNXT_STATUS cnxt_kal_strncmp(
++    const char *pszStr1,
++    const char *pszStr2,
++    u_int32    uSize,
++    int32      *pComparison );
++
++CNXT_STATUS cnxt_kal_sprintf(
++    char       *pBuffer,
++    const char *pszFormat,
++    ...);
++
++#endif
++
+diff -Naur u-boot-2009.08.orig/board/nxp/common/kal_types.h u-boot-2009.08/board/nxp/common/kal_types.h
+--- u-boot-2009.08.orig/board/nxp/common/kal_types.h	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08/board/nxp/common/kal_types.h	2010-11-17 14:40:14.037952234 -0600
+@@ -0,0 +1,323 @@
++/******************************************************************************/
++/*                   CONEXANT PROPRIETARY AND CONFIDENTIAL                    */
++/*                        SOFTWARE FILE/MODULE HEADER                         */
++/*                    Copyright Conexant Systems Inc. 2004                    */
++/*                                 Austin, TX                                 */
++/*                            All Rights Reserved                             */
++/******************************************************************************/
++/*
++ * Filename:        kal_types.h
++ *
++ *
++ * Description:     Public header file containing type definitions and labels
++ *                  shared between the user- and privileged KAL modules.
++ *
++ *
++ * Author:          Dave Wilson
++ *
++ ******************************************************************************/
++/* $Id: kal_types.h 4424 2007-12-03 18:56:29Z scott.carter $
++ ******************************************************************************/
++
++#ifndef _KAL_TYPES_H_
++#define _KAL_TYPES_H_
++
++#ifndef TRUE
++#define TRUE   1
++#endif
++
++#ifndef FALSE
++#define FALSE  0
++#endif
++
++/*****************************************************/
++/* Status codes returned by all Conexant driver APIs */
++/*****************************************************/
++
++/* NB: If you add a member to this enum, please make sure you 
++       also add a string to pszStatusCodes at the end of this
++       file, making sure that it is in the same position in
++       both lists! */
++       
++typedef enum
++{
++   /*   0  0x00  */   CNXT_STATUS_OK = 0,
++   /*   1  0x01  */   CNXT_STATUS_ALREADY_INIT,
++   /*   2  0x02  */   CNXT_STATUS_NOT_INIT,
++   /*   3  0x03  */   CNXT_STATUS_INTERNAL_ERROR,
++   /*   4  0x04  */   CNXT_STATUS_BAD_HANDLE,
++   /*   5  0x05  */   CNXT_STATUS_BAD_PARAMETER,
++   /*   6  0x06  */   CNXT_STATUS_BAD_LENGTH,
++   /*   7  0x07  */   CNXT_STATUS_BAD_UNIT,
++   /*   8  0x08  */   CNXT_STATUS_RESOURCE_ERROR,
++   /*   9  0x09  */   CNXT_STATUS_CLOSED_HANDLE,
++   /*  10  0x0A  */   CNXT_STATUS_TIMEOUT,
++   /*  11  0x0B  */   CNXT_STATUS_NOT_ATTACHED,
++   /*  12  0x0C  */   CNXT_STATUS_NOT_SUPPORTED,
++   /*  13  0x0D  */   CNXT_STATUS_REOPENED_HANDLE,
++   /*  14  0x0E  */   CNXT_STATUS_INVALID,
++   /*  15  0x0F  */   CNXT_STATUS_DESTROYED,
++   /*  16  0x10  */   CNXT_STATUS_DISCONNECTED,
++   /*  17  0x11  */   CNXT_STATUS_BUSY,
++   /*  18  0x12  */   CNXT_STATUS_IN_USE,
++   /*  19  0x13  */   CNXT_STATUS_CANCELLED,
++   /*  20  0x14  */   CNXT_STATUS_UNDEFINED,
++   /*  21  0x15  */   CNXT_STATUS_UNKNOWN,
++   /*  22  0x16  */   CNXT_STATUS_NOT_FOUND,
++   /*  23  0x17  */   CNXT_STATUS_NOT_AVAILABLE,
++   /*  24  0x18  */   CNXT_STATUS_NOT_COMPATIBLE,
++   /*  25  0x19  */   CNXT_STATUS_NOT_IMPLEMENTED,
++   /*  26  0x1A  */   CNXT_STATUS_EMPTY,
++   /*  27  0x1B  */   CNXT_STATUS_FULL,
++   /*  28  0x1C  */   CNXT_STATUS_FAILURE,
++   /*  29  0x1D  */   CNXT_STATUS_ALREADY_ATTACHED,
++   /*  30  0x1E  */   CNXT_STATUS_ALREADY_DONE,
++   /*  31  0x1F  */   CNXT_STATUS_ASLEEP,
++   /*  32  0x20  */   CNXT_STATUS_BAD_ATTACHMENT,
++   /*  33  0x21  */   CNXT_STATUS_BAD_COMMAND,
++   /*  34  0x22  */   CNXT_STATUS_BAD_GPIO,
++   /*  35  0x23  */   CNXT_STATUS_BAD_INDEX,
++   /*  36  0x24  */   CNXT_STATUS_BAD_MODE,
++   /*  37  0x25  */   CNXT_STATUS_BAD_PID,
++   /*  38  0x26  */   CNXT_STATUS_BAD_PLANE,
++   /*  39  0x27  */   CNXT_STATUS_BAD_PTR,
++   /*  40  0x28  */   CNXT_STATUS_BAD_RECT,
++   /*  41  0x29  */   CNXT_STATUS_BAD_RGN_HANDLE,
++   /*  42  0x2A  */   CNXT_STATUS_BAD_SIZE,
++   /*  43  0x2B  */   CNXT_STATUS_INT_HANDLED,
++   /*  44  0x2C  */   CNXT_STATUS_INT_NOT_HANDLED,
++   /*  45  0x2D  */   CNXT_STATUS_NOT_SET,
++   /*  46  0x2E  */   CNXT_STATUS_NOT_HOOKED,
++   /*  47  0x2F  */   CNXT_STATUS_CC_NOT_ENABLED,
++   /*  48  0x30  */   CNXT_STATUS_CLOSED_RGN,
++   /*  49  0x31  */   CNXT_STATUS_COMPLETE,
++   /*  50  0x32  */   CNXT_STATUS_DEMOD_ERROR,
++   /*  51  0x33  */   CNXT_STATUS_INVALID_NODE,
++   /*  52  0x34  */   CNXT_STATUS_DUPLICATE_NODE,
++   /*  53  0x35  */   CNXT_STATUS_HARDWARE_NOT_FOUND,
++   /*  54  0x36  */   CNXT_STATUS_HDCP_AUTH_FAILED,
++   /*  55  0x37  */   CNXT_STATUS_HDCP_BAD_BKSV,
++   /*  56  0x38  */   CNXT_STATUS_ILLEGAL_OPERATION,
++   /*  57  0x39  */   CNXT_STATUS_INCOMPATIBLE_FORMATS,
++   /*  58  0x3A  */   CNXT_STATUS_INVALID_DEVICE,
++   /*  59  0x3B  */   CNXT_STATUS_INVALID_EDGE,
++   /*  60  0x3C  */   CNXT_STATUS_INVALID_NUMBER,
++   /*  61  0x3D  */   CNXT_STATUS_INVALID_STATE,
++   /*  62  0x3E  */   CNXT_STATUS_INVALID_TYPE,
++   /*  63  0x3F  */   CNXT_STATUS_NO_BUFFER,
++   /*  64  0x40  */   CNXT_STATUS_NO_DESTINATION_BUF,
++   /*  65  0x41  */   CNXT_STATUS_NO_OSD,
++   /*  66  0x42  */   CNXT_STATUS_NO_PALETTE,
++   /*  67  0x43  */   CNXT_STATUS_NO_ACK,
++   /*  68  0x44  */   CNXT_STATUS_RECEIVER_HDMI_INCAPABLE,
++   /*  69  0x45  */   CNXT_STATUS_RECEIVER_NOT_ATTACHED,
++   /*  70  0x46  */   CNXT_STATUS_ADJUSTED,
++   /*  71  0x47  */   CNXT_STATUS_CLIPPED,
++   /*  72  0x48  */   CNXT_STATUS_CLIPRECT_ADJUSTED,
++   /*  73  0x49  */   CNXT_STATUS_NOT_ALIGNED,
++   /*  74  0x4A  */   CNXT_STATUS_FIXUP_OK,
++   /*  75  0x4B  */   CNXT_STATUS_FIXUP_OPTION_ERROR,
++   /*  76  0x4C  */   CNXT_STATUS_FIXUP_ZERO_RECT,
++   /*  77  0x4D  */   CNXT_STATUS_UNABLE_TO_FIXUP_AND_PRESERVE,
++   /*  78  0x4E  */   CNXT_STATUS_UNABLE_TO_FIXUP_X,
++   /*  79  0x4F  */   CNXT_STATUS_UNABLE_TO_FIXUP_Y,
++   /*  80  0x50  */   CNXT_STATUS_OUT_OF_BOUNDS,
++   /*  81  0x51  */   CNXT_STATUS_OUTSIDE_CLIP_RECT,
++   /*  82  0x52  */   CNXT_STATUS_RECT_CLIPPED,
++   /*  83  0x53  */   CNXT_STATUS_RECT_ENCLOSED,
++   /*  84  0x54  */   CNXT_STATUS_RECT_FIXED_UP,
++   /*  85  0x55  */   CNXT_STATUS_RECT_INCLUDES,
++   /*  86  0x56  */   CNXT_STATUS_RECT_NO_OVERLAP,
++   /*  87  0x57  */   CNXT_STATUS_RECT_OVERLAP,
++   /*  88  0x58  */   CNXT_STATUS_RECT_ZERO_AREA,
++   /*  89  0x59  */   CNXT_STATUS_SERVICE_LIST_NOT_READY,
++   /*  90  0x5A  */   CNXT_STATUS_SERVICE_LIST_READY,
++   /*  91  0x5B  */   CNXT_STATUS_STOPPED,
++   /*  92  0x5C  */   CNXT_STATUS_SUSPENDED,
++   /*  93  0x5D  */   CNXT_STATUS_TERMINATED,
++   /*  94  0x5E  */   CNXT_STATUS_TOO_MUCH_DATA,
++   /*  95  0x5F  */   CNXT_STATUS_WIPE_NONE,
++   /*  96  0x60  */   CNXT_STATUS_NOT_STOPPED,
++   /*  97  0x61  */   CNXT_STATUS_INT_NOT_COMPLETE,
++   /*  98  0x62  */   CNXT_STATUS_NOT_ALLOWED,
++   /*  99  0x63  */   CNXT_STATUS_DUPLICATE_PID,
++   /* 100  0x64  */   CNXT_STATUS_MAX_FILTERS_ATTACHED,
++   /* 101  0x65  */   CNXT_STATUS_HW_NOT_READY,
++   /* 102  0x66  */   CNXT_STATUS_OUTPUT_BUF_FULL,
++   /* 103  0x67  */   CNXT_STATUS_REJECTED,
++   /* 104  0x68  */   CNXT_STATUS_INVALID_PID,
++   /* 105  0x69  */   CNXT_STATUS_EOF,
++   /* 106  0x6A  */   CNXT_STATUS_BOF,
++   /* 107  0x6B  */   CNXT_STATUS_MISSING_DATA,
++               CNXT_STATUS_CODE_LAST = CNXT_STATUS_MISSING_DATA
++} CNXT_STATUS;
++
++
++/*******************/
++/* Resource Limits */
++/*******************/
++
++/* Maximum length of an OS object name string */
++#define CNXT_KAL_MAX_OBJ_NAME_LENGTH   16
++
++#define CNXT_KAL_NO_WAIT               0
++#define CNXT_KAL_WAIT_FOREVER          ((u_int32)-1)
++
++/* Note: Default stack size is defined in the software config file */
++
++/* The default pool IDs */
++#define CNXT_POOL_ID_DEFAULT_CACHED   (0)
++#define CNXT_POOL_ID_DEFAULT_UNCACHED (1)
++#define CNXT_POOL_ID_DEFAULT_TILED    (2)
++#define CNXT_POOL_ID_DEFAULT_CONTENT  (2)
++
++/* Flags indicating memory pool properties */
++#define CNXT_POOL_CONTENT    0x01
++#define CNXT_POOL_TILED      0x01
++#define CNXT_POOL_CONTIGUOUS 0x02
++#define CNXT_POOL_UNCACHED   0x04
++
++/* Flags used in memory allocation */
++#define CNXT_MEM_ALIGN_4    0x00000002
++#define CNXT_MEM_ALIGN_8    0x00000003
++#define CNXT_MEM_ALIGN_16   0x00000004
++#define CNXT_MEM_ALIGN_32   0x00000005
++#define CNXT_MEM_ALIGN_64   0x00000006
++#define CNXT_MEM_ALIGN_128  0x00000007
++#define CNXT_MEM_ALIGN_256  0x00000008
++#define CNXT_MEM_ALIGN_512  0x00000009
++#define CNXT_MEM_ALIGN_1024 0x0000000A
++#define CNXT_MEM_ALIGN_4096 0x0000000C
++
++/* Default memory allocation alignment */
++#define CNXT_MEM_ALIGN_DEFAULT CNXT_MEM_ALIGN_4
++
++/* Default memory allocation flags */
++#define CNXT_MEM_DEFAULT CNXT_MEM_ALIGN_DEFAULT
++
++/* Mask used to extract alignment from flags. */
++#define CNXT_MEM_ALIGN_MASK 0x0000000F
++
++/****************************************/
++/* Assorted object and type definitions */
++/****************************************/
++
++/* Object identifiers */
++typedef uint32_t        CNXT_QUEUE_ID;
++typedef uint32_t        CNXT_THREAD_ID;
++typedef uint32_t        CNXT_SEM_ID;
++typedef uint32_t        CNXT_POOL_ID;
++typedef uint16_t        CNXT_EVENTS;
++typedef uint32_t        CNXT_TICK_ID;
++typedef uint32_t        CNXT_TIMER_ID;
++typedef int             bool;
++typedef bool            CNXT_CRIT_STATE;
++
++typedef uint32_t  u_int32;
++typedef uint16_t  u_int16;
++typedef uint8_t   u_int8;
++typedef int32_t   int32;
++typedef int16_t   int16;
++typedef int8_t    int8;
++
++typedef enum
++{
++  CNXT_CB_LOW_PRIORITY,
++  CNXT_CB_LOW_PRIORITY_NO_BLOCK,
++  CNXT_CB_HIGH_PRIORITY,
++  CNXT_CB_HIGH_PRIORITY_NO_BLOCK,
++  CNXT_CB_PRIORITY_LAST = CNXT_CB_HIGH_PRIORITY_NO_BLOCK
++} CNXT_KAL_CB_PRIORITY;
++
++/* Function pointer types */
++typedef void        (*PFNTHREAD)(int, void **);
++typedef CNXT_STATUS (*PFNISR)(uint32_t, bool);
++typedef void        (*PFNTICKFUNC)(CNXT_TICK_ID, void *);
++typedef void        (*PFNTIMERFUNC)(CNXT_TIMER_ID, void *);
++typedef void        (*PFNTHREADCALLBACK)(uint32_t, uint32_t, void *);
++
++typedef struct
++{
++   bool          bRunning; 
++   uint32_t       uFlags;
++   PFNTICKFUNC   pfnCallback;
++   void          *pUserData;
++   char          szName[CNXT_KAL_MAX_OBJ_NAME_LENGTH];
++} CNXT_TICK_INFO;
++
++typedef struct
++{
++    uint32_t         uTotalPoolSize;
++    uint32_t         uFreePoolSize;
++    uint32_t         uLargestFreeBlock;
++}CNXT_KAL_POOL_STATUS;
++
++/*****************/
++/* Useful Macros */
++/*****************/
++
++#ifndef max
++#define max(a, b) (((a) > (b)) ? (a) : (b))
++#endif
++
++#ifndef min
++#define min(a, b) (((a) < (b)) ? (a) : (b))
++#endif
++
++/*****************************************/
++/*****************************************/
++/** Optional RTOS profiling definitions **/
++/*****************************************/
++/*****************************************/
++#if (RTOS_PROFILING == YES)
++
++/* The sorting criterion to use when displaying thread state information 
++   using the cnxt_kal_show_thread_info API */
++typedef enum 
++{
++   CNXT_SORT_BY_CPU,       /* Sort by CPU utilisation, highest first */
++   CNXT_SORT_BY_PRIORITY,  /* Sort by thread priority, highest first */
++   CNXT_SORT_BY_INDEX      /* Sort by thread index                   */
++} CNXT_THREAD_INFO_SORT;
++
++/* Thread states as returned from cnxt_kal_capture_thread_info. Note that this 
++   is a general list of states. Not all RTOSs may be able to provide this level 
++   of detail and may, for example, merely report CNXT_THREAD_SUSPENDED for all
++   cases where a thread is blocked. */
++typedef enum
++{
++     CNXT_THREAD_UNKNOWN = -1,      /* State is unknown                             */
++     CNXT_THREAD_SUSPENDED,         /* Suspended (general case)                     */
++     CNXT_THREAD_BLOCKED_EVENT,     /* Blocked waiting for an event                 */
++     CNXT_THREAD_BLOCKED_QUEUE,     /* Blocked reading from a queue                 */
++     CNXT_THREAD_BLOCKED_SEMAPHORE, /* Blocked waiting for a semaphore              */
++     CNXT_THREAD_BLOCKED_SLEEPING,  /* Blocked after being put to sleep             */
++     CNXT_THREAD_TERMINATED,        /* Thread has been terminated                   */
++     CNXT_THREAD_ENDING,            /* Thread is in the process of being terminated */
++     CNXT_THREAD_READY,             /* Thread is ready to run                       */
++     CNXT_THREAD_RUNNING            /* Thread is running                            */
++} CNXT_THREAD_STATE;
++
++/* This structure is populated by the function cnxt_kal_capture_thread_info.
++   Note that not all RTOSs will allow all information in this structure to
++   be queried. Unsupported fields will be indicated by the value -1 (cast to 
++   the appropriate type) */
++   
++typedef struct
++{
++  uint32_t           uIndex;         /* Index of this thread in the internal KAL thread table         */
++  char              szName[CNXT_KAL_MAX_OBJ_NAME_LENGTH]; /* The name of the thread                  */
++  void             *pControlBlock;  /* A pointer to the RTOS-specific control block for this thread  */
++  uint32_t           uTicksConsumed; /* Number of system ticks this thread has run for.               */
++  uint8_t            uPriority;      /* The thread priority as defined by the KAL                     */
++  uint8_t            uCPUPercent;    /* The percentage of the CPU used by this thread.                */
++  uint32_t           uScheduleCount; /* The number of times this thread has been scheduled to run.    */
++  uint32_t           uMinStack;      /* The minimum available stack space for this thread.            */
++  CNXT_THREAD_STATE State;          /* The current state of the thread                               */
++  PFNTHREAD         pfnEntry;       /* Thread entry point                                            */
++} CNXT_THREAD_INFO;
++
++#endif /* RTOS_PROFILING */
++
++#endif /* _KAL_TYPES_H_ */
++
+diff -Naur u-boot-2009.08.orig/include/configs/vpe_apollo.h u-boot-2009.08/include/configs/vpe_apollo.h
+--- u-boot-2009.08.orig/include/configs/vpe_apollo.h	2010-11-17 14:38:58.038201421 -0600
++++ u-boot-2009.08/include/configs/vpe_apollo.h	2010-11-17 14:40:14.037952234 -0600
+@@ -36,6 +36,7 @@
+ #define CONFIG_PNX          1   /* in a NXP nexperia core */
+ #define CONFIG_PNX84XX      1   /* which is a APOLLO */
+ #define CONFIG_PNX8493      1   /* which is in a pnx8493 */
++#define CONFIG_TRIDENT_KAL  1   /* Enable Trident Kernal Abstraction Layer */
+ 
+ #if 0     /* 0 is EMU,  1 for VPE */
+ #define CONFIG_PNX_VPE      1   /* working with VPE */

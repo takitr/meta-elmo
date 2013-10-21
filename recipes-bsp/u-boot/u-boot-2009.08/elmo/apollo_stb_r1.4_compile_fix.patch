@@ -1,0 +1,36 @@
+diff -Naurp u-boot-2009.08/common/cmd_gcs.c u-boot-2009.08.new/common/cmd_gcs.c
+--- u-boot-2009.08/common/cmd_gcs.c	2010-09-10 16:52:47.000000000 -0500
++++ u-boot-2009.08.new/common/cmd_gcs.c	2010-09-10 16:51:19.000000000 -0500
+@@ -10,7 +10,7 @@
+ #include <asm/byteorder.h>
+ #include "ldr_common.h"
+ #include "ip2070gcs.h"
+-#include "board.h"
++//#include "board.h"
+ #include "stbcfg.h"
+ 
+ 
+diff -Naurp u-boot-2009.08/drivers/mtd/nor/nor.h u-boot-2009.08.new/drivers/mtd/nor/nor.h
+--- u-boot-2009.08/drivers/mtd/nor/nor.h	2010-09-10 16:52:47.000000000 -0500
++++ u-boot-2009.08.new/drivers/mtd/nor/nor.h	2010-09-10 16:50:19.000000000 -0500
+@@ -26,7 +26,7 @@
+ * NOR Register specific  *
+ * local defines          *
+ **************************/
+-#include "board.h"
++//#include "board.h"
+ 
+ #ifdef TEST_VPE
+ #define NX_NOR_REG_BASE      				(0xE0600000 + 0x30000)
+diff -Naurp u-boot-2009.08/lib_arm/flash.c u-boot-2009.08.new/lib_arm/flash.c
+--- u-boot-2009.08/lib_arm/flash.c	2010-09-10 16:52:47.000000000 -0500
++++ u-boot-2009.08.new/lib_arm/flash.c	2010-09-10 16:48:58.000000000 -0500
+@@ -16,7 +16,7 @@
+ #include <common.h>
+ #include "ip2070gcs.h"
+ #include <nor.h>
+-#include "board.h"
++//#include "board.h"
+ #include "stbcfg.h"
+ #include "../drivers/mtd/nor/nor.h"
+ #include <environment.h>

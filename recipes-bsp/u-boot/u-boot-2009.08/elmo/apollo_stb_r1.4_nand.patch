@@ -1,0 +1,682 @@
+diff -Naur u-boot-2009.08/common/cmd_boot.c u-boot-2009.08_new/common/cmd_boot.c
+--- u-boot-2009.08/common/cmd_boot.c	2010-04-22 00:45:27.000000000 -0500
++++ u-boot-2009.08_new/common/cmd_boot.c	2010-04-21 18:46:42.000000000 -0500
+@@ -62,7 +62,6 @@
+ 
+ /* setup Cmd Line */
+ #if 1
+-
+       patch_ataglist();
+ 		//*((unsigned int*)0xe06ead50) = MACH_TYPE ;
+ 		//*((unsigned int*)0xe06ead54) = 0x2000 ;
+diff -Naur u-boot-2009.08/common/cmd_gcs.c u-boot-2009.08_new/common/cmd_gcs.c
+--- u-boot-2009.08/common/cmd_gcs.c	1969-12-31 18:00:00.000000000 -0600
++++ u-boot-2009.08_new/common/cmd_gcs.c	2010-04-22 00:29:18.000000000 -0500
+@@ -0,0 +1,153 @@
++/*
++ * GCS CMD Support
++ */
++
++#include <common.h>
++
++#include <command.h>
++#include <watchdog.h>
++#include <malloc.h>
++#include <asm/byteorder.h>
++#include "ldr_common.h"
++#include "ip2070gcs.h"
++#include "board.h"
++#include "stbcfg.h"
++
++
++extern gcs_global_info gFlashInfo;
++int gcs_flash_sel(void);
++void gcs_display_info(flashtype_t flashtype);
++
++int do_gcs(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
++{
++
++	char *cmd;
++
++	/* at least two arguments please */
++	if (argc < 2)
++		goto usage1;
++
++	cmd = argv[1];
++
++#if defined(CONFIG_CMD_GCS)
++	if (strncmp(cmd, "info", 4) == 0) {
++		printf("--GCS Flash Info--\n");
++		if (argc < 2)
++			goto usage1;
++      puts("BOOT Device: \n");
++      gcs_display_info(gFlashInfo.flashtype);
++      puts("ALT FLash Device: \n");
++      gcs_display_info(gFlashInfo.altflashtype1);
++   } 
++   else if(strncmp(cmd, "sel", 4) == 0) {
++      if (argc < 3)
++         goto usage1;
++  
++      if (strcmp(argv[2], "NOR") == 0) {
++            printf("\rgcs sel NOR..\n ");
++            gFlashInfo.altflashtype1 = FLASH_TYPE_NOR;
++            gcs_flash_sel();
++         }
++         else if (strcmp(argv[2], "NAND") == 0) {
++            printf("\rgcs sel NAND..\n ");
++            gFlashInfo.altflashtype1 = FLASH_TYPE_NAND;
++            gcs_flash_sel();
++         }
++         else if (strcmp(argv[2], "SFC") == 0) {
++            printf("\rgcs sel SFC..\n ");
++            gFlashInfo.altflashtype1 = FLASH_TYPE_SFC;
++            gcs_flash_sel();
++         }
++         else {
++            puts("Unknown Flash Selected \n");
++            goto usage1;
++         }
++   } 
++   else {
++      puts("Unknown gcs command\n");
++      goto usage1;
++   } 
++
++#else
++		printf("GCS Flash Select Supported.\n");
++#endif
++		return 0 ;
++
++usage1:
++	cmd_usage(cmdtp);
++	return 1;
++}
++
++void gcs_display_info(flashtype_t flashtype)
++{
++   switch(flashtype)
++   {
++      case FLASH_TYPE_NOR:
++         printf("---NOR Flash.\n");
++         break;
++      case FLASH_TYPE_NAND:
++         printf("---NAND Flash.\n");
++         break;
++      case FLASH_TYPE_SFC:
++         printf("---SFC Flash.\n");
++         break;
++      default:
++         printf("---Unknown FLASH .\n");
++         break;
++   }
++}
++
++
++int gcs_flash_sel(void)
++{
++
++   u32 config_strap;
++   
++   /* Set up the Alternate Flash device on the board- CS2 (Need to go as a config key)*/
++   if (FLASH_TYPE_NOR == gFlashInfo.altflashtype1){
++      if (gFlashInfo.flashtype == FLASH_TYPE_NOR){
++	      puts("BootDev is NOR Flash, Alt Flash can't be Boot Device\r\n");	
++         return -1;
++      }
++      config_strap = gFlashInfo.configstrap & (~RGU_CNFG_TRAPS_BOOT_DEV_SEL);
++      config_strap |= (CFG_NOR_FLASH_TYPE << 1);
++      /* Configuring NOR Flash device on CS2 */
++      writel(config_strap, 0xE06E6030); /* Configure IOA26, IOA21 and IOA22 */
++	   nx_gcs_init(CFG_NOR_FLASH_TYPE, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
++   }
++   else if (FLASH_TYPE_NAND == gFlashInfo.altflashtype1){ 
++         if (gFlashInfo.flashtype == FLASH_TYPE_NAND){
++	      puts("BootDev is NAND Flash, Alt Flash can't be Boot Device\r\n");	
++         return -1;
++      }
++      nx_gcs_init((devicetype_t )NULL, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
++   }
++   else if (FLASH_TYPE_SFC == gFlashInfo.altflashtype1){
++      if (gFlashInfo.flashtype == FLASH_TYPE_SFC){
++	      puts("BootDev is SFC Flash, Alt Flash can't be Boot Device\r\n");	
++         return -1;
++      }
++      nx_gcs_init(CFG_SFC_FLASH_TYPE, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
++   }
++   else
++   {
++      return -1;
++      /* Throw error trace */	  
++      puts("UnKnown Flash Device .....NOR Init failed\r\n") ;	  
++   }
++
++	return 0;
++}
++
++U_BOOT_CMD(gcs, CONFIG_SYS_MAXARGS, 1, do_gcs,
++	"GCS sub-system",
++	"info - Select Alternate Flash\n"
++	"cmd usage - \n"	
++	"gcs info \n"	
++	"gcs sel <flash type>\n"
++	"<flash type> options\n"
++	"NOR  - NOR FLASH \n"			
++	"NAND - NAND Flash\n"			
++	"SFC  - Serial NOR Flash\n"				
++);
++
+diff -Naur u-boot-2009.08/common/Makefile u-boot-2009.08_new/common/Makefile
+--- u-boot-2009.08/common/Makefile	2010-04-22 00:45:26.000000000 -0500
++++ u-boot-2009.08_new/common/Makefile	2010-04-21 22:47:01.000000000 -0500
+@@ -118,6 +118,7 @@
+ COBJS-$(CONFIG_CMD_MTDPARTS) += cmd_mtdparts.o
+ COBJS-y += cmd_nand.o
+ COBJS-y += cmd_nor.o
++COBJS-y += cmd_gcs.o
+ COBJS-$(CONFIG_CMD_NET) += cmd_net.o
+ COBJS-$(CONFIG_CMD_ONENAND) += cmd_onenand.o
+ COBJS-$(CONFIG_CMD_OTP) += cmd_otp.o
+@@ -164,6 +165,10 @@
+ COBJS-$(CONFIG_UPDATE_TFTP) += update.o
+ COBJS-$(CONFIG_USB_KEYBOARD) += usb_kbd.o
+ 
++HOSTCFLAGS += -I $(SRCTREE)/lib_arm
++HOSTCFLAGS += -D__UBOOT__
++CFLAGS += $(HOSTCFLAGS)
++
+ 
+ COBJS	:= $(sort $(COBJS-y))
+ SRCS	:= $(AOBJS:.o=.S) $(COBJS:.o=.c)
+diff -Naur u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/mem.c u-boot-2009.08_new/cpu/arm_cortexa8/pnx84xx/mem.c
+--- u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/mem.c	2010-04-22 00:45:27.000000000 -0500
++++ u-boot-2009.08_new/cpu/arm_cortexa8/pnx84xx/mem.c	2010-04-16 16:04:43.000000000 -0500
+@@ -110,6 +110,7 @@
+ }
+ 
+ 
++#if 0
+ /*****************************************************
+  * gcs_init(): init global system
+  * Init
+@@ -132,3 +133,5 @@
+ 
+ }
+ 
++#endif
++
+diff -Naur u-boot-2009.08/drivers/mtd/nor/nor_flashdescr.c u-boot-2009.08_new/drivers/mtd/nor/nor_flashdescr.c
+--- u-boot-2009.08/drivers/mtd/nor/nor_flashdescr.c	2010-04-22 00:45:26.000000000 -0500
++++ u-boot-2009.08_new/drivers/mtd/nor/nor_flashdescr.c	2010-04-21 23:44:33.000000000 -0500
+@@ -18,7 +18,7 @@
+ /******************/
+ /* Include Files  */
+ /******************/
+-//#include "stbcfg.h"
++#include "stbcfg.h"
+ #include "ldr_common.h"
+ #include "nor_flashdescr.h"
+ 
+@@ -907,7 +907,7 @@
+     /*****************/
+     {FLASH_ID_ENTER_AMDX16,
+      FLASH_ID_EXIT_AMD,
+-     FLASH_CHIP_VENDOR_ST,
++     FLASH_CHIP_VENDOR_INTEL,
+      0x227E,    /*M29EW-28F640J3 STRATA FLASH*/
+      0x40000000, /*1Gbit (64Mbit x 16)*/
+      120, 0, 0, 0, 0,
+diff -Naur u-boot-2009.08/drivers/mtd/nor/nor_setupflashdescr.c u-boot-2009.08_new/drivers/mtd/nor/nor_setupflashdescr.c
+--- u-boot-2009.08/drivers/mtd/nor/nor_setupflashdescr.c	2010-04-22 00:45:27.000000000 -0500
++++ u-boot-2009.08_new/drivers/mtd/nor/nor_setupflashdescr.c	2010-04-21 23:48:40.000000000 -0500
+@@ -1017,9 +1017,19 @@
+                */
+                case FLASH_CHIP_VENDOR_MICRON:
+                case FLASH_CHIP_VENDOR_INTEL:
+-                  write_flash_array[BankNum] = NULL;//write_intel;
+-                  erase_flash_array[BankNum] = NULL;//erase_intel;
+-                  erase_flash_bank[BankNum]  = NULL;//erase_intel_bank;
++                  switch (Bank[BankNum].pFlashDesc->DeviceID)
++                  {
++                     case 0x227e:
++                        write_flash_array[BankNum] = write_buffer_amd;
++                        erase_flash_array[BankNum] = erase_amd;
++                        erase_flash_bank[BankNum]  = erase_amd_bank;
++                        break;
++                     default:
++                        write_flash_array[BankNum] = NULL;//write_intel;
++                        erase_flash_array[BankNum] = NULL;//erase_intel;
++                        erase_flash_bank[BankNum]  = NULL;//erase_intel_bank;
++                        break;
++                  }
+                break;
+ 
+                case FLASH_CHIP_VENDOR_ATMEL:
+diff -Naur u-boot-2009.08/drivers/mtd/nor_old/ip2070gcs.c u-boot-2009.08_new/drivers/mtd/nor_old/ip2070gcs.c
+--- u-boot-2009.08/drivers/mtd/nor_old/ip2070gcs.c	2010-04-22 00:45:26.000000000 -0500
++++ u-boot-2009.08_new/drivers/mtd/nor_old/ip2070gcs.c	2010-04-19 16:53:12.000000000 -0500
+@@ -45,7 +45,7 @@
+ /*  RETURNS:                                                        */
+ /*                  None                                                      */
+ /********************************************************************/
+-retcode_t nx_gcs_init (devicetype_t eBootDev, flashtype_t eFlashtype)
++retcode_t nx_gcs_init (devicetype_t eBootDev, flashtype_t eFlashtype, int CSn)
+ {
+ 
+    /*Before flash specific init, read PCI mode from config straps and program it in GCS mode reg */
+@@ -83,7 +83,7 @@
+       {
+          case ip2017:
+                      // Use default settings of AHB DMA base addr reg, aperture reg and CS route reg
+-                     writel(0x0, IPBGCSFLSHNTWK_NAND_CS_ROUTE_REG); 
++                     writel(CSn, IPBGCSFLSHNTWK_NAND_CS_ROUTE_REG); 
+                      puts("GCS: NAND DEVICE SETUP COMPLETE\r\n") ;
+                      break;
+ 
+diff -Naur u-boot-2009.08/include/configs/vpe_apollo.h u-boot-2009.08_new/include/configs/vpe_apollo.h
+--- u-boot-2009.08/include/configs/vpe_apollo.h	2010-04-22 00:45:27.000000000 -0500
++++ u-boot-2009.08_new/include/configs/vpe_apollo.h	2010-04-21 22:13:45.000000000 -0500
+@@ -160,9 +160,10 @@
+     #define CONFIG_CMD_MII      /* MII support          */
+     #define CONFIG_CMD_MISC     /* Misc functions like sleep etc*/
+     #define CONFIG_CMD_MTDPARTS  /* MTD functions       */
+-//  #define CONFIG_CMD_NAND     /* NAND support         */
++    #define CONFIG_CMD_NAND     /* NAND support         */
+     #define CONFIG_CMD_NOR      /* NOR support          */
+-    #undef CONFIG_CMD_NAND      /* Remove NAND support          */
++    #define CONFIG_CMD_GCS      /* Select Flash */
++ //   #undef CONFIG_CMD_NAND      /* Remove NAND support          */
+ //  #undef CONFIG_CMD_NOR       /* Remove NOR support           */
+ 
+     #define CONFIG_NET_MULTI
+diff -Naur u-boot-2009.08/include/nor.h u-boot-2009.08_new/include/nor.h
+--- u-boot-2009.08/include/nor.h	2010-04-22 00:45:27.000000000 -0500
++++ u-boot-2009.08_new/include/nor.h	2010-04-19 20:38:54.000000000 -0500
+@@ -10,6 +10,7 @@
+ #define _NOR_H_
+ 
+ extern void nor_init(void);
++extern int gcs_init(void);
+ 
+ 
+ #include <linux/mtd/compat.h>
+diff -Naur u-boot-2009.08/lib_arm/board.c u-boot-2009.08_new/lib_arm/board.c
+--- u-boot-2009.08/lib_arm/board.c	2010-04-22 00:45:27.000000000 -0500
++++ u-boot-2009.08_new/lib_arm/board.c	2010-04-19 20:21:53.000000000 -0500
+@@ -289,7 +289,8 @@
+ 	interrupt_init,		/* set up exceptions */
+ #endif
+ 	timer_init,		/* initialize timer */
+-    env_init,		/* initialize environment */
++	gcs_init,
++   env_init,		/* initialize environment */
+ #if defined(CONFIG_APOLLO)	
+ 	
+ 	init_baudrate,		/* initialze baudrate settings */
+@@ -391,6 +392,7 @@
+ 	}
+ #endif /* CONFIG_LCD */
+ 
++/* gcs_init(); Configure GCS */
+ 
+ #if defined(CONFIG_CMD_NAND)
+ 	puts ("NAND:  ");
+diff -Naur u-boot-2009.08/lib_arm/flash.c u-boot-2009.08_new/lib_arm/flash.c
+--- u-boot-2009.08/lib_arm/flash.c	2010-04-22 00:45:27.000000000 -0500
++++ u-boot-2009.08_new/lib_arm/flash.c	2010-04-21 22:58:52.000000000 -0500
+@@ -27,12 +27,7 @@
+ nor_info_t nor_info;
+ nor_erase_info_t nor_erase_info;
+ 
+-typedef struct _nor_global_info {
+-	devicetype_t  flashBootDev;
+-	flashtype_t  flashtype;
+-} nor_global_info ;
+-
+-nor_global_info gFlashInfo ;
++gcs_global_info gFlashInfo ;
+ u_int8 buffer[0x20000];
+ extern ulong		NetBootFileXferSize;
+ 
+@@ -56,7 +51,8 @@
+ {
+    retcode_t ret = RETCODE_BOOTDEV_FLASH;  /* default booting device is a Flash */
+    u_int32 lconfigstrapReg = INP32(RGU_CNFG_TRAPS_REG);
+-
++   
++   gFlashInfo.configstrap = lconfigstrapReg;
+    /* check config straps to see if UART boot over-ride is enabled  */
+    if (!(lconfigstrapReg & RGU_CNFG_TRAPS_BOOT_UART_SEL) )
+    {
+@@ -117,12 +113,86 @@
+     return 0;
+ }
+ 
+-void nor_init(void)
++int gcs_init(void)
+ {
+ 	devicetype_t  eBootDev;
+ 	flashtype_t  eFlashtype;
+ 	retcode_t ret;
++   u32 rst_val, config_strap;
++
++   /* Reset GCS */
++   writel(0xf8, 0xE06EA510 );
++   writel(0x2b,0xE06EA510);
++   writel(0x1, 0xE06EA514);
++ 
++   rst_val = readl((unsigned long *)(0xe06e6010));
++   rst_val |= 0x200;
++   writel(rst_val, (unsigned long *)(0xe06e6010));
++   rst_val &= ~0x00000200;
++   writel(rst_val, (unsigned long *)(0xe06e6010));
++   /* Initialize the GCS in ISA/PCI Mode */
++   
++   nx_gcs_init_mode();
++
++   /* Find the Boot Flash Type- NOR/NAND/SPI and the Device Type- 8b/16b/ADM */
++	ret = find_boot_device(&eBootDev, &eFlashtype);
++	if (RETCODE_BOOTDEV_UART == ret)
++	{
++	  /* Throw error trace */	  
++	  puts("UART Boot not Supported .....NOR Init failed\r\n") ;	  
++	}
++	else if (RETCODE_BOOTDEV_FLASH == ret)
++	{
++	  	gFlashInfo.flashBootDev = eBootDev;
++   	gFlashInfo.flashtype = eFlashtype;
++      /* Configure the Boot Device- Chipselect0, BaseAddr, etc..*/
++      nx_gcs_init(eBootDev, eFlashtype, (int)GCS_IOCSROUTE_CS0);	/* InitGCS */
++      /* Set up the Alternate Flash device on the board */
++	   if (FLASH_TYPE_NOR == eFlashtype){
++		   puts("Boot Device: NOR Flash\r\n");	
++		   gFlashInfo.altflashtype1 = FLASH_TYPE_NAND;
++         nx_gcs_init(eBootDev, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
++      }
++      else if (FLASH_TYPE_NAND == eFlashtype){ 
++         puts("Boot Device: NAND Flash\r\n");	
++         gFlashInfo.altflashtype1 = FLASH_TYPE_NOR;
++         config_strap = gFlashInfo.configstrap & (~RGU_CNFG_TRAPS_BOOT_DEV_SEL);
++         config_strap |= (CFG_NOR_FLASH_TYPE << 1);
++         /* Configuring NOR Flash device on CS2 */
++         writel(config_strap, 0xE06E6030); /* Configure IOA26, IOA21 and IOA22 */
++         nx_gcs_init(eBootDev, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
++      }
++      else if (FLASH_TYPE_SFC == eFlashtype){
++         puts("Boot Device: SPI Flash\r\n");	
++         gFlashInfo.altflashtype1 = FLASH_TYPE_NOR;
++         config_strap = gFlashInfo.configstrap & (~RGU_CNFG_TRAPS_BOOT_DEV_SEL);
++         config_strap |= (CFG_NOR_FLASH_TYPE << 1);
++         /* Configuring NOR Flash device on CS2 */
++         writel(config_strap, 0xE06E6030); /* Configure IOA26, IOA21 and IOA22 */
++         nx_gcs_init(eBootDev, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
++      }
++      else
++      {
++         /* Throw error trace */	  
++	      puts("UnKnown Flash Device .....NOR Init failed\r\n") ;	  
++      }
++		
++	}
++   else
++   {
++    /* Throw error trace */	  
++	  puts("Invalid Boot Device .....NOR Init failed\r\n") ;	  
++   }
+ 
++	return ;
++}
++
++void nor_init(void)
++{
++	devicetype_t  eBootDev;
++	flashtype_t  eFlashtype;
++	retcode_t ret;
++#if 0
+ 	ret = find_boot_device(&eBootDev, &eFlashtype);
+ 	if (RETCODE_BOOTDEV_UART == ret)
+ 	{
+@@ -138,11 +208,17 @@
+ 	
+ 	gFlashInfo.flashBootDev = eBootDev ;
+ 	gFlashInfo.flashtype = eFlashtype ;
+-   nx_nor_init (gFlashInfo.flashBootDev, gFlashInfo.flashtype) ;
++#endif   
++#if (CFG_NOR_FLASH_INTERFACE_ADM == YES)
++   eBootDev = NOR_x16_ADM;
++#elif (CFG_NOR_FLASH_DATA_WIDTH == DATA_BITS_16)
++   eBootDev = NOR_x16_21bit;
++   nx_nor_init (eBootDev, FLASH_TYPE_NOR) ;
++#endif
+ 
+ 	nor_info.read =  mtd_nor_read ;
+ 	nor_info.write = mtd_nor_write ;
+-    nor_info.erase = mtd_nor_erase ;
++   nor_info.erase = mtd_nor_erase ;
+ 	return ;
+ }
+ 
+diff -Naur u-boot-2009.08/lib_arm/ip2070gcs.c u-boot-2009.08_new/lib_arm/ip2070gcs.c
+--- u-boot-2009.08/lib_arm/ip2070gcs.c	2010-04-22 00:45:27.000000000 -0500
++++ u-boot-2009.08_new/lib_arm/ip2070gcs.c	2010-04-21 22:22:11.000000000 -0500
+@@ -34,23 +34,9 @@
+ #include "ip2070gcs.h"
+ #include "board.h"
+ #include "libfuncs.h"
++#include "../drivers/mtd/nor/nor.h"
+ 
+-#define GCS_ENABLE_ISA_MODE_MSK            (0)
+-#define GCS_ENABLE_PCI_MODE_MSK            (1)
+-#define GCS_ENABLE_PCI_HOST_MODE_MSK       (0)
+-
+-#define PCI_SETUP_VAL_HOST                 (0x0CCE0e03)
+-#define PCI_SETUP_VAL_DEVICE               (0x0CCE0e02)
+-#define PCI_SYSTEM_ID                      (0x84931131)
+-#define PCI_CMD_VAL                        (0x4)
+-#define GCS_SFC_CLK_ENABLE                 (0x00000001)
+-
+-#define GCS_NOR_ADM_ENABLE                 (0x20)
+-#define GCS_NOR_16B_ENABLE                 (0x2)     
+-#define GCS_NOR_DCSN_ADDR_REMAP_ENABLE     (0x3)
+ 
+-#define GCS_NOR_CSROUTE_CS2                (0x2)
+-#define GCS_SPI_CSROUTE_CS2                (0x1)
+ 
+ /********************************************************************/
+ /*  download_from_flash                                                       */
+@@ -65,53 +51,23 @@
+ /*  RETURNS:                                                        */
+ /*                  None                                                      */
+ /********************************************************************/
+-retcode_t nx_gcs_init (devicetype_t eBootDev, flashtype_t eFlashtype)
++retcode_t nx_gcs_init (devicetype_t eBootDev, flashtype_t eFlashtype, int CSn)
+ {
+ 
+-   /*Before flash specific init, read PCI mode from config straps and program it in GCS mode reg */
+-
+-      if (  (INP32(RGU_CNFG_TRAPS_REG))&RGU_CNFG_TRAPS_IO_MODE)
+-      {
+-         writel(GCS_ENABLE_ISA_MODE_MSK, IPBGCSFLSHNTWK_GCS_MODE_REG );  // ISA mode
+-         myprint("GCS: Setup In ISA MODE\r\n") ;
+-      }
+-      else 
+-      {   // PCI 
+-          
+-          writel(GCS_ENABLE_PCI_MODE_MSK, IPBGCSFLSHNTWK_GCS_MODE_REG);
+-          myprint("GCS in PCI MODE\n") ;
+-          // PCI HOST
+-          if ((INP32(RGU_CNFG_TRAPS_REG)) & RGU_CNFG_TRAPS_PCI_HOST)
+-          {
+-              writel(GCS_ENABLE_PCI_HOST_MODE_MSK, IPBGCSFLSHNTWK_PCI_CONFIG_REG);  
+-              writel(PCI_SETUP_VAL_HOST, PCI_REG_SETUP);  
+-              myprint("GCS in PCI HOST MODE\n") ;
+-          }
+-          else  // PCI  DEVICE 
+-          {
+-             
+-             /* By default PCI config register of GCS is in device mode, so need to to program it */
+-             writel(PCI_SETUP_VAL_DEVICE, PCI_REG_SETUP);  
+-             myprint("GCS in PCI DEVICE MODE\n\r") ;
+-           }
+-
+-           writel(PCI_SYSTEM_ID, PCI_REG_SUBSYSTEM_ID);  //  Dev and VENDOR ID  --value provided by Mark/Ranga
+-           writel(PCI_CMD_VAL, PCI_REG_CFG_CMD_STAT);
+-       }
+-
+       switch ( eFlashtype )
+       {
+          case FLASH_TYPE_NAND:
+                      // Use default settings of AHB DMA base addr reg, aperture reg and CS route reg
+-                     writel(0x0, IPBGCSFLSHNTWK_NAND_CS_ROUTE_REG);
++                     writel(CSn, IPBGCSFLSHNTWK_NAND_CS_ROUTE_REG);
+                      myprint("GCS: NAND DEVICE SETUP COMPLETE\r\n") ;
+                      break;
+ 
+          case FLASH_TYPE_NOR:
+                      // Use default settings of AHB DMA base addr reg, aperture reg and CS route reg
+                      // enable NOR_ADM
++                     writel(0x1, IPBGCSFLSHNTWK_IP_2016_APB_DEV0_MAIN_CFG_REG);
+                      writel(ROM_BASE, IPBGCSFLSHNTWK_AHB_DSCN_NOR_BASE_ADDR_REG);
+-                     
++                                          
+                      if (eBootDev == NOR_x16_ADM)
+                      {
+                         writel(GCS_NOR_ADM_ENABLE, IPBGCSFLSHNTWK_FLASH_CONFIG_REG); 
+@@ -124,22 +80,25 @@
+                                , IPBGCSFLSHNTWK_FLASH_CONFIG_REG); 
+ /*                        writel(GCS_NOR_DCSN_ADDR_REMAP_ENABLE
+                                , IPBGCSFLSHNTWK_FLASH_CONFIG_REG); */
++                        writel(CSn, IPBGCSFLSHNTWK_NOR_CS_ROUTE_REG);
+                         myprint("GCS: NOR 16b DEVICE SETUP\r\n") ;
+                      }
+ 
+ #ifdef NOR_CS2
+                      writel(GCS_NOR_CSROUTE_CS2, IPBGCSFLSHNTWK_NOR_CS_ROUTE_REG);
+ #endif
++                     writel(NX_GCS_NOR_AHB_BUF, IPBGCSFLSHNTWK_AHB_DMA_NOR_BASE_ADDR_REG);
+                      writel(0x00022495, IPBGCSFLSHNTWK_IP_2016_APB_DEV0_READ_CFG_REG);   /* read-timing register */
+                      writel(0x00022495, IPBGCSFLSHNTWK_IP_2016_APB_DEV0_WRITE_CFG_REG);  /* write-timing register */
++                     writel(CSn, IPBGCSFLSHNTWK_NOR_CS_ROUTE_REG);
+                      
+                      break;
+ 
+               case FLASH_TYPE_SFC:
+                      writel(GCS_SFC_CLK_ENABLE, IPBGCSFLSHNTWK_GCS_CLOCK_MUX_REG);	
+-                      // remap SFC  to NOR base and vice versa, cannot go with default, as we need support for 32b SFC device
+-                     //writel(NX_GCS_NOR_AHB_BUF, IPBGCSFLSHNTWK_AHB_DMA_SFC_BASE_ADDR_REG);
+-                   //  writel(NX_GCS_SFC_AHB_BUF, IPBGCSFLSHNTWK_AHB_DMA_NOR_BASE_ADDR_REG);
++                     // remap SFC  to NOR base and vice versa, cannot go with default, as we need support for 32b SFC device
++                     writel(NX_GCS_SFC_AHB_BUF, IPBGCSFLSHNTWK_AHB_DMA_SFC_BASE_ADDR_REG);
++                     writel(CSn, IPBGCSFLSHNTWK_SFC_CS_ROUTE_REG);
+ 
+ #ifdef SPI_CS2
+                      writel(GCS_SPI_CSROUTE_CS2, IPBGCSFLSHNTWK_NOR_CS_ROUTE_REG);
+@@ -149,10 +108,59 @@
+ 
+               default:
+                    /* Code will not reach here*/
+-                     myprint("GCS: ERROR: HOW DID THE CODE COME HERE!!!\n") ;
++                     myprint("GCS: ERROR: UNKNOWN FLASH TYPE!!!\n") ;
+                      break;
+       }
+ 
+    return RETCODE_OK ;
+ }
+ 
++/********************************************************************/
++/*  download_from_flash                                                       */
++/*                                                                  */
++/*  PARAMETERS:                                                     */
++/*      eBootDev          IN; flash device as shown by config straps                      */
++/*      eFlashtype        IN; type of Flash device-- NAND, NOR or SFC                   */
++/*                                                                  */
++/*  DESCRIPTION:                                                    */
++/*      inits the GCS config registers, as per the Flash device selected    */
++/*                                                                  */
++/*  RETURNS:                                                        */
++/*                  None                                                      */
++/********************************************************************/
++void nx_gcs_init_mode (void)
++{
++
++   /*Before flash specific init, read PCI mode from config straps and program it in GCS mode reg */
++
++      if (  (INP32(RGU_CNFG_TRAPS_REG))&RGU_CNFG_TRAPS_IO_MODE)
++      {
++         writel(GCS_ENABLE_ISA_MODE_MSK, IPBGCSFLSHNTWK_GCS_MODE_REG );  // ISA mode
++         myprint("GCS: Setup In ISA MODE\r\n") ;
++      }
++      else 
++      {   // PCI 
++          
++          writel(GCS_ENABLE_PCI_MODE_MSK, IPBGCSFLSHNTWK_GCS_MODE_REG);
++          myprint("GCS in PCI MODE\n") ;
++          // PCI HOST
++          if ((INP32(RGU_CNFG_TRAPS_REG)) & RGU_CNFG_TRAPS_PCI_HOST)
++          {
++              writel(GCS_ENABLE_PCI_HOST_MODE_MSK, IPBGCSFLSHNTWK_PCI_CONFIG_REG);  
++              writel(PCI_SETUP_VAL_HOST, PCI_REG_SETUP);  
++              myprint("GCS in PCI HOST MODE\n") ;
++          }
++          else  // PCI  DEVICE 
++          {
++             
++             /* By default PCI config register of GCS is in device mode, so need to to program it */
++             writel(PCI_SETUP_VAL_DEVICE, PCI_REG_SETUP);  
++             myprint("GCS in PCI DEVICE MODE\n\r") ;
++           }
++
++           writel(PCI_SYSTEM_ID, PCI_REG_SUBSYSTEM_ID);  //  Dev and VENDOR ID  --value provided by Mark/Ranga
++           writel(PCI_CMD_VAL, PCI_REG_CFG_CMD_STAT);
++      }
++      return;
++}
++
+diff -Naur u-boot-2009.08/lib_arm/ip2070gcs.h u-boot-2009.08_new/lib_arm/ip2070gcs.h
+--- u-boot-2009.08/lib_arm/ip2070gcs.h	2010-04-22 00:45:26.000000000 -0500
++++ u-boot-2009.08_new/lib_arm/ip2070gcs.h	2010-04-21 22:58:45.000000000 -0500
+@@ -24,10 +24,27 @@
+ /**********************
+ * Function Prototypes *
+ ***********************/
+-retcode_t nx_gcs_init (devicetype_t eBootDev, flashtype_t eFlashtype);
++retcode_t nx_gcs_init (devicetype_t eBootDev, flashtype_t eFlashtype, int CSn);
+ void nx_gcs_nand_init ( void ) ;
+ void nx_gcs_nor_init ( void ) ;
+ 
++#define GCS_ENABLE_ISA_MODE_MSK            (0)
++#define GCS_ENABLE_PCI_MODE_MSK            (1)
++#define GCS_ENABLE_PCI_HOST_MODE_MSK       (0)
++
++#define PCI_SETUP_VAL_HOST                 (0x0CCE0e03)
++#define PCI_SETUP_VAL_DEVICE               (0x0CCE0e02)
++#define PCI_SYSTEM_ID                      (0x84931131)
++#define PCI_CMD_VAL                        (0x4)
++#define GCS_SFC_CLK_ENABLE                 (0x00000001)
++
++#define GCS_NOR_ADM_ENABLE                 (0x20)
++#define GCS_NOR_16B_ENABLE                 (0x2)     
++#define GCS_NOR_DCSN_ADDR_REMAP_ENABLE     (0x3)
++
++#define GCS_IOCSROUTE_CS0                (0x0)
++#define GCS_IOCSROUTE_CS1                (0x1)
++#define GCS_IOCSROUTE_CS2                (0x2)
+ 
+ /*************************
+ * NAND Register          *
+@@ -66,7 +83,14 @@
+ #define NX_GCS_ISA_CS_ROUTE        (0x5C)
+ 
+ /* SFC */
+-#define NX_GCS_SFC_AHB_BUF   NX_GCS_NOR_AHB_BUF // (0x80000000) bcoz SFC is remapped to 0x0000
++#define NX_GCS_SFC_AHB_BUF   (0x80000000) /* Use this AHD address when doing DMA */
++
++typedef struct _gcs_global_info {
++	devicetype_t  flashBootDev;
++	flashtype_t   flashtype;
++   flashtype_t   altflashtype1;
++   u_int32       configstrap;
++} gcs_global_info ;
+ 
+ #endif /* __IP2070GCS_H */
+ 

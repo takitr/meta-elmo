@@ -1,0 +1,14 @@
+diff --git a/include/configs/vpe_apollo.h b/include/configs/vpe_apollo.h
+index 05e4633..bb3b06b 100755
+--- a/include/configs/vpe_apollo.h
++++ b/include/configs/vpe_apollo.h
+@@ -287,7 +287,8 @@
+     "rootfstype=jffs2"
+ #endif
+ 
+-#define CONFIG_BOOTARGS "noinitrd console=ttyS1,115200n8 mtdparts=nx_2017:1024k@0k(uldr),2m@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),10m@379m(appfs),10m@389m(datac),-(extra) root=/dev/mtdblock4 rw rootfstype=jffs2"
++//#define CONFIG_BOOTARGS "noinitrd console=ttyS1,115200n8 mtdparts=nx_2017:1024k@0k(uldr),2m@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),10m@379m(appfs),10m@389m(datac),-(extra) root=/dev/mtdblock4 rw rootfstype=jffs2"
++#define CONFIG_BOOTARGS "noinitrd console=ttyS1,115200n8 mtdparts=nx_2017:1024k@0k(uldr),2m@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),10m@379m(appfs),10m@389m(datac),-(extra) ubi.mtd=4 root=ubi0:rootfs rootfstype=ubifs rw rootflags=sync"
+ 
+ 
+ #define MTDIDS_DEFAULT	"nand0=nx_2017"

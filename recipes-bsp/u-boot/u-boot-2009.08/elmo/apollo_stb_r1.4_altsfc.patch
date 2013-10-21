@@ -1,0 +1,22 @@
+diff -Naur u-boot-2009.08/common/cmd_gcs.c u-boot-2009.08_altsfc/common/cmd_gcs.c
+--- u-boot-2009.08/common/cmd_gcs.c	2010-07-15 16:44:11.000000000 -0500
++++ u-boot-2009.08_altsfc/common/cmd_gcs.c	2010-07-15 12:30:13.000000000 -0500
+@@ -135,6 +135,7 @@
+       gFlashInfo.altflashtype1 = FLASH_TYPE_SFC;
+       /* Configuring SFC Flash device on CS2 */
+       nx_gcs_init(CFG_SFC_FLASH_TYPE, gFlashInfo.altflashtype1, GCS_IOCSROUTE_CS2);	/* InitGCS */
++      nx_sfc_mtd_init();	  
+    }
+    else
+    {
+diff -Naur u-boot-2009.08/common/cmd_gcs.c u-boot-2009.08_altsfc/common/cmd_gcs.c
+--- u-boot-2009.08/common/cmd_gcs.c	2010-07-16 11:14:03.000000000 -0500
++++ u-boot-2009.08_altsfc/common/cmd_gcs.c	2010-07-16 11:09:06.000000000 -0500
+@@ -18,6 +18,7 @@
+ int gcs_flash_sel(const char* altflashtype);
+ void gcs_display_info(flashtype_t flashtype);
+ extern void nand_init(void);
++extern int nx_sfc_mtd_init(void);
+ 
+ int do_gcs(cmd_tbl_t * cmdtp, int flag, int argc, char *argv[])
+ {

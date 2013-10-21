@@ -1,0 +1,230 @@
+diff -Naur u-boot-2009.08/common/cmd_nor.c u-boot-2009.08_nor/common/cmd_nor.c
+--- u-boot-2009.08/common/cmd_nor.c	2010-02-10 03:58:00.000000000 -0600
++++ u-boot-2009.08_nor/common/cmd_nor.c	2010-02-10 03:45:30.000000000 -0600
+@@ -57,24 +57,47 @@
+ 	} 
+    else if(strncmp(cmd, "write", 4) == 0) {
+ 
+-		printf("\nNOR Write.. ");
++      if (argc < 3)
++		   goto usage1;
+ 
+-		if (argc < 4)
+-			goto usage1;
++		if (strcmp(argv[2], "kernel") == 0) {
++         printf("\nNOR Write Kernel..\n ");
+ 
+-		addr = (ulong)simple_strtoul(argv[2], NULL, 16);
+-		off = (ulong)simple_strtoul(argv[3], NULL, 16);
+-		size = (ulong)simple_strtoul(argv[4], NULL, 16);
++		   puts("\nU-Boot -- Writing NOR Partition into flash\n");
+ 
+-		printf ("## RAM Addr         %x ...\n", addr);
+-		printf ("## NOR Flash Offset %x ...\n", off);
+-		printf ("## Image size       %x ...\n", size);
+-	
+-		puts("U-Boot -- Writing NOR flash\n");
++		   nor_write_partition(argv[2]) ;
++
++		   puts("\nU-Boot -- Writing NOR flash.....Done\n");
++
++      }
++      else if (strcmp(argv[2], "rootfs") == 0) {
++         printf("\nNOR Write rootfs.. ");
++
++		   puts("\nU-Boot -- Writing NOR Partition into flash\n");
++
++		   nor_write_partition(argv[2]) ;
++
++		   puts("\nU-Boot -- Writing NOR flash.....Done\n");
++
++      }
++      else {
++   		if (argc < 4)
++   			goto usage1;
++
++   		addr = (ulong)simple_strtoul(argv[2], NULL, 16);
++   		off = (ulong)simple_strtoul(argv[3], NULL, 16);
++   		size = (ulong)simple_strtoul(argv[4], NULL, 16);
++
++   		printf ("## RAM Addr         %x ...\n", addr);
++   		printf ("## NOR Flash Offset %x ...\n", off);
++   		printf ("## Image size       %x ...\n", size);
++   	
++   		puts("U-Boot -- Writing NOR flash\n");
+ 
+-		nor_write(&nor_info, (loff_t)off, (size_t *)(&size), (u_char *)addr) ;
++   		nor_write(&nor_info, (loff_t)off, (size_t *)(&size), (u_char *)addr) ;
+ 
+-		puts("U-Boot -- Writing NOR flash.....Done\n");
++   		puts("U-Boot -- Writing NOR flash.....Done\n");
++      }
+ 		
+ 	} 
+    else if(strncmp(cmd, "erase", 4) == 0) {
+@@ -119,10 +142,11 @@
+ 	"cmd usage - \n"	
+ 	"nor read addr off size\n"	
+ 	"nor write addr off size\n"
+-	"nor read write off size\n"
+ 	"nor erase off size\n"
++	"nor write kernel\n"
++	"nor write rootfs\n"
+ 	"addr - RAM address where Image is copied\n"			
+-	"off - Image offset in Flash\n"			
++	"off  - Image offset in Flash\n"			
+ 	"size - Size of Image to be copied\n"				
+ );
+ 
+diff -Naur u-boot-2009.08/drivers/mtd/nor/nor.c u-boot-2009.08_nor/drivers/mtd/nor/nor.c
+--- u-boot-2009.08/drivers/mtd/nor/nor.c	2010-02-10 03:58:00.000000000 -0600
++++ u-boot-2009.08_nor/drivers/mtd/nor/nor.c	2010-02-09 17:44:02.000000000 -0600
+@@ -537,9 +537,9 @@
+ /*****************************************************************************************/
+ int nx_nor_write(void *addr, int count, void *buffer)
+ {                     
+-    int result, num_end_bytes, bytes_to_write, bytes_written;
++    int result, num_end_bytes, bytes_to_write, bytes_written=0;
+     u_int32 i;
+-    u_int8 start_data[4], end_data[4], *ptr;
++    u_int8 start_data[2048], end_data[4], *ptr;
+     u_int32 offset_mask;
+ 
+    /* Initialize some variables. */
+diff -Naur u-boot-2009.08/drivers/mtd/nor/nor_flashamd.c u-boot-2009.08_nor/drivers/mtd/nor/nor_flashamd.c
+--- u-boot-2009.08/drivers/mtd/nor/nor_flashamd.c	2010-02-10 03:58:00.000000000 -0600
++++ u-boot-2009.08_nor/drivers/mtd/nor/nor_flashamd.c	2010-02-10 00:18:01.000000000 -0600
+@@ -342,6 +342,7 @@
+    dest = (u_int16 *)((uint32)addr | uNCRomBase);
+    src = (u_int16 *)buffer;
+    result = size;
++   size = size/2;
+    sect = dest;
+    isST = (Bank[CurrentBank].pFlashDesc->MfrID == FLASH_CHIP_VENDOR_ST) ? 1 : 0;
+    isST = 0;
+@@ -497,6 +498,7 @@
+    dest = (u_int16 *)((uint32)addr | uNCRomBase);
+    src = (u_int16 *)buffer;
+    result = size;
++   size = size/2;
+    sect = dest;
+    isST = (Bank[CurrentBank].pFlashDesc->MfrID == FLASH_CHIP_VENDOR_ST) ? 1 : 0;
+    isST = 0;
+diff -Naur u-boot-2009.08/lib_arm/flash.c u-boot-2009.08_nor/lib_arm/flash.c
+--- u-boot-2009.08/lib_arm/flash.c	2010-02-10 03:58:00.000000000 -0600
++++ u-boot-2009.08_nor/lib_arm/flash.c	2010-02-10 03:06:46.000000000 -0600
+@@ -18,6 +18,7 @@
+ #include "ip2070gcs.h"
+ #include <nor.h>
+ #include "board.h"
++#include "stbcfg.h"
+ 
+ nor_info_t nor_info;
+ nor_erase_info_t nor_erase_info;
+@@ -29,6 +30,7 @@
+ 
+ nor_global_info gFlashInfo ;
+ u_int8 buffer[0x20000];
++extern ulong		NetBootFileXferSize;
+ 
+ /********************************************************************/
+ /*  find_boot_device                                                       */
+@@ -174,3 +176,86 @@
+       }
+    }
+ 
++void nor_write_partition(char * partition)
++{
++   char *s;
++   u_int32 uDdrAddr, uFlashAddr, uErasesize;
++   if (strcmp(partition, "kernel") == 0)
++   {
++        uFlashAddr = KERNEL_IMAGE_FLASH_OFFSET;
++        uErasesize = KERNEL_IMAGE_FLASH_LENGTH;
++  
++        
++   }
++   else if (strcmp(partition, "rootfs") == 0)
++   {
++      uFlashAddr = ROOTFS_IMAGE_FLASH_OFFSET;
++      uErasesize = ROOTFS_IMAGE_MTD_LENGTH;
++   }
++   else
++   {
++      printf(" unknown command option . \n");
++      return -1;
++   }
++   s = getenv ("loadaddr");
++	uDdrAddr= (int)simple_strtol(s, NULL, 10);
++   nor_write_region(uFlashAddr, NetBootFileXferSize, uDdrAddr, uErasesize);
++   
++}
++void nor_write_region(u_int32 uFlashAddr, u_int32 uLength, u_int32 uDdrAddr, u_int32 uErasesize)
++{
++
++   int32 nblks, i, j, remaining_data, z= 0;
++   u_int32 blksize = UNIFORM_SECTOR_SIZE;
++   u_int32 uTempflashaddr;
++
++  // nblks = uErasesize/(blksize;
++   nblks = (uErasesize >= blksize) ? uErasesize/blksize : 1;
++   uTempflashaddr = uFlashAddr;
++   for (i = 0; i < nblks; i++)
++   {
++      nx_nor_read((void *)uTempflashaddr, 
++               (int)blksize,
++               (void *)buffer );
++      for (j = 0; j < blksize; j++)
++      {
++         if (buffer[j] != 0xFF)
++         {
++            nx_nor_block_erase((void *)uTempflashaddr, blksize, NULL);
++            break;
++         }
++      }
++      uTempflashaddr+=blksize;
++      if ((i%8)==0)
++      {
++         printf(".");
++         z++;
++         if ((z%80)==0) printf("\r\n");
++      }
++   }
++   nblks = (uLength >= blksize) ? uLength/blksize : 1;
++   for (i = 0; i < nblks; i++)
++   {
++      nx_nor_write( (void *)uFlashAddr, 
++              (int)blksize,
++              (void *)uDdrAddr );
++      
++      uFlashAddr+=blksize;
++      uDdrAddr+=blksize;
++      if ((i%8)==0)
++      {
++         myprint(".");
++         z++;
++         if ((z%80)==0) myprint("\r\n");
++      }
++   }
++   remaining_data = uLength - ((nblks) * blksize);
++   if (remaining_data)
++   {
++      nx_nor_write( (void *)uFlashAddr, 
++                 (int)remaining_data,
++                 (void *)uDdrAddr );  
++   }
++}
++
++
+diff -Naur u-boot-2009.08/lib_arm/Makefile u-boot-2009.08_nor/lib_arm/Makefile
+--- u-boot-2009.08/lib_arm/Makefile	2010-02-10 03:58:00.000000000 -0600
++++ u-boot-2009.08_nor/lib_arm/Makefile	2010-02-10 03:30:23.000000000 -0600
+@@ -50,7 +50,7 @@
+ 
+ HOSTCFLAGS += -I $(_TMROOT)/inc
+ HOSTCFLAGS += -I $(_TMTGTBUILDROOT)/cfgtoh/$(STB_HW_CONFIG)-bare
+-HOSTCFLAGS += -D__UBOOT__
++HOSTCFLAGS += -D__UBOOT__ -DSWCONFIG_INCL=1
+ 
+ CFLAGS += $(HOSTCFLAGS)
+ 

@@ -1,0 +1,56 @@
+diff -Naur u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/timer.c u-boot-2009.08_timer/cpu/arm_cortexa8/pnx84xx/timer.c
+--- u-boot-2009.08/cpu/arm_cortexa8/pnx84xx/timer.c	2010-02-10 15:35:22.000000000 -0600
++++ u-boot-2009.08_timer/cpu/arm_cortexa8/pnx84xx/timer.c	2010-02-10 15:12:42.000000000 -0600
+@@ -99,8 +99,8 @@
+ /* delay x useconds */
+ void udelay(unsigned long usec)
+ {
+-	unsigned long tmo = TO_USEC(usec);
+-  unsigned long now, last = readl(&timer_base->tcrr);
++	unsigned long tmo = TO_TICKS(usec);
++  	unsigned long now, last = readl(&timer_base->tcrr);
+ 
+ 	while (tmo > 0) {
+ 		now = readl(&timer_base->tcrr);
+diff -Naur u-boot-2009.08/net/bootp.c u-boot-2009.08_timer/net/bootp.c
+--- u-boot-2009.08/net/bootp.c	2010-02-10 15:35:22.000000000 -0600
++++ u-boot-2009.08_timer/net/bootp.c	2010-02-10 15:32:54.000000000 -0600
+@@ -22,7 +22,7 @@
+ 
+ #if defined(CONFIG_CMD_NET)
+ 
+-#define TIMEOUT		5000UL	/* Milliseconds before trying BOOTP again */
++#define TIMEOUT		5000	/* (Milli)->converted to->Microseconds before trying BOOTP again */
+ #ifndef CONFIG_NET_RETRY_COUNT
+ # define TIMEOUT_COUNT	5		/* # of timeouts before giving up  */
+ #else
+@@ -343,15 +343,15 @@
+ static void
+ BootpTimeout(void)
+ {
+-#if 0
++
+ 	if (BootpTry >= TIMEOUT_COUNT) {
+ 		puts ("\nRetry count exceeded; starting again\n");
+ 		NetStartAgain ();
+ 	} else {
++                reset_timer_masked();		
+ 		NetSetTimeout (TIMEOUT, BootpTimeout);
+ 		BootpRequest ();
+ 	}
+-#endif
+ }
+ 
+ /*
+diff -Naur u-boot-2009.08/net/net.c u-boot-2009.08_timer/net/net.c
+--- u-boot-2009.08/net/net.c	2009-08-31 12:57:42.000000000 -0500
++++ u-boot-2009.08_timer/net/net.c	2010-02-10 15:16:00.000000000 -0600
+@@ -612,7 +612,7 @@
+ 	} else {
+ 		timeHandler = f;
+ 		timeStart = get_timer(0);
+-		timeDelta = iv;
++		timeDelta = iv*1000;
+ 	}
+ }
+ 

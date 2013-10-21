@@ -1,0 +1,80 @@
+diff -Naupr u-boot-2009.08.orig/common/cmd_nand.c u-boot-2009.08/common/cmd_nand.c
+--- u-boot-2009.08.orig/common/cmd_nand.c	2011-01-27 12:02:08.216977648 -0600
++++ u-boot-2009.08/common/cmd_nand.c	2011-01-26 17:59:29.617034708 -0600
+@@ -30,9 +30,6 @@
+ 
+ //#include "ip1902dmac.h"
+ 
+-
+-extern ulong	NetBootFileXferSize;
+-
+ #if defined(CONFIG_CMD_MTDPARTS)
+ 
+ /* parition handling routines */
+@@ -525,12 +522,9 @@ int do_nand(cmd_tbl_t * cmdtp, int flag,
+ 			if (read)
+ 				ret = nand_read_skip_bad(nand, off, &size,
+ 							 (u_char *)addr);
+-			else{
+-				  if(NetBootFileXferSize)
+-				  	size = NetBootFileXferSize;
+-					ret = nand_write_skip_bad(nand, off, &size,
++			else
++		      		ret = nand_write_skip_bad(nand, off, &size,
+ 							  (u_char *)addr);
+-				}
+ 		} else if (!strcmp(s, ".oob")) {
+ 			/* out-of-band data */
+ 			mtd_oob_ops_t ops = {
+diff -Naupr u-boot-2009.08.orig/common/cmd_nor.c u-boot-2009.08/common/cmd_nor.c
+--- u-boot-2009.08.orig/common/cmd_nor.c	2011-01-27 12:02:08.224978523 -0600
++++ u-boot-2009.08/common/cmd_nor.c	2011-01-26 18:00:58.616979917 -0600
+@@ -23,7 +23,6 @@
+ #include "stbcfg.h"
+ 
+ 
+-extern ulong		NetBootFileXferSize;
+ extern unsigned char buffer[];
+ extern flash_info_t flash_info[];	/* info for FLASH chips */
+ extern int nx_nor_read (void * sect_addr,  int size,  void *buffer );
+@@ -161,12 +160,9 @@ int do_nor(cmd_tbl_t * cmdtp, int flag, 
+ 							}
+ 							if (size > part->size)
+ 								size = part->size;
+-						} 
+-						else if (NetBootFileXferSize)
+-							size = NetBootFileXferSize;
+-						else 
++						} else {
+ 							size =  part->size;
+-						
++                                                }
+ 						addr_last = addr_first + size - 1;
+ 						addr_sect_last = addr_first + part->size - 1;
+ 
+diff -Naupr u-boot-2009.08.orig/common/cmd_sfc.c u-boot-2009.08/common/cmd_sfc.c
+--- u-boot-2009.08.orig/common/cmd_sfc.c	2011-01-27 12:02:09.505005267 -0600
++++ u-boot-2009.08/common/cmd_sfc.c	2011-01-26 18:03:42.784980147 -0600
+@@ -19,7 +19,6 @@
+ //#include "ip1902dmac.h"
+ 
+ 
+-extern ulong	NetBootFileXferSize;
+ extern struct mtd_info *sfc_info[];
+ 
+ #if defined(CONFIG_CMD_MTDPARTS)
+@@ -164,12 +163,9 @@ int do_sfc(cmd_tbl_t * cmdtp, int flag, 
+ 		if (read)
+ 			ret = nx_sfc_mtd_read(sfc, off, size, &retlen,
+ 						 (u_char *)addr);
+-		else if(write){
+-			  if(NetBootFileXferSize)
+-			  	size = NetBootFileXferSize;
+-				ret = nx_sfc_mtd_write(sfc, off, size, &retlen,
++		else if(write)
++                        ret = nx_sfc_mtd_write(sfc, off, size, &retlen,
+ 						  (u_char *)addr);
+-			}
+ 		  else {
+ 			printf("Unknown  command  '%s'.\n", cmd);
+ 			return 1;

@@ -1,0 +1,51 @@
+diff -Naurp u-boot-2009.08.org/drivers/mtd/nand/nx_nand_ip2070.c u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c
+--- u-boot-2009.08.org/drivers/mtd/nand/nx_nand_ip2070.c	2010-10-06 16:07:41.000000000 -0500
++++ u-boot-2009.08/drivers/mtd/nand/nx_nand_ip2070.c	2010-10-06 15:51:56.000000000 -0500
+@@ -1477,6 +1477,7 @@ static int nx_nand_verify_buf(struct mtd
+ #define  DEV0_TYPE 			(0x0004C)
+ #define  DEV0_TIME0			(0x00050)
+ #define  DEV0_TIME1			(0x00054)
++#define  DMA_CTRL                       (0x0C)
+ /* For Testing - To be removed */
+ 
+ #define CACHE_LINE_SIZE (32)
+@@ -1513,6 +1514,8 @@ int board_nand_init(struct nand_chip *ch
+ 	writel(0x02644448, (unsigned long *) (PNX8XXX_EFM_BASE + DEV0_TIME0));
+ 	writel(0x01008444, (unsigned long *) (PNX8XXX_EFM_BASE + DEV0_TIME1));
+ #endif
++	/* Enable flow control for memory-to peripheral and peripheral-to-memory DMA*/
++	writel(0x3, (unsigned long *) (PNX8XXX_EFM_BASE + DMA_CTRL));
+ 
+ 	/* Initialise NAND control structure */
+ 	nx_nc->ctrl_base = (void __iomem *) KSEG1ADDR(PNX8XXX_EFM_BASE);
+diff -Naurp u-boot-2009.08.org/lib_arm/flash.c u-boot-2009.08/lib_arm/flash.c
+--- u-boot-2009.08.org/lib_arm/flash.c	2010-10-06 16:07:41.000000000 -0500
++++ u-boot-2009.08/lib_arm/flash.c	2010-10-06 15:49:21.000000000 -0500
+@@ -171,9 +171,9 @@ static void display_flash_config (ulong 
+ }
+ #endif /* CONFIG_SYS_NO_FLASH */
+ 
+-#define LOCK_CMD_REG  0xE06EA510
+-#define LOCK_STAT_REG 0xE06EA514
+-#define GRESET0_REG   0xe06e6010
++#define LOCK_CMD_REG  0xE06E6028
++#define LOCK_STAT_REG 0xE06E602C
++#define GRESET1_REG   0xe06e6010
+ #define GCS_MASK      0x200
+ 
+ /* Initialize GCS - Called from the function table in start_armboot */
+@@ -191,11 +191,11 @@ int gcs_init(void)
+        writel(0x2b, LOCK_CMD_REG);
+        writel(0x1, LOCK_STAT_REG);
+      
+-       rst_val = readl((unsigned long *)(GRESET0_REG));
++       rst_val = readl((unsigned long *)(GRESET1_REG));
+        rst_val |= GCS_MASK;
+-       writel(rst_val, (unsigned long *)(GRESET0_REG));
++       writel(rst_val, (unsigned long *)(GRESET1_REG));
+        rst_val &= ~GCS_MASK;
+-       writel(rst_val, (unsigned long *)(GRESET0_REG));
++       writel(rst_val, (unsigned long *)(GRESET1_REG));
+        /* Initialize the GCS in ISA/PCI Mode */
+        
+        nx_gcs_init_mode();
