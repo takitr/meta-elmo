@@ -5,7 +5,7 @@ LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
 PV = "1.2"
-PR = "r3"
+PR = "r4"
 SRCDATE = "20131002"
 INHIBIT_PACKAGE_STRIP = "1"
 
@@ -18,6 +18,7 @@ SRC_URI += "file://runstb.sh \
 	    file://icons.tar.gz	\
 	    file://upnp_xml.tar.gz \
 	    file://release.info.${PV} \
+	    file://maruapp.service \
 	"
 
 S = "${WORKDIR}"
@@ -40,7 +41,10 @@ do_install() {
 	install -d ${D}/usr/local
 	cp ${WORKDIR}/share ${D}/usr/local -a
 	install -m 0755 ${WORKDIR}/release.info.${PV} ${D}${sysconfdir}/release.info
-
+        install -d ${D}/lib/systemd/system/multi-user.target.wants
+        cp ${WORKDIR}/maruapp.service ${D}/lib/systemd/system/
+        cd ${D}/lib/systemd/system/multi-user.target.wants
+        ln -sf /lib/systemd/system/maruapp.service maruapp.service
 }
 
 do_package_qa() {

@@ -16,7 +16,6 @@ SRC_URI += "file://S10_stb_sys_startup.sh \
 	    file://S50_stb_load_app.sh \
 	    file://lircd.conf \
 	    file://cnxt.service \
-	    file://entropic.target \
 	    file://cnxt_init \
 		"
 
@@ -41,12 +40,8 @@ do_install() {
 	cd ${D}/lib/firmware
 	ln -sf /opt/lib/firmware/apollo_vfw.bin apollo_vfw.bin
 	ln -sf /opt/lib/firmware/tmasAFWFramework.mi tmasAFWFramework.mi
-	install -d ${D}/lib/systemd/system/entropic.target.wants
 	install -d ${D}/lib/systemd/system/basic.target.wants
 	cp ${WORKDIR}/cnxt.service ${D}/lib/systemd/system/
-	cp ${WORKDIR}/entropic.target ${D}/lib/systemd/system/
-	cd ${D}/lib/systemd/system/entropic.target.wants
-	ln -sf /lib/systemd/system/cnxt.service cnxt.service
 	cd ${D}/lib/systemd/system/basic.target.wants
 	ln -sf /lib/systemd/system/cnxt.service cnxt.service
 }

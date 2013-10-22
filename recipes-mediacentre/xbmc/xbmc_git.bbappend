@@ -8,7 +8,7 @@ SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
 
 PV = "12.0"
 
-PR = "r0"
+PR = "r1"
 
 RV = "1.2"
 
@@ -17,6 +17,7 @@ SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${RV} \
 
 SRC_URI += "file://autoexec.py \
 	    file://run.xbmc.sh \
+	    file://xbmc.service \
 	"
 
 S = "${WORKDIR}/git"
@@ -59,6 +60,10 @@ do_install_append() {
 	cp ${WORKDIR}/run.xbmc.sh ${D}/app/run.xbmc.sh
 	ln -sf /mnt/hdd0/program/.xbmc ${D}/home/root/.xbmc
 	rm ${D}/usr/share/xbmc/addons/repository.xbmc.org -rf
+        install -d ${D}/lib/systemd/system/graphical.target.wants
+        cp ${WORKDIR}/xbmc.service ${D}/lib/systemd/system/
+        cd ${D}/lib/systemd/system/graphical.target.wants
+        ln -sf /lib/systemd/system/xbmc.service xbmc.service
 }
 
 do_package_qa(){
@@ -68,4 +73,4 @@ do_package_qa(){
 PARALLEL_MAKE = " -j8 "
 
 EXTRA_OECONF_append_armv7a = "--cpu=cortex-a9"
-FILES_${PN} += "/app /mnt /home "
+FILES_${PN} += "/app /mnt /home /lib"
