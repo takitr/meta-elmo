@@ -1,0 +1,258 @@
+diff --git a/board/nxp/vpe_apollo/vpe_apollo.c b/board/nxp/vpe_apollo/vpe_apollo.c
+index b84a2a9..78e2b27 100755
+--- a/board/nxp/vpe_apollo/vpe_apollo.c
++++ b/board/nxp/vpe_apollo/vpe_apollo.c
+@@ -2153,6 +2153,100 @@ unsigned char gVFD_CharTable[256][6] =
+ 	  
+ };
+ 
++void NumToASCII(unsigned char value, unsigned char* ASCII)
++{
++        unsigned char buff;
++
++        buff = value&0xf;
++        if(buff<0xa)ASCII[1] = buff+0x30;
++        else ASCII[1] = buff+0x57;
++
++        buff = value&0xf0;
++        buff >>= 4;
++        if(buff<0xa) ASCII[0] = buff+0x30;
++        else ASCII[0] = buff+0x57;
++}
++
++int do_check_md5(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++	u8 output1[32];
++	u8 output2[32];
++	u8 test[32] = {0};
++	char md5file[1024] = {0};
++	unsigned int addr,len;
++	int i;
++    unsigned char linebuf[32]={0};
++    unsigned char *ucp = (void*)linebuf;
++    uint32_t *uip = (void*)linebuf;
++
++	addr = 0x4400000;
++
++#ifdef CONFIG_MD5
++	if (argc < 2) {
++		cmd_usage(cmdtp);
++		return 1;
++	}
++	len = check_update_image("update_ruby/",argv[1],addr);
++	if( len != -1)
++	{
++		md5((unsigned char *) addr, len, output1);
++		APOLLO_PRINTF("md5 for %08lx ... %08lx ==> ", addr, addr + len - 1);
++		for (i = 0; i < 16; i++)
++		{
++			NumToASCII(output1[i],output2+i*2);
++		}
++	}
++	else
++	{
++		setenv("enableupdate","0");
++		return 0;
++	}
++	addr = 0x8000;
++
++	sprintf(md5file, "%s.md5", argv[1]);
++
++	len = check_update_image("update_ruby/",md5file,addr);
++
++	if(len == -1)
++	{
++		setenv("enableupdate","0");
++		return 0;
++	}
++	for(i = 0; i < 8;i++)
++	{
++        uip[i] = *(volatile uint32_t *)addr;
++        APOLLO_PRINTF(" %08x", uip[i]);
++		addr += 4;
++	}
++
++	for(i = 0; i < 32;i++)
++	{
++		APOLLO_PRINTF("output2[%d]%04x =? ucp[%d]%04x \n",i,output2[i],i,ucp[i]);
++		if(output2[i] != ucp[i])
++		{
++			printf("md5sum check failed!\n");
++			setenv("enableupdate","0");
++			return 0;
++		}
++	}
++	printf("md5sum correct!\n");
++	setenv("enableupdate","1");
++#endif
++	return 0;
++
++}
++
++
++int do_write(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++	if (argc < 2) {
++		cmd_usage(cmdtp);
++		return 1;
++	}
++	writeVFD(argv[1]);
++	return 0;
++}
++
+ int WaitForReply(int length)
+ {
+ 	int i = 0;
+@@ -2304,7 +2398,7 @@ void LED_ON_OFF(int mLED_ID, int mEnable)
+ 
+ void writeVFD(char* aChar)
+ {
+-	char mVFDstring[24];
++	char mVFDstring[24]={0};
+ 	char vfdcmd[25];
+ 	memset( mVFDstring, 0x20, sizeof( mVFDstring ) );
+ 	
+@@ -2476,7 +2570,7 @@ void check_img()
+ 		writeVFD("Check img");	
+ 		APOLLO_PRINTF("Usb storage Found ....\n"
+ 				"Check update Images ....\n");
+-		size = check_update_image("update_ruby/","update_ruby/checkusb.img");
++		size = check_update_image("update_ruby/","update_ruby/checkusb.img",0x8000);
+ 		if(size == -1){
+ 			APOLLO_PRINTF("uldr Image Read Fail or Not found uldr Image ....\n");
+ 		}
+@@ -2634,8 +2728,7 @@ void board_config()
+ 	
+ 	//Uart2 Pin mux register enable
+ 	Uart2_Enable();
+-	LED_ON_OFF(3, TRUE)
+-		;
++	LED_ON_OFF(3, TRUE);
+ 	SetWatchDogTime(FALSE,0);
+ 	SetWatchDogTime(TRUE,90); // Set WatchDog Timer 90sec!
+ 
+@@ -2690,4 +2783,13 @@ U_BOOT_CMD(
+ 	"[]"
+ );
+ 
+-
++U_BOOT_CMD(
++	check_md5, 3, 1, do_check_md5,
++	"test cmd in u_boot",
++	"[]"
++);
++U_BOOT_CMD(
++	write_vfd, 3, 1, do_write,
++	"test cmd in u_boot",
++	"[]"
++);
+\ No newline at end of file
+diff --git a/common/cmd_fat.c b/common/cmd_fat.c
+index f1c2699..221ed13 100755
+--- a/common/cmd_fat.c
++++ b/common/cmd_fat.c
+@@ -322,10 +322,9 @@ void hexdump (int cnt, unsigned char *data)
+ }
+ #endif	/* NOT_IMPLEMENTED_YET */
+ 
+-long check_update_image (char *dir, char *filename)
++unsigned int check_update_image (char *dir, char *filename, unsigned int offset)
+ {
+-	long size;
+-	unsigned long offset=0x8000;
++	unsigned int size;
+ 	unsigned long count=0;
+ 	char buf [12];
+ 	int ret;
+@@ -349,6 +348,5 @@ long check_update_image (char *dir, char *filename)
+ 	if(size==-1)
+ 		return (size);
+ 	printf ("\n%ld bytes read\n", size);
+-	sprintf(buf, "%lX", size);
+ 	return (size);
+-} 
+\ No newline at end of file
++} 
+diff --git a/common/cmd_mem.c b/common/cmd_mem.c
+index 4d41951..935a2b8 100644
+--- a/common/cmd_mem.c
++++ b/common/cmd_mem.c
+@@ -34,6 +34,7 @@
+ #endif
+ #include <watchdog.h>
+ 
++#include <u-boot/md5.h>
+ #include <sha1.h>
+ 
+ #ifdef	CMD_MEM_DEBUG
+@@ -146,6 +147,7 @@ int do_mem_md ( cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ 
+ 	{
+ 		/* Print the lines. */
++		printf("addr = %lx size = %ld, length = %ld, \n",addr, size, length);
+ 		print_buffer(addr, (void*)addr, size, length, DISP_LINE_LEN/size);
+ 		addr += size*length;
+ 	}
+@@ -1143,6 +1145,31 @@ int do_mem_crc (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ }
+ #endif	/* CONFIG_CRC32_VERIFY */
+ 
++#ifdef CONFIG_CMD_MD5SUM
++int do_md5sum(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++	unsigned long addr, len;
++	unsigned int i;
++	u8 output[16];
++
++	if (argc < 3) {
++		cmd_usage(cmdtp);
++		return 1;
++	}
++
++	addr = simple_strtoul(argv[1], NULL, 16);
++	len = simple_strtoul(argv[2], NULL, 16);
++
++	md5((unsigned char *) addr, len, output);
++	printf("md5 for %08lx ... %08lx ==> ", addr, addr + len - 1);
++	for (i = 0; i < 16; i++)
++		printf("%02x", output[i]);
++	printf("\n");
++
++	return 0;
++}
++#endif
++
+ #ifdef CONFIG_CMD_SHA1SUM
+ int do_sha1sum(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ {
+@@ -1291,6 +1318,14 @@ U_BOOT_CMD(
+ );
+ #endif /* CONFIG_MX_CYCLIC */
+ 
++#ifdef CONFIG_CMD_MD5SUM
++U_BOOT_CMD(
++	md5sum,	3,	1,	do_md5sum,
++	"compute MD5 message digest",
++	"address size"
++);
++#endif
++
+ #ifdef CONFIG_CMD_SHA1SUM
+ U_BOOT_CMD(
+ 	sha1sum,	3,	1,	do_sha1sum,
+diff --git a/include/configs/vpe_apollo.h b/include/configs/vpe_apollo.h
+index b03b3f6..6e9f0f3 100755
+--- a/include/configs/vpe_apollo.h
++++ b/include/configs/vpe_apollo.h
+@@ -210,6 +210,11 @@
+     #define CONFIG_EHCI_HCD_INIT_AFTER_RESET
+     #define CONFIG_SUPPORT_VFAT
+ 
++    /*md5sum Support*/
++    #define CONFIG_CMD_MD5SUM
++    #define CONFIG_MD5
++
++
+ #ifdef CONFIG_CMD_NET
+     #define CONFIG_LIPP_6300ETH
+     #define CONFIG_PHY        /* Comment this out for EMY PHY */

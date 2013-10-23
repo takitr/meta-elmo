@@ -1,4 +1,4 @@
-PR = "r2"
+PR = "r3"
 require u-boot.inc
 
 DEPENDS = "mtd-utils u-boot-hw-header"
@@ -8,8 +8,6 @@ LIC_FILES_CHKSUM="file://COPYING;md5=4c6cde5df68eff615d36789dc18edd3b"
 SRC_URI = "\
     ftp://ftp.denx.de/pub/u-boot/u-boot-${PV}.tar.bz2 \
 "
-
-#    file://dont-inline-weak-symbols.patch \
 
 UBOOT_MACHINE = "vpe_apollo_config"
 
@@ -79,6 +77,7 @@ SRC_URI_append_elmo = " \
         file://apollo_stb_r1.4_mkupdate_splash_env_watchdog.patch;apply=yes;striplevel=1 \
         file://apollo_stb_r1.4_update_check.patch;apply=yes;striplevel=1 \
         file://apollo_stb_r1.4_env_range.patch;apply=yes;striplevel=1 \
+        file://apollo_stb_r1.4_md5sum_check.patch;apply=yes;striplevel=1 \
            "
 
 

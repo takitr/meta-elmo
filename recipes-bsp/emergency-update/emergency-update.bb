@@ -3,8 +3,8 @@ LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
 COMPATIBLE_MACHINE = "(elmo)"
-DEPENDS = "u-boot-mkimage-native"
-SRCDATE = "20131008"
+SRCDATE = "20131023"
+PR="r1"
 
 SRC_URI = "http://update.prismcube.com/Ruby/emergency-update-${SRCDATE}.tar.gz \
           "
@@ -16,7 +16,7 @@ do_install() {
 	cp ${WORKDIR}/update_ruby ${D}/boot/ -a
 }
 
-SRC_URI[md5sum] = "e074ee02822d31b7c6aa38381764a194"
-SRC_URI[sha256sum] = "faa07df8083bd45e04c46527a3f08a0adc6610499dc207d22c7e0efd71fd3f3f"
+SRC_URI[md5sum] = "58882df5518d2e201bcd0465fd7cf2a5"
+SRC_URI[sha256sum] = "4a3c7769ec1144a7aa5cb1024ac87081e434a17a8a0cbd02c5777254306be79e"
 
 FILES_${PN} = "/boot"
