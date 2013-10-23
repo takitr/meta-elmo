@@ -6,7 +6,7 @@ KV = "2.6.37"
 
 PV = "3.3.0"
 
-SRCDATE = "20130927"
+SRCDATE = "20131022"
 PR = "SDK.GA330.${SRCDATE}"
 INHIBIT_PACKAGE_STRIP = "1"
 
@@ -51,8 +51,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "5d281b64d8a634300b68814bf555941c"
-SRC_URI[sha256sum] = "b12a6a479af7dbf098d80b5aa0da6ffe74556611cb33cb8789610233afddc1ee"
+SRC_URI[md5sum] = "ccd48de648f5abd9f594bd38a28ff246"
+SRC_URI[sha256sum] = "49762497c5ae9fca5c340ef5eb63f4a96035b15c39f4dd57b482e5c24dcf8083"
 
 #PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "
