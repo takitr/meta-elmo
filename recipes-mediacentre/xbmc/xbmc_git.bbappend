@@ -8,9 +8,9 @@ SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
 
 PV = "12.0"
 
-PR = "r1"
+PR = "r2"
 
-RV = "1.2.1"
+RV = "1.2.2"
 
 SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${RV} \
 "
@@ -18,6 +18,7 @@ SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${RV} \
 SRC_URI += "file://autoexec.py \
 	    file://run.xbmc.sh \
 	    file://xbmc.service \
+	    file://resetXBMC.sh \
 	"
 
 S = "${WORKDIR}/git"
@@ -58,6 +59,7 @@ do_install_append() {
 	install -d ${D}/home/root
 	cp ${WORKDIR}/autoexec.py ${D}/usr/share/xbmc/autoexec.py
 	cp ${WORKDIR}/run.xbmc.sh ${D}/app/run.xbmc.sh
+	cp ${WORKDIR}/resetXBMC.sh ${D}/app/resetXBMC.sh
 	ln -sf /mnt/hdd0/program/.xbmc ${D}/home/root/.xbmc
 	rm ${D}/usr/share/xbmc/addons/repository.xbmc.org -rf
         install -d ${D}/lib/systemd/system/graphical.target.wants
