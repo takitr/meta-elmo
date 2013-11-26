@@ -23,7 +23,6 @@ do
 		/etc/init.d/transmission restart &
 		modprobe usb_storage
 		echo "Find runMaru, so Run XBMC"
-		/app/resetXBMC.sh
 		mkdir /mnt/hdd0/program/.xbmc/userdata -p
 		cp /usr/share/xbmc/autoexec.py /mnt/hdd0/program/.xbmc/userdata/ -a
 		/app/check_script.sh post &

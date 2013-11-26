@@ -2,7 +2,9 @@
 
 if [ -e /config/resetXBMC ]
 then
-        rm -rf /mnt/hdd0/program/.xbmc/*
-        rm /config/resetXBMC
+	mount /dev/sda3 /mnt/hdd0/program/
+	rm -rf /mnt/hdd0/program/.xbmc/*
+	umount /mnt/hdd0/program/
+	rm /config/resetXBMC
 fi
 
