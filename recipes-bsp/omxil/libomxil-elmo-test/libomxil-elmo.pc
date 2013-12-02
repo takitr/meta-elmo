@@ -1,0 +1,13 @@
+prefix=/usr
+exec_prefix=/usr
+libdir=/usr/lib
+includedir=/usr/include
+toolsdir=/usr/bin
+pluginsdir=${libdir}
+
+Name: libomxil-elmo
+Description: OpenMAX Integration Layer library
+Version: 1.0
+Libs: -L${libdir} -ltopenmax
+Cflags: -I${includedir} -I${includedir}/OpenMAX -I${includedir}/OpenMAX/IL
+

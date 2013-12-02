@@ -1,0 +1,10 @@
+[Unit]
+Description=maruapp service starting...
+After=cnxt.service
+
+[Service]
+Type=simple
+ExecStart=/bin/sh -c '/etc/init.d/runstb.sh'
+
+[Install]
+WantedBy=multi-user.target

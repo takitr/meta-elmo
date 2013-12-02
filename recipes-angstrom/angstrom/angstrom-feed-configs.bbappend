@@ -1,6 +1,6 @@
 PR = "r21"
 
-FEED_VERSION = "1.2.x"
+FEED_VERSION = "1.3.x"
 FEED_PREFIX = "collateral"
 FEED_URI = "http://update.prismcube.com/prismcube-feeds/${MACHINE_ARCH}/${FEED_VERSION}/stable"
 
