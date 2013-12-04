@@ -5,9 +5,9 @@ DEPENDS = "xbmc"
 COMPATIBLE_MACHINE = "(elmo)"
 
 RV = "1.2.2"
-PR = "r2"
-
-SRC_URI = "git://update.prismcube.com/script.mbox.git;protocol=git;tag=${RV} \
+PR = "r3"
+TAG = "ce45935f298fe1d8a99ad2ba6f4e5e1c6881d01d"
+SRC_URI = "git://update.prismcube.com/script.mbox.git;protocol=git;tag=${TAG} \
           "
 
 S = "${WORKDIR}/git"
