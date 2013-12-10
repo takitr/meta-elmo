@@ -3,8 +3,8 @@ LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
 PV = "1.2.2"
-SRCDATE = "20131206"
-PR = "r7"
+SRCDATE = "20131210"
+PR = "r9"
 
 INHIBIT_PACKAGE_STRIP = "1"
 
@@ -81,8 +81,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "59ac3fba8c807684e9f856642dfb7e6e"
-SRC_URI[sha256sum] = "2faa71ae950840b1b74098347716e1f4db35ed4f484bfccc6b5abf18b737e9be"
+SRC_URI[md5sum] = "cfcc6938e4fd78a1aaefffa64cad7430"
+SRC_URI[sha256sum] = "849d63f08e0d2658a84a729037a4e742edeb54b33a6caafbce774fa6c121f5a4"
 
 PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "
