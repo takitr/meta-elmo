@@ -31,7 +31,7 @@ RDEPENDS_${PN} = " \
 	dbus-glib	\
 	libupnp \
 	nfs-utils-client \
-	libomxil-elmo	\
+	libomxil-elmo-test	\
 	hddtemp \
 	transmission \
 	libplist	\
