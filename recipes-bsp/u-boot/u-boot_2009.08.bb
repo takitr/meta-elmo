@@ -1,4 +1,4 @@
-PR = "r3"
+PR = "r4"
 require u-boot.inc
 
 DEPENDS = "mtd-utils u-boot-hw-header"
@@ -78,6 +78,7 @@ SRC_URI_append_elmo = " \
         file://apollo_stb_r1.4_update_check.patch;apply=yes;striplevel=1 \
         file://apollo_stb_r1.4_env_range.patch;apply=yes;striplevel=1 \
         file://apollo_stb_r1.4_md5sum_check.patch;apply=yes;striplevel=1 \
+	file://apollo_stb_r1.4_display_strings_to_surface.patch;apply=yes;striplevel=1 \
            "
 
 
