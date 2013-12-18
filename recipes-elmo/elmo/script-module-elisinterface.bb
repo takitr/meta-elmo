@@ -4,8 +4,8 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3
 DEPENDS = "xbmc"
 COMPATIBLE_MACHINE = "(elmo)"
 
-RV = "1.2.2"
-PR = "r2"
+RV = "1.2.3"
+PR = "r3"
 TAG = "e1367a1d0a8af2c660534ae9b027b23b23ecbb5e"
 
 SRC_URI = "git://update.prismcube.com/script.module.elisinterface;protocol=git;tag=${TAG} \
