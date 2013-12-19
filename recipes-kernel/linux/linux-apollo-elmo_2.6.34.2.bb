@@ -13,11 +13,10 @@ inherit kernel siteinfo
 
 DESCRIPTION = "Linux kernel for Apollo processors"
 KERNEL_IMAGETYPE = "vmlinux"
-DEPENDS = "u-boot-mkimage-native"
 
 COMPATIBLE_MACHINE = "(elmo)"
 
-PR = "r10"
+PR = "r11"
 PV = "2.6.34.2"
 
 MODULE = "linux-2.6.34"
