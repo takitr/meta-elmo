@@ -6,8 +6,8 @@ COMPATIBLE_MACHINE = "(elmo)"
 
 RV = "1.3.5"
 PR = "r6"
-
-SRC_URI = "git://update.prismcube.com/script.mbox.git;protocol=git;tag=${RV} \
+TAG = "91597af512123551756ed2e29d306baeb31b68a1"
+SRC_URI = "git://update.prismcube.com/script.mbox.git;protocol=git;tag=${TAG} \
           "
 
 S = "${WORKDIR}/git"
