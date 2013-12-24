@@ -47,4 +47,5 @@ RDEPENDS_${PN} = " \
 	python-difflib \
 	python-email \
 	python-compression \
+	libnfs \
 "
