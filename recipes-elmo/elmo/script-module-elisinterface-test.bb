@@ -4,10 +4,10 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3
 DEPENDS = "xbmc"
 COMPATIBLE_MACHINE = "(elmo)"
 
-RV = "1.3.4"
-PR = "r3"
-
-SRC_URI = "git://update.prismcube.com/script.module.elisinterface;protocol=git;tag=${RV} \
+RV = "1.3.8"
+PR = "r4"
+TAG = "172fbdd2c16a08060e70cebc8ee9478fe499fa85"
+SRC_URI = "git://update.prismcube.com/script.module.elisinterface;protocol=git;tag=${TAG} \
           "
 
 S = "${WORKDIR}/git"

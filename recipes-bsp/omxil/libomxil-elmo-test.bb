@@ -9,7 +9,7 @@ KV = "2.6.34"
 
 PV = "${KV}"
 SRCDATE = "20140102"
-PR = "r3"
+PR = "r4"
 
 SRC_URI = "http://update.prismcube.com/Ruby/libomxil-elmo-debug-${SRCDATE}-dev.tar.gz \
 	   file://apollo_openmax_license.txt \
