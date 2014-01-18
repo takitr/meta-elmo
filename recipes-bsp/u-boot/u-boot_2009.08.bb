@@ -1,7 +1,8 @@
-PR = "r4"
+PR = "r5"
 require u-boot.inc
 
 DEPENDS = "mtd-utils u-boot-hw-header"
+DEPENDS_virtclass-native = ""
 
 DEFAULT_PREFERENCE = "-1"
 LIC_FILES_CHKSUM="file://COPYING;md5=4c6cde5df68eff615d36789dc18edd3b"
@@ -79,12 +80,14 @@ SRC_URI_append_elmo = " \
         file://apollo_stb_r1.4_env_range.patch;apply=yes;striplevel=1 \
         file://apollo_stb_r1.4_md5sum_check.patch;apply=yes;striplevel=1 \
 	file://apollo_stb_r1.4_display_strings_to_surface.patch;apply=yes;striplevel=1 \
+	file://apollo_stb_r1.4_patch_for_v_1.0.4.patch;apply=yes;striplevel=1 \
            "
 
 
 TARGET_LDFLAGS = ""
 
 inherit base
+BBCLASSEXTEND = "native"
 
 do_compile () {
        export _TMROOT=${STAGING_INCDIR}
@@ -94,7 +97,17 @@ do_compile () {
        oe_runmake ${UBOOT_MACHINE}
        oe_runmake all
 }
-
+do_compile_virtclass-native () {
+       oe_runmake tools
+}
+do_install_virtclass-native () {
+  install -d ${D}${bindir}
+  install -m 0755 tools/mkimage ${D}${bindir}/uboot-mkimage
+  ln -sf uboot-mkimage ${D}${bindir}/mkimage
+  install -d {D}${bindir}
+  install -m 0755 tools/mkupdateimage ${D}${bindir}/uboot-mkupdateimage
+  ln -sf uboot-mkupdateimage ${D}${bindir}/mkupdateimage
+}
 #must be override
 do_deploy () {
         install -d ${DEPLOY_DIR_IMAGE}
@@ -106,7 +119,8 @@ do_deploy () {
         #ln -sf ${UBOOT_IMAGE} ${UBOOT_SYMLINK}
         #package_stagefile_shell ${DEPLOY_DIR_IMAGE}/${UBOOT_SYMLINK}
 }
-
+do_deploy_virtclass-native () {
+}
 
 SRC_URI[md5sum] = "cd4788ea1c6ac4f9b100b888a1063a6b"
 SRC_URI[sha256sum] = "858fd04efd5b98e99fd1a074998b1a8ac5fbd07b176de1d20d8eb148492d949d"
