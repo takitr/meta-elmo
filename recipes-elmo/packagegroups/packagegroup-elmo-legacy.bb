@@ -10,7 +10,6 @@ RDEPENDS_${PN} = "\
   wireless-tools \
   wpa-supplicant \
   python-wifi \
-  elmo-legacy-network \
 "
 
 

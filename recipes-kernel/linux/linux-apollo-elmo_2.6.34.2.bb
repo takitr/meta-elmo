@@ -16,7 +16,7 @@ KERNEL_IMAGETYPE = "vmlinux"
 
 COMPATIBLE_MACHINE = "(elmo)"
 
-PR = "r9"
+PR = "r11"
 PV = "2.6.34.2"
 
 MODULE = "linux-2.6.34"
@@ -47,6 +47,7 @@ SRC_URI = "git://git.infradead.org/~dedekind/ubifs-v2.6.34.git;protocol=git;tag=
 			file://200-systemd-patch-for-systemd.patch;apply=yes;striplevel=1 \
 			file://201-apollo_L2Cache_Disable.patch;apply=yes;striplevel=1 \
 			file://300-LIPP_6300ETH-ifup-ifdown-bugs-when-ethernet-is-unplu.patch;apply=yes;striplevel=1 \
+			file://400-Dvb-core.patch;apply=yes;striplevel=1 \
 			file://defconfig_wireless \
 			file://defconfig_wireless.systemd \
 			file://defconfig_wireless.systemd.linuxtv \

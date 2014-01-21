@@ -1,7 +1,0 @@
-#!/bin/sh
-touch /opt/.appfs
-/etc/init.d/S10_stb_sys_startup.sh
-/etc/init.d/S15_stb_dev_node.sh
-/etc/init.d/S50_stb_load_app.sh
-/etc/init.d/pvr-init start
-/etc/init.d/runstb.sh

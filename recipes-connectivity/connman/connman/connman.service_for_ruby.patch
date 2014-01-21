@@ -1,0 +1,13 @@
+diff --git a/src/connman.service.in b/src/connman.service.in
+index a234a0c..a62b6e7 100644
+--- a/src/connman.service.in
++++ b/src/connman.service.in
+@@ -5,7 +5,7 @@ After=syslog.target
+ [Service]
+ Type=dbus
+ BusName=net.connman
+-ExecStart=@prefix@/sbin/connmand -n
++# ExecStart=@prefix@/sbin/connmand -n
+ 
+ [Install]
+ WantedBy=multi-user.target

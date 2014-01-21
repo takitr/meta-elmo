@@ -1,0 +1,20 @@
+Version=1.1.11
+Date=2013.09.06
+
+1.1.11 Release Note 
+
+- Fixed focus issue on setting menu
+- Fixed channel update via internet to reboot after update
+- Fixed system to save GUI settings before it goes to reboot or shutdown
+- Fixed connecting to hidden SSID bug
+- Fixed editing transponder bug
+- Fixed hang up issue when connecting to Wi-Fi
+- Fixed timer update when channel number is changed
+- Changed version display
+- Added Slovak and Czech language pack
+- Fixed memory leak on media player causes by messagequeue.put
+- Fixed deadlock between main process & AddonInstaller
+- Modify Volume for Dolby & Noise
+- Fixed bugs on timeshift status bar
+- Fixed bugs on SK/CZ EPG Information incorrect characters
+- Support Multicrypt

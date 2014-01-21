@@ -1,4 +1,13 @@
 CMDLINE=`cat /config/macinfo`
 ifdown eth0
 ifconfig eth0 hw ether $CMDLINE
+if [ -f /config/interfaces ];then
+	cp /config/interfaces /etc/network/interfaces -a
+fi
+if [ -f /config/wpa_supplicant.conf ];then
+	cp /config/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf -a
+fi
+if [ -f /config/resolv.conf ];then
+	cp /config/resolv.conf /etc/resolv.conf -a
+fi
 /etc/init.d/networking restart

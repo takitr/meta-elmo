@@ -1,0 +1,7 @@
+Version=1.1.12
+Date=2013.09.17
+
+1.1.12 Release Note 
+
+- Support Polish language ( including virtual keyboard for Polish )
+- Fixed bugs on smart card

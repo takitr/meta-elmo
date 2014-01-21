@@ -1,0 +1,10 @@
+[Unit]
+Description=CNXT Driver Initialization
+Before=maruapp.service
+
+[Service]
+Type=forking
+ExecStart=/bin/sh -c '/etc/init.d/cnxt_init'
+
+[Install]
+WantedBy=basic.target

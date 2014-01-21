@@ -11,9 +11,9 @@ SRCREV = "${AUTOREV}"
 
 PKGV = "2.4+git${GITPKGV}"
 PV = "2.4+git${SRCPV}"
-PR = "r1"
+PR = "r2"
 
-SRC_URI = "git://git.ffmpeg.org/rtmpdump;protocol=git"
+SRC_URI = "git://git.ffmpeg.org/rtmpdump;protocol=git;branch=master;tag=a9f353c7ccf29d6305e13fedb77653b8681e9fc2"
 
 S = "${WORKDIR}/git/librtmp"
 

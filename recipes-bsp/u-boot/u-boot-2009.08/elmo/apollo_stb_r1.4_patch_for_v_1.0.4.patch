@@ -1,0 +1,405 @@
+diff --git a/board/nxp/vpe_apollo/vpe_apollo.c b/board/nxp/vpe_apollo/vpe_apollo.c
+index 023729d..125fc23 100755
+--- a/board/nxp/vpe_apollo/vpe_apollo.c
++++ b/board/nxp/vpe_apollo/vpe_apollo.c
+@@ -2305,6 +2305,29 @@ int do_write(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ 	return 0;
+ }
+ 
++int clear_surface()
++{
++	int i ;
++	gIncHD = (u32 *)((u32)pVRAMhd_base + ((gXRES * ( (gYRES + logo_height) / 2 ) * 4 )));
++	for ( i=0; i<(gXRES*100); i++)
++	{
++	   writel( 0xffffffff, gIncHD);
++	   gIncHD++;
++	}
++	gIncHD = (u32 *)((u32)pVRAMhd_base + ((gXRES * ( (gYRES + logo_height) / 2 ) * 4 )));
++	gPosHDY = gInitHDPosY;
++
++	gIncSD = (u32 *)((u32)pVRAMsd_base + ((720 * ( (gHightOfSdPic + logo_height) / 2 ) * 4 )));
++	for ( i=0; i<(gXRES*100); i++)
++	{
++	   writel( 0xffffffff, gIncSD);
++	   gIncSD++;
++	}
++	gIncSD = (u32 *)((u32)pVRAMsd_base + ((720 * ( (gHightOfSdPic + logo_height) / 2 ) * 4 )));
++	gPosSDY = gInitSDPosY;
++
++	return 0;
++}
+ int write_to_surface(char * string)
+ {
+ 	int i = 0;
+@@ -2379,6 +2402,11 @@ int do_write_to_surface(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ 	write_to_surface(argv[1]);
+ 	return 0;
+ }
++int do_clear_surface(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++	clear_surface();
++	return 0;
++}
+ 
+ int WaitForReply(int length)
+ {
+@@ -2937,4 +2965,9 @@ U_BOOT_CMD(
+ 	"write command for display to surface",
+ 	"[]"
+ );
++U_BOOT_CMD(
++	cleare_display_strings, 2, 1, do_clear_surface,
++	"clear command for clear strins in splash image ",
++	"[]"
++);
+ 
+diff --git a/common/cmd_mem.c b/common/cmd_mem.c
+index 935a2b8..e06357f 100644
+--- a/common/cmd_mem.c
++++ b/common/cmd_mem.c
+@@ -1218,6 +1218,36 @@ int do_unzip ( cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ }
+ #endif /* CONFIG_CMD_UNZIP */
+ 
++#ifdef CONFIG_PNX84XX
++int savetoenv(int addr, int size, const char * env);
++int do_mtenv ( cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
++{
++	unsigned long addr, size, offset;
++	char * env_name;
++	char varvalue[32];
++    unsigned char linebuf[32]={0};
++    unsigned char *ucp = (void*)linebuf;
++    uint32_t *uip = (void*)linebuf;
++	int i;
++
++	switch (argc) {
++		case 5:
++			addr = simple_strtoul(argv[1], NULL, 16);
++			size = simple_strtoul(argv[2], NULL, 16);
++			env_name = argv[3];
++			offset = simple_strtoul(argv[4], NULL, 16);
++			break;
++		default:
++			cmd_usage(cmdtp);
++			return 1;
++	}
++    uip[0] = *(volatile uint32_t *)addr;
++	uip[0] += offset;
++	sprintf(varvalue,"%02x%02x%02x%02x",ucp[3],ucp[2],ucp[1],ucp[0]);
++	setenv(env_name, varvalue);
++	return 0;
++}
++#endif
+ 
+ /**************************************************/
+ U_BOOT_CMD(
+@@ -1341,3 +1371,10 @@ U_BOOT_CMD(
+ 	"srcaddr dstaddr [dstsize]"
+ );
+ #endif /* CONFIG_CMD_UNZIP */
++#ifdef CONFIG_PNX84XX
++U_BOOT_CMD(
++	mtenv,	5,	1,	do_mtenv,
++	"memory value to environment",
++	"address size env_name offset"
++);
++#endif
+diff --git a/include/configs/vpe_apollo.h b/include/configs/vpe_apollo.h
+index 64a5551..bf9cbbe 100755
+--- a/include/configs/vpe_apollo.h
++++ b/include/configs/vpe_apollo.h
+@@ -285,7 +285,7 @@
+     "uboot_macaddr=1\0"    \
+     "uboot_cmdline=1\0"		\
+     "bootcmd=run nandboot\0"	\
+-    "ldver=3\0"	\
++    "ldver=4\0"	\
+     "hwver=1\0"	\
+     "videomode=PAL\0"
+ #if 0
+diff --git a/tools/mkupdateimage.c b/tools/mkupdateimage.c
+index a7252cf..538e256 100644
+--- a/tools/mkupdateimage.c
++++ b/tools/mkupdateimage.c
+@@ -12,8 +12,8 @@
+ 
+ 
+ extern	unsigned long	crc32 (unsigned long crc, const char *buf, unsigned int len);
+-static	void		copy_file (int, const char *);
+-static	void		usage (void);
++static	void	copy_file (int ifd, const char *datafile, int type);
++static	void	usage (void);
+ 
+ #define PATH_LENGTH 200
+ 
+@@ -22,6 +22,34 @@ int opt_arch = IH_ARCH_PPC;
+ int opt_type = IH_TYPE_MULTI;
+ int opt_comp = IH_COMP_NONE;
+ 
++//Image type
++enum{
++	TYPE_SCRIPT = 0,
++	TYPE_ULDR,
++	TYPE_U_BOOT,
++	TYPE_KERNEL,
++	TYPE_UIMAGE,
++	TYPE_RAMDISK,
++};
++
++/* update.img structure
++* [header][script image][sizes][startaddr][uldr.bin    ][u-boot.bin   ][kernel       ][uImage     ][ramdisk     ]
++* [64    ][1MB=1048576 ][32   ][32       ][1MB=1048576 ][1.5MB=1572864][kernel size  ][uImage size][ramdisk size]
++* uldr.bin size info addr 64 + 1048576
++* u-boot.bin size info addr 64 + 1048576 + 4
++* kernel size info addr 64 + 1048576 + 8
++*
++* uldr.bin start addr 64 + 1048576 + 64
++* u-boot.bin start addr 64 + 1048576 + 64 + 1048576
++* kernel start addr 64 + 1048576 + 64 + 1048576 + 1572864
++*/
++#define SCRIPT_SIZE 1048576
++#define ULDR_SIZE 1048576
++#define U_BOOT_SIZE 1572864
++//header size 
++#define HEADER_SIZE 64
++
++
+ char	*imagefile="update.img";
+ char	*cmdname;
+ unsigned long g_offset;
+@@ -72,20 +100,53 @@ main (int argc, char **argv)
+ 	while (--argc > 0 && **++argv == '-') {
+ 		while (*++*argv) {
+ 			switch (**argv) {
+-			case 'i' :
++
++			case 's' :
+ 			{
+ 				if (--argc <= 0)
+ 					usage();
+ 				file_name=*++argv;
+-				copy_file(ifd, file_name);
+-				goto NXTARG;				
++				merge_script(ifd, file_name);
++				goto NXTARG;
+ 			}
+-			case 's' :
++			case 'l' :
+ 			{
+ 				if (--argc <= 0)
+ 					usage();
+ 				file_name=*++argv;
+-				merge_script(ifd, file_name);
++				copy_file(ifd, file_name, TYPE_ULDR);
++				goto NXTARG;
++			}
++			case 'u' :
++			{
++				if (--argc <= 0)
++					usage();
++				file_name=*++argv;
++				copy_file(ifd, file_name, TYPE_U_BOOT);
++				goto NXTARG;
++			}
++			case 'k' :
++			{
++				if (--argc <= 0)
++					usage();
++				file_name=*++argv;
++				copy_file(ifd, file_name, TYPE_KERNEL);
++				goto NXTARG;
++			}
++			case 'U' :
++			{
++				if (--argc <= 0)
++					usage();
++				file_name=*++argv;
++				copy_file(ifd, file_name, TYPE_UIMAGE);
++				goto NXTARG;
++			}
++			case 'r' :
++			{
++				if (--argc <= 0)
++					usage();
++				file_name=*++argv;
++				copy_file(ifd, file_name, TYPE_RAMDISK);
+ 				goto NXTARG;
+ 			}
+ 			default :
+@@ -159,7 +220,7 @@ NXTARG:		;
+ 	exit (EXIT_SUCCESS);	
+ }
+ static void
+-copy_file (int ifd, const char *datafile)
++copy_file (int ifd, const char *datafile, int type)
+ {
+ 	int dfd;
+ 	struct stat sbuf;
+@@ -188,6 +249,133 @@ copy_file (int ifd, const char *datafile)
+ 			cmdname, datafile, strerror(errno));
+ 		exit (EXIT_FAILURE);
+ 	}
++	int filesize;
++	switch(type)
++	{
++		case TYPE_ULDR:
++		{
++			offset = SCRIPT_SIZE+HEADER_SIZE+64;
++			g_offset = offset;
++			if (filesize = lseek(ifd, SCRIPT_SIZE+HEADER_SIZE, SEEK_SET) > 0)
++			{
++				if(write(ifd, &sbuf.st_size, 4)!=4) {
++					fprintf (stderr, "%s: Write error on %s: %s\n",
++						cmdname, datafile, strerror(errno));
++					exit (EXIT_FAILURE);
++				}
++			}
++			if (filesize = lseek(ifd, SCRIPT_SIZE+HEADER_SIZE+32, SEEK_SET) > 0)
++			{
++
++				if(write(ifd, &offset, 4)!=4) {
++					fprintf (stderr, "%s: Write error on %s: %s\n",
++						cmdname, datafile, strerror(errno));
++					exit (EXIT_FAILURE);
++				}
++			}
++			printf("type = %d, size = %ld, start addr = %ld 0x%x\n",type, sbuf.st_size,offset,offset);
++		}
++		break;
++		case TYPE_U_BOOT:
++		{
++			offset = SCRIPT_SIZE+HEADER_SIZE+ULDR_SIZE+64;
++			g_offset = offset;
++			if (filesize = lseek(ifd, SCRIPT_SIZE+HEADER_SIZE+4, SEEK_SET) > 0)
++			{
++				if(write(ifd, &sbuf.st_size, 4)!=4) {
++					fprintf (stderr, "%s: Write error on %s: %s\n",
++						cmdname, datafile, strerror(errno));
++					exit (EXIT_FAILURE);
++				}
++			}
++			if (filesize = lseek(ifd, SCRIPT_SIZE+HEADER_SIZE+4+32, SEEK_SET) > 0)
++			{
++
++				if(write(ifd, &offset, 4)!=4) {
++					fprintf (stderr, "%s: Write error on %s: %s\n",
++						cmdname, datafile, strerror(errno));
++					exit (EXIT_FAILURE);
++				}
++			}
++			printf("type = %d, size = %ld, start addr = %ld 0x%x\n",type, sbuf.st_size,offset,offset);
++		}
++		break;
++		case TYPE_KERNEL:
++		{
++			offset = SCRIPT_SIZE+HEADER_SIZE+ULDR_SIZE+U_BOOT_SIZE+64;
++			g_offset = offset;
++			if (filesize = lseek(ifd, SCRIPT_SIZE+HEADER_SIZE+8, SEEK_SET) > 0)
++			{
++				printf("type = %d,start = %ld \n",type, SCRIPT_SIZE+8);
++				if(write(ifd, &sbuf.st_size, 4)!=4) {
++					fprintf (stderr, "%s: Write error on %s: %s\n",
++						cmdname, datafile, strerror(errno));
++					exit (EXIT_FAILURE);
++				}
++			}
++			if (filesize = lseek(ifd, SCRIPT_SIZE+HEADER_SIZE+8+32, SEEK_SET) > 0)
++			{
++
++				if(write(ifd, &offset, 4)!=4) {
++					fprintf (stderr, "%s: Write error on %s: %s\n",
++						cmdname, datafile, strerror(errno));
++					exit (EXIT_FAILURE);
++				}
++			}
++			printf("type = %d, size = %ld, start addr = %ld 0x%x\n",type, sbuf.st_size,offset,offset);
++		}
++		break;
++		case TYPE_UIMAGE:
++		{
++			if (filesize = lseek(ifd, SCRIPT_SIZE+HEADER_SIZE+12, SEEK_SET) > 0)
++			{
++				printf("type = %d,start = %ld \n",type, SCRIPT_SIZE+12);
++				if(write(ifd, &sbuf.st_size, 4)!=4) {
++					fprintf (stderr, "%s: Write error on %s: %s\n",
++						cmdname, datafile, strerror(errno));
++					exit (EXIT_FAILURE);
++				}
++			}
++			if (filesize = lseek(ifd, SCRIPT_SIZE+HEADER_SIZE+12+32, SEEK_SET) > 0)
++			{
++
++				if(write(ifd, &offset, 4)!=4) {
++					fprintf (stderr, "%s: Write error on %s: %s\n",
++						cmdname, datafile, strerror(errno));
++					exit (EXIT_FAILURE);
++				}
++			}
++			printf("type = %d, size = %ld, start addr = %ld 0x%x\n",type, sbuf.st_size,offset,offset);
++		}
++		break;
++		case TYPE_RAMDISK:
++		{
++			if (filesize = lseek(ifd, SCRIPT_SIZE+HEADER_SIZE+16, SEEK_SET) > 0)
++			{
++				printf("type = %d,start = %ld \n",type, SCRIPT_SIZE+16);
++				if(write(ifd, &sbuf.st_size, 4)!=4) {
++					fprintf (stderr, "%s: Write error on %s: %s\n",
++						cmdname, datafile, strerror(errno));
++					exit (EXIT_FAILURE);
++				}
++			}
++			if (filesize = lseek(ifd, SCRIPT_SIZE+HEADER_SIZE+16+32, SEEK_SET) > 0)
++			{
++
++				if(write(ifd, &offset, 4)!=4) {
++					fprintf (stderr, "%s: Write error on %s: %s\n",
++						cmdname, datafile, strerror(errno));
++					exit (EXIT_FAILURE);
++				}
++			}
++			printf("type = %d, size = %ld, start addr = %ld 0x%x\n",type, sbuf.st_size,offset,offset);
++		}
++		break;
++		default :
++			fprintf (stderr, "%s: unkown type %s: %s\n",
++				cmdname, datafile, strerror(errno));
++			exit (EXIT_FAILURE);
++	}
+ 
+ 	size = sbuf.st_size;
+ 
+@@ -195,12 +383,15 @@ copy_file (int ifd, const char *datafile)
+ 	printf("offset = 0x%x %d offset+0x28000000 = 0x%x \n",offset,offset,offset+0x28000000);
+ 	printf("size = 0x%x %d\n",size,size);
+ 	
+-	if (write(ifd, ptr, size) != size) {
+-		fprintf (stderr, "%s: Write error on %s: %s\n",
+-			cmdname, datafile, strerror(errno));
+-		exit (EXIT_FAILURE);
++	if(filesize = lseek(ifd, offset, SEEK_SET) > 0)
++	{
++		if (write(ifd, ptr, size) != size) {
++			fprintf (stderr, "%s: Write error on %s: %s\n",
++				cmdname, datafile, strerror(errno));
++			exit (EXIT_FAILURE);
++		}
+ 	}
+-	
++
+ 	if (((tail = size % 4) != 0)) 
+ 	{
+ 		g_offset +=size + 4 -tail;
+@@ -285,9 +476,8 @@ merge_script (int ifd, const char *datafile)
+ void
+ usage ()
+ {
+-	fprintf (stderr, "       %s -s [scriptimage] -i [other image] -i [other image]\n",
++	fprintf (stderr, "       %s -s [scriptimage] -l [uldr image] -u [u-boot image] -k [kernel image] -U [update booting kernel image] -r [update booting ramdisk image]\n",
+ 		cmdname);
+ 	fprintf (stderr, "       Output File name -> update.img \n");
+-
+ 	exit (EXIT_FAILURE);
+ }

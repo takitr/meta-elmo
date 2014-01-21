@@ -8,8 +8,18 @@ sleep 2
 if [ -e /config/macinfo ]; then
 	./setMac.sh&
 else
+	if [ -f /config/interfaces ];then
+        	cp /config/interfaces /etc/network/interfaces -a
+	fi
+	if [ -f /config/wpa_supplicant.conf ];then
+	        cp /config/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf -a
+	fi
+	if [ -f /config/resolv.conf ];then
+	        cp /config/resolv.conf /etc/resolv.conf -a
+	fi
 	/etc/init.d/networking restart &
 fi
+
 cp ./thumb.jpg /mtmp/
 while true
 do 
@@ -18,8 +28,7 @@ do
 		./check_script.sh pre
 		./iftest.sh&
 		./launcher&
-		./maruapp&
-		./run.xbmc.sh
+		./maruapp
 	fi
 	sleep 1
 done

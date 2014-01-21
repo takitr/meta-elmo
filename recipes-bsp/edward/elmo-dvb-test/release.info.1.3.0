@@ -1,0 +1,13 @@
+Version=1.3.0(dev version)
+Date=2013.12.03
+
+1.3.0 Release Note
+
+*) 2013.12.03
+
+- Fix Audio Track Select Error in PIP
+
+*) 2013.12.02
+
+- PIP support
+- Added event 'NoService' on PIP

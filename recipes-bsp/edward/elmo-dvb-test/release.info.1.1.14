@@ -1,0 +1,9 @@
+Version=1.1.14
+Date=2013.09.30
+
+1.1.14 Release Note 
+
+- Added audio language auto selection list (SLOVAK, LAVBIAN, PERSIAN, etc )
+- Fixed bugs on multi-decrypt 
+- Fixed bugs on CIModules 
+

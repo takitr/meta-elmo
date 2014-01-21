@@ -35,4 +35,7 @@ do_install() {
         cp ${S}/lib/modules/${KERNEL_VERSION}/extra/* ${D}/lib/modules/${KERNEL_VERSION}/extra/
 }
 
+SRC_URI[md5sum] = "52d6cb8e5998b16fb75414dc841bca1e"
+SRC_URI[sha256sum] = "6ed136364e099a099884571d1554d999de7ee4b88b47f472e25c79a1ad787fdb"
+
 FILES_${PN} = "/*"

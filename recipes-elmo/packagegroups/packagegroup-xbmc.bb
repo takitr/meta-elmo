@@ -7,11 +7,12 @@ PR = "r0"
 inherit packagegroup
 
 # for backwards compatibility
-DEPEND_${PN} += "packagegroup-xbmc-base"
+DEPEND_${PN} += "packagegroup-xbmc-base packagegroup-gconv-list"
 RPROVIDES_${PN} += "packagegroup-xbmc"
 
 RDEPENDS_${PN} = " \
 	packagegroup-xbmc-base \
+	packagegroup-gconv-list \
 	xbmc \
 	script-mbox \
 	script-module-elisinterface \
