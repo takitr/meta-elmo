@@ -9,7 +9,7 @@ KV = "2.6.34"
 
 PV = "${KV}"
 
-SRCDATE = "20131119"
+SRCDATE = "20140122"
 
 
 PR = "r101-${SRCDATE}"
@@ -37,8 +37,9 @@ do_package_qa() {
 }
 
 INSANE_SKIP_${PN} = "ldflags dev-so" 
-SRC_URI[md5sum] = "eb4bde6a5fe1d2e41b78631ecf802783"
-SRC_URI[sha256sum] = "897af5dd70129f234126b31b03fa189c5fe079bb4185fc2bd9825ef21ce3dc19"
+SRC_URI[md5sum] = "fe61b99a76b29caeaecf2cb7cc8d1bc1"
+SRC_URI[sha256sum] = "9b54356b541516a10c463d84a6290bd703cfb024c9e2e658cc58446d8d1d11fa"
+
 #PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGES = "${PN} ${PN}-dbg "
 FILES_${PN} = "/usr/lib/* /usr/lib/pkgconfig/*"
