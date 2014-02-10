@@ -1,0 +1,20 @@
+Version=1.4.0
+Date=2014.01.17
+
+1.4.0 Release Note
+- Modified HDMI Format UI ( after change resolution to 1080p and pressing some buttons on RCU it is not stored resolution Nobody know that must wait more seconds after change resolution. ).
+- Updated OSD translation.
+- Remapped yellow and blue hot keys ( Yellow : Audio and video settings, Blue : PIP on/off ).
+- Added a bookmark notification icon.
+- Optimized Get Addons, Get Repositories function.
+- Disable Background image caching.
+- Support connection of NFS in file browser.
+- Added "Update from zip file" ( backward compatibility not supported ).
+- Added u-boot command "display_strings" for display strings to surface.
+- Adeed MPEG2 SW decoder for fixed SD picture decoding problem.
+- Added Fast Scan in first installation menu.
+- Added Russian qwerty RCU.
+- Fixed bugs on scrambled channel recording.
+- Modified fanart resolution for improving speed.
+- Fixed bugs on auto remove thumbnail script.
+- Note: Press i button on remote control to start update when system boots.

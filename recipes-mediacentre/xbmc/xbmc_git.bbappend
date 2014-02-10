@@ -9,10 +9,10 @@ SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
 
 PV = "12.0"
 PR = "r12"
-RV = "1.3.8"
-SRCDATE = "20131213"
-
-SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${RV} \
+RV = "1.5.1"
+SRCDATE = "20131129"
+TAG = "1.5.1"
+SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${TAG} \
 "
 
 SRC_URI += "file://autoexec.py \
