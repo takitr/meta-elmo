@@ -7,10 +7,10 @@ DEPENDS = "libusb1 libcec libplist expat yajl gperf-native libxmu fribidi mpeg2d
 SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
 
 PV = "12.0"
-PR = "r15"
-RV = "1.4.5"
+PR = "r16"
+RV = "1.4.6"
 SRCDATE = "20131129"
-TAG = "e57d07763ddee59921a39ae611804f43afb9307e"
+TAG = "5485d5ec01bd90099fa8ca76ce9fb6c611f41407"
 SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${TAG} \
 "
 
