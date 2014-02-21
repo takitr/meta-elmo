@@ -4,7 +4,7 @@ THISDIR := "${@os.path.dirname(bb.data.getVar('FILE', d, True))}"
 FILESPATH =. "${@base_set_filespath(["${THISDIR}/${PN}"], d)}:"
 
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
-PR = "r1"
+PR = "r2"
 
 inherit packagegroup
 
@@ -47,5 +47,6 @@ RDEPENDS_${PN} = " \
 	python-difflib \
 	python-email \
 	python-compression \
+	python-compiler \
 	libnfs \
 "
