@@ -4,9 +4,9 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3
 DEPENDS = "xbmc"
 COMPATIBLE_MACHINE = "(elmo)"
 
-RV = "1.4.7"
-PR = "r23"
-TAG = "0e99dac94985968ddc55509b459a919ba141988d"
+RV = "1.6.0"
+PR = "r24"
+TAG = "54cbb24ca5bab6463cfaa9d112f6d3be92d7def1"
 SRC_URI = "git://update.prismcube.com/script.mbox.git;protocol=git;tag=${TAG} \
           "
 

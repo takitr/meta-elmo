@@ -1,0 +1,24 @@
+Version=1.6.0
+Date=2014.03.25
+
+1.6.0 Release Note
+*)2014.03.25
+[FIXED] PIP Channel bug in loop through
+[FIXED] Displaying radio mode screen bug
+[FIXED] New resolution on front panel display after adjusting resolution
+[FIXED] EPG info bug when entering edit channel list from main menu
+[FIXED] PIP Volume bug in Media Play
+[FIXED] Reset the EPG database
+[MODIFIED] Edit Channel list background and header title
+[MODIFIED] Put "Extended Information" in the first position in EPG context menu
+[MODIFIED] Show video id in decimal and hex, audio stereo DD info, and video resolution in service info
+[MODIFIED] Allows to watch Live TV in Media
+[NEW] Added PIP channel list
+
+Known Issues
+[UNRESOLVED] PIP stability in fast scan fav group and scrambled channels
+[UNRESOLVED] Having trouble to connect to hidden wifi network
+[UNRESOLVED] Blind scan missing
+[UNRESOLVED] HDMI-CEC missing
+[UNRESOLVED] HbbTV missing
+
