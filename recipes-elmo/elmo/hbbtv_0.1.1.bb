@@ -16,6 +16,7 @@ SRC_URI = " file://dfb2.sh \
 		file://GtkLauncher \
 		file://run.hbbtv.sh \
 		file://none.html \
+		file://libhbbtvplugin.so \
 	"
 S = "${WORKDIR}"
 
@@ -32,6 +33,9 @@ do_install() {
 	install -m 0755 ${WORKDIR}/GtkLauncher ${D}/opt/bin/
 	install -m 0755 ${WORKDIR}/dfb2.sh ${D}/opt/bin/
 	install -m 0755 ${WORKDIR}/dfb.sh ${D}/opt/bin/
+	install -d ${D}/usr/lib/mozilla/plugins
+	install -m 0755 ${WORKDIR}/libhbbtvplugin.so ${D}/usr/lib/mozilla/plugins/
+	
 }
 
 do_package_qa() {
