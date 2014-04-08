@@ -1,4 +1,6 @@
 FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
+PR = "ruby-r1"
+DEPENDS += "avahi"
 
 SRC_URI = "http://samba.org/samba/ftp/stable/samba-${PV}.tar.gz \
     file://volatiles.03_samba \

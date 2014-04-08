@@ -16,7 +16,7 @@ KERNEL_IMAGETYPE = "vmlinux"
 
 COMPATIBLE_MACHINE = "(elmo)"
 
-PR = "r11"
+PR = "r12"
 PV = "2.6.34.2"
 
 MODULE = "linux-2.6.34"
@@ -60,7 +60,7 @@ S = "${WORKDIR}/git"
 EXTRA_OEMAKE = "${PARALLEL_MAKE} "
 
 do_configure() {
-        oe_machinstall -m 0644 ${WORKDIR}/defconfig_wireless.systemd.linuxtv ${S}/.config
+        oe_machinstall -m 0644 ${WORKDIR}/defconfig_wireless.systemd.linuxtv.release ${S}/.config
         oe_runmake oldconfig
 }
 
