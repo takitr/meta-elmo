@@ -6,8 +6,9 @@ inherit packagegroup
 
 RPROVIDES_${PN} += "packagegroup-elmo-webkit"
 
-RDEPENDS_${PN} = "\
+RDEPENDS_${PN} = "	\
 	pango-modules \
 	mime-support \
 	webkit-gtk \
+	hbbtv \
 	"

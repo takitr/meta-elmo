@@ -18,11 +18,11 @@ disable-module=keyboard
 disable-module=ps2mouse
 
 #bg-none
-#no-cursor
+no-cursor
 #translucent-windows
 #no-translucent-windows
 
-bg-color=00000000
+bg-color=0x00000000
 #bg-none
 
 #init-layer=0
@@ -39,4 +39,3 @@ bg-color=00000000
 
 hardware
 #software-warn
-

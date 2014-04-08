@@ -1,5 +1,4 @@
 
-
 create_fusion_node()
 {
   device=$1
@@ -32,5 +31,4 @@ export PATH=$PATH:/opt/bin
 export LD_LIBRARY_PATH=/lib:/opt/lib:/usr/lib/directfb-1.4-0/systems:/usr/lib/directfb-1.4-0/inputdrivers:/usr/lib/directfb-1.4-0/gfxdrivers:/usr/lib/directfb-1.4-0/interfaces/IDirectFBFont:/usr/lib/directfb-1.4-0/interfaces/IDirectFBImageProvider:/usr/lib/directfb-1.4-0/wm:/usr/lib/directfb-1.4-0/interfaces/IDirectFBVideoProvider
 
 cd /opt/bin
-
 

@@ -12,5 +12,4 @@ LD_PRELOAD=/opt/lib/liblnxUKAL.so:/opt/lib/liblnxnotifyqUsr.so:/opt/lib/liblnxcs
 --enable-offline-web-application-cache=false \
 --enable-html5-database=false \
 --enable-html5-local-storage=false \
-file:///app/tmp/none.html \
-
+file:///mnt/webkit/bin/none.html \
