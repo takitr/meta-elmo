@@ -89,6 +89,7 @@ typelibs_DATA :=
 EXTRA_DIST :=
 BUILT_SOURCES :=
 CLEANFILES :=
+DOMAIN :=
 DISTCLEANFILES :=
 MAINTAINERCLEANFILES :=
 pkgconfig_DATA :=
@@ -140,6 +141,11 @@ global_cppflags += \
 if !TARGET_WIN32
 global_cppflags += \
 	-DXP_UNIX
+
+if TARGET_X11
+global_cppflags += \
+        -DMOZ_X11
+endif
 endif
 
 if USE_ICU_UNICODE

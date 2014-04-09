@@ -30,6 +30,7 @@ SRC_URI = "\
   file://GNUmakefile.am \
   file://gtk-doc.make \
   file://nodolt.patch \
+  file://0001_gtk_patch_c39a7.patch;apply=yes;striplevel=1 \
  "
 
 #  file://function-scope.patch \
