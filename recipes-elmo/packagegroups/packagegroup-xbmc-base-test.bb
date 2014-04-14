@@ -49,4 +49,5 @@ RDEPENDS_${PN} = " \
 	python-compression \
 	python-compiler \
 	libnfs \
+	blackhole-aio-grab \
 "
