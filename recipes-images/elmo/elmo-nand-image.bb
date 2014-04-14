@@ -11,6 +11,7 @@ IMAGE_INSTALL += " \
 	mtd-utils \
 	emergency-update \
 	packagegroup-elmo-legacy \
+	packagegroup-elmo-hbbtv \
 "
 
 export IMAGE_BASENAME = "elmo-nand-image"

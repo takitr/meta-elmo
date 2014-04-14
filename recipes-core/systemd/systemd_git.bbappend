@@ -11,3 +11,6 @@ do_install_append(){
 	install -d ${D}/etc/systemd
 	cp ${WORKDIR}/journald.conf ${D}/etc/systemd/ -a
 }
+
+RRECOMMENDS_${PN}-analyze = ""
+
