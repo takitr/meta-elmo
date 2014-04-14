@@ -1,7 +1,8 @@
 cd /opt/bin
 . ./dfb2.sh
 LD_LIBRARY_PATH=/opt/lib
-#cd Programs/
+export MOZ_PLUGIN_PATH="/usr/lib/mozilla/plugins/"
+insmod /opt/lib/modules/2.6.34/extra/HbbTvProc.ko
 export HBB_BROWSER_IP=127.0.0.1
 export HBB_SYSTEM_IP=127.0.0.1
 LD_PRELOAD=/opt/lib/liblnxUKAL.so:/opt/lib/liblnxnotifyqUsr.so:/opt/lib/liblnxcssUsr.so:/opt/lib/liblnxtmvssUsr.so:/opt/lib/liblnxpvrUsr.so:/opt/lib/liblnxplatUsr.so ./GtkLauncher \
