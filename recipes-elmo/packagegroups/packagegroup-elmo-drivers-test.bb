@@ -13,11 +13,16 @@ RDEPENDS_${PN} = "\
 	apollo-sgx-modules \
 	libgles-apollo \
 	elmo-dvb-test \
+        fuse-utils \
+        fuse \
+        curlftpfs \
 	kernel-vmlinux \
 	kernel-module-dvb-core \
 	kernel-module-usbserial \
 	kernel-module-ftdi-sio \
 	kernel-module-pl2303 \
+	kernel-module-fuse \
+	kernel-module-smbfs \
         libexif \
         util-linux-sfdisk \
         e2fsprogs-mke2fs \
