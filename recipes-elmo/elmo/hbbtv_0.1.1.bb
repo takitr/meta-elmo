@@ -5,7 +5,7 @@ LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
 PV = "0.1.1"
-
+PR = "r1"
 SRCDATE = "20140407"
 
 
@@ -17,6 +17,7 @@ SRC_URI = " file://dfb2.sh \
 		file://run.hbbtv.sh \
 		file://none.html \
 		file://libhbbtvplugin.so \
+		file://DirectFB-1.4.3_ruby.tar.gz \
 	"
 S = "${WORKDIR}"
 
@@ -35,7 +36,7 @@ do_install() {
 	install -m 0755 ${WORKDIR}/dfb.sh ${D}/opt/bin/
 	install -d ${D}/usr/lib/mozilla/plugins
 	install -m 0755 ${WORKDIR}/libhbbtvplugin.so ${D}/usr/lib/mozilla/plugins/
-	
+	cp ${WORKDIR}/usr/* ${D}/usr/ -a
 }
 
 do_package_qa() {
