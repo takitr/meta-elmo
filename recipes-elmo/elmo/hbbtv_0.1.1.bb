@@ -8,7 +8,7 @@ PV = "0.1.1"
 PR = "r1"
 SRCDATE = "20140407"
 
-
+DEPENDS = "webkit-gtk"
 #SRC_URI = "http://update.prismcube.com/Ruby/elmo-maruapp-${PV}-${SRCDATE}.tar.gz "
 SRC_URI = " file://dfb2.sh \
 		file://dfb.sh \
