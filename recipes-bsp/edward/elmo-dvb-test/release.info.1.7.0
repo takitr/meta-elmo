@@ -1,0 +1,23 @@
+Version=1.7.0(dev version)
+Date=2014.04.15
+
+1.7.0 Release Note
+[FIXED] Video streaming hangup issue
+[FIXED] Screen blinking issue in network setting menu
+[MODIFIED] Simple channel list optimization
+[NEW] Hotkeys to change to another favorite list in channel list and simple channel list
+[NEW] Full Screenshot ( video included ) from WebUI
+[NEW] Find IP address of your Prismcube from WebUI ( http://www.fwupdater.com/prismcube/ )
+[NEW] REC button on each channel in channel list from WebUI
+[NEW] Added XBMC Subtitles addon as default addon
+[NEW] Recording path setting ( Configuration -> Recording Option )
+[NEW] Support HbbTV
+[NEW] Added HDMI CEC
+
+
+Known Issues
+[UNRESOLVED] PIP stability in fast scan fav group and scrambled channels
+[UNRESOLVED] Having trouble to connect to hidden wifi network
+[UNRESOLVED] Blind scan missing
+
+
