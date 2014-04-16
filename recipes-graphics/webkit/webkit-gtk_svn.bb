@@ -17,7 +17,7 @@ SRCREV_FORMAT = "source"
 #SRCREV = "101488"
 SRCREV = "95199"
 PV = "1.7.2+svnr${SRCPV}"
-PR = "r4"
+PR = "r5"
 
 SRC_URI = "\
   svn://svn.webkit.org/repository/webkit/trunk/;module=Source;protocol=http;name=source \
