@@ -2,9 +2,9 @@ DESCRIPTION = "Hardware drivers and M/W for ELMO"
 LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
-PV = "1.7.1"
-SRCDATE = "20140418"
-PR = "r21"
+PV = "1.7.2"
+SRCDATE = "20140423"
+PR = "r22"
 
 INHIBIT_PACKAGE_STRIP = "1"
 
@@ -81,8 +81,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "1529580f28208e914b42996cfc942e94"
-SRC_URI[sha256sum] = "bf9b9172f9f19a47831e1e0c7e6d36735f3213cf3251d30e7a02ab0af9d44fca"
+SRC_URI[md5sum] = "681d49aa26e6ff87bebc796057f2cb11"
+SRC_URI[sha256sum] = "55ad7632fa296cb8649b97e86329af1a247422f5a94da7522828afcdefc42bfc"
 
 PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "
