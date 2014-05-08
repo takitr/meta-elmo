@@ -48,4 +48,6 @@ RDEPENDS_${PN} = " \
 	python-email \
 	python-compression \
 	python-compiler \
+	libnfs \
+	blackhole-aio-grab \
 "
