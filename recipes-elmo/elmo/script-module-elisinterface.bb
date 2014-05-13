@@ -5,8 +5,8 @@ DEPENDS = "xbmc"
 COMPATIBLE_MACHINE = "(elmo)"
 
 RV = "1.6.1"
-PR = "r13"
-TAG = "c4adee53e14887af1f4e57b737ba8f92b6a98408"
+PR = "r14"
+TAG = "5d5acb8a1d141711b83eafb542608eb6cd56dec3"
 SRC_URI = "git://update.prismcube.com/script.module.elisinterface;protocol=git;tag=${TAG} \
           "
 
