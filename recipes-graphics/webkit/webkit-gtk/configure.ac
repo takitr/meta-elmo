@@ -542,6 +542,14 @@ AC_ARG_ENABLE(video,
               [],[enable_video="yes"])
 AC_MSG_RESULT([$enable_video])
 
+# check whether to enable HTML5 audio/video support
+AC_MSG_CHECKING([whether to enable elis media support])
+AC_ARG_ENABLE(video,
+              AC_HELP_STRING([--enable-elis-media],
+                             [enable Elis Media support [default=no]]),
+              [],[enable_elis_media="no"])
+AC_MSG_RESULT([$enable_elis_media])
+
 # turn off video features if --disable-video is requested
 if test "$enable_video" = "no"; then
    enable_video_track=no
@@ -1024,21 +1032,21 @@ fi
 #   AC_SUBST([XRENDER_LIBS])
 #fi
 
-# check if gstreamer is available
-if test "$enable_video" = "yes"; then
-   PKG_CHECK_MODULES([GSTREAMER],
-                     [gstreamer-0.10 >= $GSTREAMER_REQUIRED_VERSION
-                     gstreamer-app-0.10
-                     gstreamer-base-0.10
-                     gstreamer-interfaces-0.10
-                     gstreamer-pbutils-0.10
-                     gstreamer-plugins-base-0.10 >= $GSTREAMER_PLUGINS_BASE_REQUIRED_VERSION
-                     gstreamer-video-0.10],
-                     [have_gstreamer=yes])
-
-   AC_SUBST([GSTREAMER_CFLAGS])
-   AC_SUBST([GSTREAMER_LIBS])
-fi
+# check if gstreamer is available - video is not linked with gstreamer.
+#if test "$enable_video" = "yes"; then
+#   PKG_CHECK_MODULES([GSTREAMER],
+#                     [gstreamer-0.10 >= $GSTREAMER_REQUIRED_VERSION
+#                     gstreamer-app-0.10
+#                     gstreamer-base-0.10
+#                     gstreamer-interfaces-0.10
+#                     gstreamer-pbutils-0.10
+#                     gstreamer-plugins-base-0.10 >= $GSTREAMER_PLUGINS_BASE_REQUIRED_VERSION
+#                     gstreamer-video-0.10],
+#                     [have_gstreamer=yes])
+#
+#   AC_SUBST([GSTREAMER_CFLAGS])
+#   AC_SUBST([GSTREAMER_LIBS])
+#fi
 
 # check for code coverage support
 if test "$enable_coverage" = "yes"; then
@@ -1145,6 +1153,7 @@ AM_CONDITIONAL([ENABLE_CLIENT_BASED_GEOLOCATION], [test "$enable_client_based_ge
 AM_CONDITIONAL([ENABLE_MATHML], [test "$enable_mathml" = "yes"])
 AM_CONDITIONAL([ENABLE_MHTML], [test "$enable_mhtml" = "yes"])
 AM_CONDITIONAL([ENABLE_VIDEO],[test "$enable_video" = "yes"])
+AM_CONDITIONAL([ENABLE_ELIS_MEDIA],[test "$enable_elis_media" = "yes"])
 AM_CONDITIONAL([ENABLE_MEDIA_SOURCE],[test "$enable_media_source" = "yes"])
 AM_CONDITIONAL([ENABLE_MEDIA_STATISTICS],[test "$enable_media_statistics" = "yes"])
 AM_CONDITIONAL([ENABLE_VIDEO_TRACK],[test "$enable_video_track" = "yes"])

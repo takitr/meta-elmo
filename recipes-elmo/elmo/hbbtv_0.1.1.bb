@@ -5,15 +5,12 @@ LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
 PV = "0.1.1"
-PR = "r1"
-SRCDATE = "20140407"
+PR = "r2"
 
 DEPENDS = "webkit-gtk"
-#SRC_URI = "http://update.prismcube.com/Ruby/elmo-maruapp-${PV}-${SRCDATE}.tar.gz "
 SRC_URI = " file://dfb2.sh \
 		file://dfb.sh \
 		file://directfbrc \
-		file://GtkLauncher \
 		file://run.hbbtv.sh \
 		file://none.html \
 		file://libhbbtvplugin.so \
@@ -31,7 +28,6 @@ do_install() {
 	
 	install -d ${D}/opt/bin/
 	install -m 0755 ${WORKDIR}/run.hbbtv.sh ${D}/opt/bin/
-	install -m 0755 ${WORKDIR}/GtkLauncher ${D}/opt/bin/
 	install -m 0755 ${WORKDIR}/dfb2.sh ${D}/opt/bin/
 	install -m 0755 ${WORKDIR}/dfb.sh ${D}/opt/bin/
 	install -d ${D}/usr/lib/mozilla/plugins

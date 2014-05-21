@@ -8,7 +8,7 @@ LIC_FILES_CHKSUM = "file://Source/WebCore/rendering/RenderApplet.h;endline=22;md
                     file://Source/JavaScriptCore/parser/Parser.h;endline=23;md5=2f3cff0ad0a9c486da5a376928973a90"
 
 #DEPENDS = "zlib enchant gnome-keyring libsoup-2.4 curl icu libxml2 cairo libxslt libxt libidn gnutls gtk+ gstreamer gst-plugins-base flex-native gperf-native perl-native-runtime sqlite3"
-DEPENDS = "zlib enchant gnome-keyring libsoup-2.4 curl icu libxml2 cairo libxslt libidn gnutls gtk+ gstreamer gst-plugins-base flex-native gperf-native sqlite3"
+DEPENDS = "zlib enchant gnome-keyring libsoup-2.4 curl icu libxml2 cairo libxslt libidn gnutls gtk+ gstreamer gst-plugins-base flex-native gperf-native sqlite3 glib-networking"
 DEPENDS += " ${@base_contains('DISTRO_FEATURES', 'opengl', 'virtual/libgl', '', d)}"
 DEPENDS_darwin8 = "curl icu libxml2 cairo libxslt libidn gnutls gtk+ gstreamer flex-native gperf-native perl-native-runtime sqlite3"
 
@@ -17,7 +17,7 @@ SRCREV_FORMAT = "source"
 #SRCREV = "101488"
 SRCREV = "95199"
 PV = "1.7.2+svnr${SRCPV}"
-PR = "r5"
+PR = "r6"
 
 SRC_URI = "\
   svn://svn.webkit.org/repository/webkit/trunk/;module=Source;protocol=http;name=source \
@@ -30,7 +30,9 @@ SRC_URI = "\
   file://GNUmakefile.am \
   file://gtk-doc.make \
   file://nodolt.patch \
+  file://cert.pem	\
   file://0001_gtk_patch_c39a7.patch;apply=yes;striplevel=1 \
+  file://0002_html5_patch.patch;apply=yes;striplevel=1	\
  "
 
 #  file://function-scope.patch \
@@ -66,14 +68,17 @@ EXTRA_OECONF_append_elmo = " --with-target=directfb \
                 --with-target=directfb \
                 --disable-jit \
                 --enable-fast-malloc \
-                --disable-shared-workers \
-                --disable-workers \
                 --enable-fast-mobile-scrolling \
                 --enable-offline-web-applications \
 		--disable-webkit2	\
+		--enable-video \
+		--enable-video-track \
+		--enable-shared-workers \
+		--enable-elis-media \
+		--enable-workers \
+		--enable-javascript-debugger \
 		"
 
-#LD_FLAGS_append_beagleboard = " -ljpeg -llnxtmvssUsr -llnxnotifyqUsr -llnxUKAL -llnxplatUsr -llnxcssUsr -llnxpvrUsr -lm -lrt -lc "
 EXTRA_AUTORECONF = " -I Source/autotools "
 
 
@@ -106,15 +111,17 @@ do_configure_append() {
 
 do_install_prepend() {
 	cp ${S}/Programs/.libs/jsc ${S}/Programs/jsc-1 || true
+ 	install -d ${D}/etc/pki/tls/
+ 	install -m 0755 ${WORKDIR}/cert.pem ${D}/etc/pki/tls/
+        install -d ${D}/opt/bin/
+        install -m 0755 ${WORKDIR}/Programs/GtkLauncher ${D}/opt/bin/
 }
 
-PACKAGES =+ "${PN}-webinspector ${PN}launcher-dbg ${PN}launcher libjavascriptcore"
-FILES_${PN}launcher = "${bindir}/GtkLauncher"
-FILES_${PN}launcher-dbg = "${bindir}/.debug/GtkLauncher"
+PACKAGES =+ "${PN}-webinspector ${PN}-launcher libjavascriptcore"
+FILES_${PN}-launcher = "/opt/bin/GtkLauncher"
 FILES_libjavascriptcore = "${libdir}/libjavascriptcoregtk-1.0.so.*"
 FILES_${PN}-webinspector = "${datadir}/webkitgtk-*/webinspector/"
 FILES_${PN} += "${datadir}/webkitgtk-*/resources/error.html \
                 ${datadir}/webkitgtk-*/images \
                 ${datadir}/glib-2.0/schemas"
-
 
