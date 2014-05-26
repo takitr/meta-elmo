@@ -10,5 +10,8 @@ RDEPENDS_${PN} = "	\
 	pango-modules \
 	mime-support \
 	webkit-gtk \
+	webkit-gtk-launcher \
 	hbbtv \
+	glib-networking \
+	libproxy \
 	"

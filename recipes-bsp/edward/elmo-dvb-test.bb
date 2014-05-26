@@ -2,9 +2,9 @@ DESCRIPTION = "Hardware drivers and M/W for ELMO"
 LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
-PV = "1.7.3"
-SRCDATE = "20140521-2"
-PR = "r29"
+PV = "1.7.4"
+SRCDATE = "20140526"
+PR = "r32"
 
 INHIBIT_PACKAGE_STRIP = "1"
 
@@ -54,7 +54,16 @@ do_install() {
 
         install -d ${D}/app
         install -d ${D}/app/tmp
-        cp ${WORKDIR}/release/* ${D}/app/ -a
+	install -m 777 ${WORKDIR}/release/maruapp ${D}/app/
+	install -m 777 ${WORKDIR}/release/backup_copy_script.sh ${D}/app/
+	install -m 777 ${WORKDIR}/release/backup_script.sh ${D}/app/
+	install -m 777 ${WORKDIR}/release/iftest.sh ${D}/app/
+	install -m 777 ${WORKDIR}/release/launcher ${D}/app/
+	install -m 777 ${WORKDIR}/release/maruapp ${D}/app/
+	install -m 777 ${WORKDIR}/release/mount.sh ${D}/app/
+	install -m 777 ${WORKDIR}/release/run.elmo.sh ${D}/app/
+	install -m 777 ${WORKDIR}/release/setMac.sh ${D}/app/
+	install -m 777 ${WORKDIR}/release/StandbyProgram ${D}/app/
         install -d ${D}${sysconfdir}/init.d
         install -m 0755 ${WORKDIR}/runstb.sh ${D}${sysconfdir}/init.d/
         install -m 0755 ${WORKDIR}/defaultchannel.xml ${D}/app/
@@ -73,7 +82,8 @@ do_install() {
         cp ${WORKDIR}/maruapp.service ${D}/lib/systemd/system/
         cd ${D}/lib/systemd/system/multi-user.target.wants
         ln -sf /lib/systemd/system/maruapp.service maruapp.service
-
+	install -d ${D}/webkit/usr/lib/
+	install -m 0777 ${WORKDIR}/release/libhtml5_video.so ${D}/webkit/usr/lib/
 }
 do_package_qa() {
 }
@@ -81,8 +91,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "4a7dc3b176a908a5985e33b9346254fc"
-SRC_URI[sha256sum] = "00137bdeb07f171afe01063ddd5715e7347c53550646845a33e273e4fc991873"
+SRC_URI[md5sum] = "41233d1f3241fb118dae78ec2209c5bb"
+SRC_URI[sha256sum] = "b64d930d52e44faad1ea843806fc9566504b54aac50aa0c47fa44a97dd3b42c4"
 
 PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "
