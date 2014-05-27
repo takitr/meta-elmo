@@ -5,8 +5,8 @@ DEPENDS = "xbmc"
 COMPATIBLE_MACHINE = "(elmo)"
 
 RV = "1.7.4"
-PR = "r32"
-TAG = "69730b65898abcc329efb2c4c2d0aab93b7a5bf9"
+PR = "r33"
+TAG = "65fca9092ab3abaac667028f0facbd2ba11e3c09"
 SRC_URI = "git://update.prismcube.com/script.mbox.git;protocol=git;tag=${TAG} \
           "
 

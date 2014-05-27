@@ -39,3 +39,5 @@ bg-color=0x00000000
 
 hardware
 #software-warn
+no-focus
+no-alone

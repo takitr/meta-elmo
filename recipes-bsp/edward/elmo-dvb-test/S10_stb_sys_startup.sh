@@ -77,11 +77,11 @@ if [ $foundNTSC = "True" ]
 then
 echo "found NTSC Mode"
 insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=2 ntscmode=1
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1 ntscmode=1
+insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=0 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1 ntscmode=1
 else
 echo "found PAL Mode"
 insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=2 ntscmode=0
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1 ntscmode=0
+insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=0 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1 ntscmode=0
 fi
 fi
 if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxIPfeDrv.ko ]; then

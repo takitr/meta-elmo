@@ -5,7 +5,7 @@ LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
 PV = "0.1.1"
-PR = "r2"
+PR = "r3"
 
 DEPENDS = "webkit-gtk"
 SRC_URI = " file://dfb2.sh \
