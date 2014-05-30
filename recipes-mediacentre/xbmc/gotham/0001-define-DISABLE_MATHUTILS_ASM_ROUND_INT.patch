@@ -1,0 +1,25 @@
+From f0261fbe819d94790fb519fa403d8cc0f8ff4fd2 Mon Sep 17 00:00:00 2001
+From: Sangdol Kim <doliyu@marusys.com>
+Date: Tue, 4 Dec 2012 17:33:07 +0900
+Subject: [PATCH] define DISABLE_MATHUTILS_ASM_ROUND_INT
+
+---
+ xbmc/utils/MathUtils.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/xbmc/utils/MathUtils.h b/xbmc/utils/MathUtils.h
+index c95171f..7feb486 100644
+--- a/xbmc/utils/MathUtils.h
++++ b/xbmc/utils/MathUtils.h
+@@ -47,7 +47,7 @@
+     defined(TARGET_RASPBERRY_PI)
+   #define DISABLE_MATHUTILS_ASM_TRUNCATE_INT
+ #endif
+-
++#define DISABLE_MATHUTILS_ASM_ROUND_INT //by doliyu
+ /*! \brief Math utility class.
+  Note that the test() routine should return true for all implementations
+ 
+-- 
+1.7.2.3
+
