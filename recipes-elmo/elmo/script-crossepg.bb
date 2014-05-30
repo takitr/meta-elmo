@@ -4,8 +4,8 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3
 DEPENDS = "crossepg-core"
 COMPATIBLE_MACHINE = "(elmo)"
 
-PR = "r2"
-TAG = "3df0cd80ec7715e654eedf46aeed69cb9ba054a1"
+PR = "r3"
+TAG = "f5be756a63cac1def8b9e41543cef4cc35739d89"
 SRC_URI = "git://update.prismcube.com/script.crossepg.git;protocol=git;tag=${TAG} \
           "
 
