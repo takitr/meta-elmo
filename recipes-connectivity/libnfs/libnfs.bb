@@ -5,9 +5,9 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=a8375400e512ca525d061f32fb28b83a"
 
 inherit autotools
 
-PR = "ruby-r0"
+PR = "ruby-r1"
 
-SRCREV="8733f38d23deabd7422b85b74c8e51e32e5ea51c"
+SRCREV="libnfs-1.9.2"
 
 SRC_URI = "git://github.com/sahlberg/libnfs;protocol=git;branch=master;tag=${SRCREV} \
 "
