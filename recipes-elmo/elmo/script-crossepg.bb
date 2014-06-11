@@ -1,11 +1,12 @@
 DESCRIPTION = "script.crossepg addon for Ruby"
 LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
-DEPENDS = "crossepg-core"
+RDEPENDS = "crossepg-core"
+
 COMPATIBLE_MACHINE = "(elmo)"
 
-PR = "r3"
-TAG = "f5be756a63cac1def8b9e41543cef4cc35739d89"
+PR = "r4"
+TAG = "bd17f1cd2bce995c28bcbbf358d834f0464b852e"
 SRC_URI = "git://update.prismcube.com/script.crossepg.git;protocol=git;tag=${TAG} \
           "
 
