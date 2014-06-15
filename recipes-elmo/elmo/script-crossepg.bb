@@ -5,8 +5,8 @@ RDEPENDS = "crossepg-core"
 
 COMPATIBLE_MACHINE = "(elmo)"
 
-PR = "r4"
-TAG = "bd17f1cd2bce995c28bcbbf358d834f0464b852e"
+PR = "r6"
+TAG = "48b0f69755fcfff870130b0eb3ba1a3f3adf05bf"
 SRC_URI = "git://update.prismcube.com/script.crossepg.git;protocol=git;tag=${TAG} \
           "
 
