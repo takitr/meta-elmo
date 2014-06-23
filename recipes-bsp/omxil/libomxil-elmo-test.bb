@@ -8,8 +8,8 @@ KV = "2.6.34"
 
 
 PV = "${KV}"
-SRCDATE = "20140430"
-PR = "r11"
+SRCDATE = "20140623"
+PR = "r12"
 
 SRC_URI = "http://update.prismcube.com/Ruby/libomxil-elmo-debug-${SRCDATE}-dev.tar.gz \
 	   file://apollo_openmax_license.txt \
@@ -33,8 +33,8 @@ do_package_qa() {
 }
 
 INSANE_SKIP_${PN} = "ldflags dev-so" 
-SRC_URI[md5sum] = "e2088c2b216262f6c73524b366c0e253"
-SRC_URI[sha256sum] = "db8c380a2e6c17eeb46ab73ba8fffab097da5ed75462e1918e406065a33072fb"
+SRC_URI[md5sum] = "92cc879d4126dd24956a02535df3e568"
+SRC_URI[sha256sum] = "8d353d539068c4695d174c2448234d42363db5ffaec0cbb1e390cf05a2b6a69c"
 
 #PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGES = "${PN} ${PN}-dbg "

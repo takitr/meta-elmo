@@ -13,9 +13,11 @@ RPROVIDES_${PN} += "packagegroup-xbmc-test"
 RDEPENDS_${PN} = " \
 	packagegroup-xbmc-base-test \
 	packagegroup-gconv-list \
-	xbmc \
+	gotham \
 	script-mbox-test \
 	script-module-elisinterface-test \
 	script-module-elementtree \
 	script-module-beatifulsoup \
+	script-crossepg \
+	crossepg-core \
 "

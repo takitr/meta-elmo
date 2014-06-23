@@ -2,30 +2,28 @@
 THISDIR := "${@os.path.dirname(bb.data.getVar('FILE', d, True))}"
 FILESPATH =. "${@base_set_filespath(["${THISDIR}/${PN}"], d)}:"
 
-COMPATIBLE_MACHINE ="garnet"
+COMPATIBLE_MACHINE ="elmo"
 
 DEPENDS_garnet = "libusb1 libcec libplist expat yajl gperf-native fribidi mpeg2dec samba fontconfig curl python libass libmodplug libmicrohttpd wavpack libmms cmake-native libsdl-image libsdl-mixer virtual/egl mysql5 sqlite3 libmms faad2 libcdio libpcre boost lzo enca avahi libsamplerate0  bzip2 virtual/libsdl jasper zip-native zlib libtinyxml taglib libbluray libshairport librtmp libomxil-garnet zlib libnfs"
+DEPENDS_elmo = "libusb1 libcec libplist expat yajl gperf-native fribidi mpeg2dec samba fontconfig curl python libass libmodplug libmicrohttpd wavpack libmms cmake-native libsdl-image libsdl-mixer virtual/egl mysql5 sqlite3 libmms faad2 libcdio libpcre boost lzo enca avahi libsamplerate0  bzip2 virtual/libsdl jasper zip-native zlib libtinyxml taglib libbluray libshairport librtmp libomxil-elmo-test zlib libnfs"
+
+RDEPENDS = "libxslt"
 
 SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
 
 PV = "13.1"
 
-PR = "b1"
+PR = "r3"
 
-RV = "1.3.7"
-
-#TAG = "5e9c54be97b6240cb39793b13b650a4fdab37b55"
-TAG = "692cfbaa90975efd660beff38675e6a7041e2e23"
-#SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${TAG} \
-#"
-SRC_URI = "git://github.com/xbmc/xbmc.git;protocol=git;tag=${TAG} \
+TAG = "9eb6a4c115bfe557d52d9a87cc54361aed65a5f4"
+SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${TAG} \
 "
 
 SRC_URI += "file://autoexec.py \
-	    file://run.xbmc.sh \
-	    file://xbmc.service \
-	    file://resetXBMC.sh \
-	"
+            file://run.xbmc.sh \
+            file://xbmc.service \
+            file://resetXBMC.sh \
+        "
 
 S = "${WORKDIR}/git"
 
@@ -83,6 +81,4 @@ do_package_qa(){
 PARALLEL_MAKE = " -j8 "
 
 EXTRA_OECONF_append_armv7a = "--cpu=cortex-a9"
-PACKAGES = "${PN}"
-FILES_${PN} = "/usr "
-FILES_${PN} += "/app /mnt /home /lib"
+FILES_${PN} += "/app /mnt /home /lib /usr"
