@@ -21,9 +21,11 @@ Date=2014.07.15
 [FIXED] PVR features when playback recording files from NAS
 [FIXED] Starting recording on NAS with a broken connection
 [FIXED] A hang up caused by disconnecting NAS while playing a file in Archive
-[MODIFIED] Polish OSD translation update
-[MODIFIED] Russian OSD translation update
-[MODIFIED] German OSD translation update
+[FIXED] Occasionally not accepting a command from RCU
+[FIXED] Some minor skin confluence and aeon nox bugs
+[MODIFIED] Added left and right button on Aeon Nox's numeric dialog
+[MODIFIED] Faster channel list loading in WebUI
+[MODIFIED] German, Czech, Slovak and Polish OSD translation update
 [MODIFIED] Pre-installed XBMC addons update
 [MODIFIED] Recommend a mount path when you entered inaccessible path
 [NEW] NAS mode on slide menu in Archive ( shown only when NAS is connected )
@@ -31,6 +33,7 @@ Date=2014.07.15
 [NEW] CrossEPG support
 [NEW] Support recording on USB memory
 [NEW] NAS and USB recording icons in Archive
+
 
 
 Known Issues
