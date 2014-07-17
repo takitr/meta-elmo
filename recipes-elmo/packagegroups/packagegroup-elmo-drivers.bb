@@ -10,14 +10,19 @@ inherit packagegroup
 RPROVIDES_${PN} += "packagegroup-elmo-drivers"
 
 RDEPENDS_${PN} = "\
-	apollo-sgx-modules \
-	libgles-apollo \
-	elmo-dvb \
-	kernel-vmlinux \
-	kernel-module-dvb-core \
-	kernel-module-usbserial \
-	kernel-module-ftdi-sio \
-	kernel-module-pl2303 \
+        apollo-sgx-modules \
+        libgles-apollo \
+        elmo-dvb \
+        fuse-utils \
+        fuse \
+        curlftpfs \
+        kernel-vmlinux \
+        kernel-module-dvb-core \
+        kernel-module-usbserial \
+        kernel-module-ftdi-sio \
+        kernel-module-pl2303 \
+        kernel-module-fuse \
+        kernel-module-smbfs \
         libexif \
         util-linux-sfdisk \
         e2fsprogs-mke2fs \

@@ -1,0 +1,1736 @@
+diff --git a/Source/JavaScriptCore/wtf/Platform.h b/Source/JavaScriptCore/wtf/Platform.h
+index d438593..7e024ef 100644
+--- a/Source/JavaScriptCore/wtf/Platform.h
++++ b/Source/JavaScriptCore/wtf/Platform.h
+@@ -616,7 +616,6 @@
+ #define ENABLE_JAVA_BRIDGE 0
+ #define ENABLE_ORIENTATION_EVENTS 0
+ #define ENABLE_DEVICE_ORIENTATION 0
+-#define ENABLE_MEDIA_STREAM 0
+ #define ENABLE_INPUT_SPEECH 0
+ #define ENABLE_JAVASCRIPT_DEBUGGER 0
+ #define HAVE_ACCESSIBILITY 0
+diff --git a/Source/JavaScriptCore/wtf/gobject/GTypedefs.h b/Source/JavaScriptCore/wtf/gobject/GTypedefs.h
+index c878f33..ab15bf7 100644
+--- a/Source/JavaScriptCore/wtf/gobject/GTypedefs.h
++++ b/Source/JavaScriptCore/wtf/gobject/GTypedefs.h
+@@ -52,7 +52,7 @@ typedef struct _GFile GFile;
+ typedef struct _GHashTable GHashTable;
+ typedef struct _GInputStream GInputStream;
+ typedef struct _GList GList;
+-typedef struct _GMutex GMutex;
++typedef union _GMutex GMutex;
+ typedef struct _GPatternSpec GPatternSpec;
+ typedef struct _GPollableOutputStream GPollableOutputStream;
+ typedef struct _GSocketClient GSocketClient;
+diff --git a/Source/WebCore/GNUmakefile.am b/Source/WebCore/GNUmakefile.am
+index cb66b40..f2c2bea 100644
+--- a/Source/WebCore/GNUmakefile.am
++++ b/Source/WebCore/GNUmakefile.am
+@@ -100,6 +100,7 @@ webcoregtk_cppflags += \
+ 	-I$(srcdir)/Source/WebCore/platform/cairo \
+ 	-I$(srcdir)/Source/WebCore/platform/graphics/cairo \
+ 	-I$(srcdir)/Source/WebCore/platform/graphics/gstreamer \
++	-I$(srcdir)/Source/WebCore/platform/graphics/elis \
+ 	-I$(srcdir)/Source/WebCore/platform/graphics/gtk \
+ 	-I$(srcdir)/Source/WebCore/platform/gtk \
+ 	-I$(srcdir)/Source/WebCore/platform/network/soup
+@@ -325,6 +326,12 @@ webcore_libadd += \
+ endif # END USE_GSTREAMER
+ endif # END ENABLE_VIDEO
+ 
++if ENABLE_ELIS_MEDIA
++FEATURE_DEFINES += ENABLE_ELIS_MEDIA=1
++webcore_cppflags += -DENABLE_ELIS_MEDIA=1
++
++endif # END ENABLE_ELIS_MEDIA
++
+ # ----
+ # Media Source Support
+ # ----
+diff --git a/Source/WebCore/GNUmakefile.list.am b/Source/WebCore/GNUmakefile.list.am
+index 1ddc220..6d522fa 100644
+--- a/Source/WebCore/GNUmakefile.list.am
++++ b/Source/WebCore/GNUmakefile.list.am
+@@ -3961,6 +3961,8 @@ webcoregtk_sources += \
+ 	Source/WebCore/platform/graphics/gstreamer/VideoSinkGStreamer.h \
+ 	Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp \
+ 	Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.h \
++	Source/WebCore/platform/graphics/elis/MediaPlayerPrivateElisIPC.h \
++	Source/WebCore/platform/graphics/elis/MediaPlayerPrivateElisIPC.cpp \
+ 	Source/WebCore/platform/graphics/gtk/ColorGtk.cpp \
+ 	Source/WebCore/platform/graphics/gtk/GdkCairoUtilities.cpp \
+ 	Source/WebCore/platform/graphics/gtk/GdkCairoUtilities.h \
+diff --git a/Source/WebCore/html/HTMLMediaElement.cpp b/Source/WebCore/html/HTMLMediaElement.cpp
+index 16fe278..5c59c47 100644
+--- a/Source/WebCore/html/HTMLMediaElement.cpp
++++ b/Source/WebCore/html/HTMLMediaElement.cpp
+@@ -94,11 +94,24 @@
+ #include "MediaElementAudioSourceNode.h"
+ #endif
+ 
++#undef LOG
++#undef LOG_WARNING
++#undef LOG_ERROR
++#define _ftprintf fprintf
++#define LOG(header, ...) \
++    do { \
++        _ftprintf(stderr, __VA_ARGS__); \
++        _ftprintf(stderr,"\n" );	\
++    } while (0)
++#define LOG_WARNING(...) LOG(TEXT("WARNING: "), __VA_ARGS__)
++#define LOG_ERROR(...) LOG(TEXT("ERROR: "), __VA_ARGS__)
++
++
+ using namespace std;
+ 
+ namespace WebCore {
+ 
+-#if !LOG_DISABLED
++#if 1 /* !LOG_DISABLED*/
+ static String urlForLogging(const KURL& url)
+ {
+     static const unsigned maximumURLLengthForLogging = 128;
+@@ -753,15 +766,18 @@ void HTMLMediaElement::loadResource(const KURL& initialURL, ContentType& content
+     ASSERT(isSafeToLoadURL(initialURL, Complain));
+ 
+     LOG(Media, "HTMLMediaElement::loadResource(%s, %s)", urlForLogging(initialURL).utf8().data(), contentType.raw().utf8().data());
++    fprintf( stderr, "HTMLMediaElement::loadResource(%s, %s)\n", initialURL.string().utf8().data(), contentType.raw().utf8().data());
+ 
+     Frame* frame = document()->frame();
+     if (!frame) {
++    	fprintf( stderr, "%s %s %d\n", __FILE__, __func__, __LINE__ );
+         mediaLoadingFailed(MediaPlayer::FormatError);
+         return;
+     }
+ 
+     KURL url = initialURL;
+     if (!frame->loader()->willLoadMediaElementURL(url)) {
++    	fprintf( stderr, "%s %s %d\n", __FILE__, __func__, __LINE__ );
+         mediaLoadingFailed(MediaPlayer::FormatError);
+         return;
+     }
+@@ -804,7 +820,7 @@ void HTMLMediaElement::loadResource(const KURL& initialURL, ContentType& content
+ #endif
+ 
+     LOG(Media, "HTMLMediaElement::loadResource - m_currentSrc -> %s", urlForLogging(m_currentSrc).utf8().data());
+-
++    fprintf( stderr, "%s %s %d\n", __FILE__, __func__, __LINE__ );
+     if (m_sendProgressEvents) 
+         startProgressEventTimer();
+ 
+@@ -822,7 +838,7 @@ void HTMLMediaElement::loadResource(const KURL& initialURL, ContentType& content
+     if (fastHasAttribute(mutedAttr))
+         m_muted = true;
+     updateVolume();
+-
++    fprintf( stderr, "%s %s %d\n", __FILE__, __func__, __LINE__ );
+     if (!m_player->load(url.string(), contentType))
+         mediaLoadingFailed(MediaPlayer::FormatError);
+ 
+@@ -1090,6 +1106,7 @@ void HTMLMediaElement::mediaPlayerReadyStateChanged(MediaPlayer*)
+ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
+ {
+     LOG(Media, "HTMLMediaElement::setReadyState(%d) - current state is %d,", static_cast<int>(state), static_cast<int>(m_readyState));
++    fprintf(stderr, "HTMLMediaElement::setReadyState(%d) - current state is %d,", static_cast<int>(state), static_cast<int>(m_readyState));
+ 
+     // Set "wasPotentiallyPlaying" BEFORE updating m_readyState, potentiallyPlaying() uses it
+     bool wasPotentiallyPlaying = potentiallyPlaying();
+@@ -1593,6 +1610,13 @@ void HTMLMediaElement::play()
+ {
+     LOG(Media, "HTMLMediaElement::play()");
+ 
++/*Change Play to play/pause toggle*/
++/*	if( !canPlay() )
++	{
++		LOG(Media, "HTMLMediaElement::play(), now playing, we change state to pause\n");
++		pause();
++		return;
++	}*/
+     if (userGestureRequiredForRateChange() && !ScriptController::processingUserGesture())
+         return;
+ 
+@@ -1908,7 +1932,7 @@ void HTMLMediaElement::scheduleTimeupdateEvent(bool periodicEvent)
+ 
+ bool HTMLMediaElement::canPlay() const
+ {
+-    return paused() || ended() || m_readyState < HAVE_METADATA;
++return paused() || ended() || m_readyState < HAVE_METADATA;
+ }
+ 
+ float HTMLMediaElement::percentLoaded() const
+@@ -2339,11 +2363,13 @@ bool HTMLMediaElement::potentiallyPlaying() const
+     // when it ran out of buffered data. A movie is this state is "potentially playing", modulo the
+     // checks in couldPlayIfEnoughData().
+     bool pausedToBuffer = m_readyStateMaximum >= HAVE_FUTURE_DATA && m_readyState < HAVE_FUTURE_DATA;
++	fprintf(stderr, "pausedToBuffer=%d, m_readyStateMaximum=%d, m_readyState=%d , couldPlayIfEnoughData() = %d\n", pausedToBuffer, m_readyStateMaximum, m_readyState , couldPlayIfEnoughData() );
+     return (pausedToBuffer || m_readyState >= HAVE_FUTURE_DATA) && couldPlayIfEnoughData();
+ }
+ 
+ bool HTMLMediaElement::couldPlayIfEnoughData() const
+ {
++	fprintf( stderr,"!paused()= %d && !endedPlayback()=%d && !stoppedDueToErrors()=%d && !pausedForUserInteraction()=%d\n" ,!paused() , !endedPlayback() , !stoppedDueToErrors() , !pausedForUserInteraction() );
+     return !paused() && !endedPlayback() && !stoppedDueToErrors() && !pausedForUserInteraction();
+ }
+ 
+@@ -2439,6 +2465,8 @@ void HTMLMediaElement::updatePlayState()
+ 
+     LOG(Media, "HTMLMediaElement::updatePlayState - shouldBePlaying = %s, playerPaused = %s", 
+         boolString(shouldBePlaying), boolString(playerPaused));
++	fprintf(stderr, "HTMLMediaElement::updatePlayState - shouldBePlaying = %s, playerPaused = %s", 
++        boolString(shouldBePlaying), boolString(playerPaused));
+ 
+     if (shouldBePlaying) {
+         setDisplayMode(Video);
+diff --git a/Source/WebCore/html/HTMLObjectElement.cpp b/Source/WebCore/html/HTMLObjectElement.cpp
+index 46c5910..34e9884 100644
+--- a/Source/WebCore/html/HTMLObjectElement.cpp
++++ b/Source/WebCore/html/HTMLObjectElement.cpp
+@@ -144,6 +144,14 @@ void HTMLObjectElement::parseMappedAttribute(Attribute* attr)
+ 		{
+ 			m_oipfType = OIPF_VIDEO_BC;
+ 		}
++		else if( equalIgnoringCase(serviceType(), "valups/system") )
++		{
++			m_oipfType = VALUPS_SYSTEM;
++		}
++		else if( equalIgnoringCase(serviceType(), "humax/portalprofile") )
++		{
++			m_oipfType = H_PORTAL_PROFILE;
++		}
+ 		else if( equalIgnoringCase(serviceType(), "video/mp4")
+ 			|| equalIgnoringCase(serviceType(), "video/mpeg")
+ 			|| equalIgnoringCase(serviceType(), "video/mpeg4")
+@@ -377,7 +385,9 @@ void HTMLObjectElement::setWidget(PassRefPtr<Widget> widget)
+ 									( a == OIPF_CONFIGURATION ) || \
+ 									( a == OIPF_CAPABILITIES ) || \
+ 									( a == OIPF_DRMAGENT ) || \
+-									( a == OIPF_OBJ_FACTORY ) )
++									( a == OIPF_OBJ_FACTORY ) || \
++									( a == VALUPS_SYSTEM ) || \
++									( a == H_PORTAL_PROFILE ) )
+ 
+ void HTMLObjectElement::updateWidgetIfNecessary()
+ {
+diff --git a/Source/WebCore/html/HTMLObjectElement.h b/Source/WebCore/html/HTMLObjectElement.h
+index 6267937..957ac34 100644
+--- a/Source/WebCore/html/HTMLObjectElement.h
++++ b/Source/WebCore/html/HTMLObjectElement.h
+@@ -80,6 +80,8 @@ public:
+ 		OIPF_DRMAGENT,
+ 		OIPF_VIDEO_BC,
+ 		OIPF_VIDEO_MPEG,
++		VALUPS_SYSTEM,
++		H_PORTAL_PROFILE,
+ 		
+ 	}OipfType;
+ 
+diff --git a/Source/WebCore/html/HTMLVideoElement.cpp b/Source/WebCore/html/HTMLVideoElement.cpp
+index 8558912..398985b 100644
+--- a/Source/WebCore/html/HTMLVideoElement.cpp
++++ b/Source/WebCore/html/HTMLVideoElement.cpp
+@@ -54,6 +54,10 @@ inline HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document
+ 
+ PassRefPtr<HTMLVideoElement> HTMLVideoElement::create(const QualifiedName& tagName, Document* document)
+ {
++	fprintf( stderr, "VIDEO constructor\n" );
++	fprintf( stderr, "VIDEO constructor\n" );
++	fprintf( stderr, "VIDEO constructor\n" );
++
+     return adoptRef(new HTMLVideoElement(tagName, document));
+ }
+ 
+diff --git a/Source/WebCore/html/MediaDocument.cpp b/Source/WebCore/html/MediaDocument.cpp
+index aed28db..9e08990 100644
+--- a/Source/WebCore/html/MediaDocument.cpp
++++ b/Source/WebCore/html/MediaDocument.cpp
+@@ -156,6 +156,7 @@ static inline HTMLVideoElement* ancestorVideoElement(Node* node)
+ 
+ void MediaDocument::defaultEventHandler(Event* event)
+ {
++	fprintf(stderr, " %s, %d\n", __FUNCTION__, __LINE__);
+     // Match the default Quicktime plugin behavior to allow 
+     // clicking and double-clicking to pause and play the media.
+     Node* targetNode = event->target()->toNode();
+@@ -163,12 +164,14 @@ void MediaDocument::defaultEventHandler(Event* event)
+         return;
+ 
+     if (HTMLVideoElement* video = ancestorVideoElement(targetNode)) {
++	fprintf(stderr, " %s, %d\n", __FUNCTION__, __LINE__);
+         if (event->type() == eventNames().clickEvent) {
+             if (!video->canPlay()) {
+                 video->pause();
+                 event->setDefaultHandled();
+             }
+         } else if (event->type() == eventNames().dblclickEvent) {
++	fprintf(stderr, " %s, %d\n", __FUNCTION__, __LINE__);
+             if (video->canPlay()) {
+                 video->play();
+                 event->setDefaultHandled();
+@@ -183,7 +186,8 @@ void MediaDocument::defaultEventHandler(Event* event)
+ 
+         KeyboardEvent* keyboardEvent = static_cast<KeyboardEvent*>(event);
+         if (keyboardEvent->keyIdentifier() == "U+0020") { // space
+-            if (video->paused()) {
++        	fprintf(stderr, " %s, %d\n", __FUNCTION__, __LINE__);
++    if (video->paused()) {
+                 if (video->canPlay())
+                     video->play();
+             } else
+diff --git a/Source/WebCore/page/DOMTimer.cpp b/Source/WebCore/page/DOMTimer.cpp
+index bbba25f..0a94e7e 100644
+--- a/Source/WebCore/page/DOMTimer.cpp
++++ b/Source/WebCore/page/DOMTimer.cpp
+@@ -109,12 +109,9 @@ void DOMTimer::removeById(ScriptExecutionContext* context, int timeoutId)
+ 
+     delete context->findTimeout(timeoutId);
+ }
+-#define FN_IN if(1){}// struct timeval tv; gettimeofday( &tv, NULL );  fprintf(stderr, "%s,%d : FN IN - %u\n",__FUNCTION__, __LINE__, tv.tv_sec*1000 + tv.tv_usec/1000 ); }
+-#define FN_OUT if(1){ }//struct timeval tv; gettimeofday( &tv, NULL );  fprintf(stderr,  "%s,%d : FN OUT - %u\n",__FUNCTION__, __LINE__, tv.tv_sec*1000 + tv.tv_usec/1000 ); }
+ 
+ void DOMTimer::fired()
+ {
+-	FN_IN;
+     ScriptExecutionContext* context = scriptExecutionContext();
+     timerNestingLevel = m_nestingLevel;
+     
+diff --git a/Source/WebCore/page/DOMWindow.cpp b/Source/WebCore/page/DOMWindow.cpp
+index 64064e2..f95fc6b 100644
+--- a/Source/WebCore/page/DOMWindow.cpp
++++ b/Source/WebCore/page/DOMWindow.cpp
+@@ -1486,8 +1486,6 @@ void DOMWindow::clearTimeout(int timeoutId)
+         return;
+     DOMTimer::removeById(context, timeoutId);
+ }
+-#define FN_IN if(1){ }//struct timeval tv; gettimeofday( &tv, NULL );  fprintf(stderr, "%s,%d : FN IN - %u\n",__FUNCTION__, __LINE__, tv.tv_sec*1000 + tv.tv_usec/1000 ); }
+-#define FN_OUT if(1){ }//struct timeval tv; gettimeofday( &tv, NULL );  fprintf(stderr,  "%s,%d : FN OUT - %u\n",__FUNCTION__, __LINE__, tv.tv_sec*1000 + tv.tv_usec/1000 ); }
+ 
+ int DOMWindow::setInterval(PassOwnPtr<ScheduledAction> action, int timeout, ExceptionCode& ec)
+ {
+@@ -1496,7 +1494,6 @@ int DOMWindow::setInterval(PassOwnPtr<ScheduledAction> action, int timeout, Exce
+         ec = INVALID_ACCESS_ERR;
+         return -1;
+     }
+-	FN_IN;
+     return DOMTimer::install(context, action, timeout, false);
+ }
+ 
+diff --git a/Source/WebCore/platform/graphics/MediaPlayer.cpp b/Source/WebCore/platform/graphics/MediaPlayer.cpp
+index f97897d..82c471d 100644
+--- a/Source/WebCore/platform/graphics/MediaPlayer.cpp
++++ b/Source/WebCore/platform/graphics/MediaPlayer.cpp
+@@ -25,7 +25,7 @@
+ 
+ #include "config.h"
+ 
+-#if ENABLE(VIDEO)
++#if ENABLE_VIDEO
+ #include "MediaPlayer.h"
+ 
+ #include "ContentType.h"
+@@ -47,6 +47,10 @@
+ #include "MediaPlayerPrivateGStreamer.h"
+ #endif
+ 
++#if ENABLE(ELIS_MEDIA)
++#include "MediaPlayerPrivateElisIPC.h"
++#endif
++
+ #if PLATFORM(MAC) || (PLATFORM(QT) && USE(QTKIT))
+ #include "MediaPlayerPrivateQTKit.h"
+ #if USE(AVFOUNDATION)
+@@ -196,6 +200,11 @@ static Vector<MediaPlayerFactory*>& installedMediaEngines()
+         MediaPlayerPrivateGStreamer::registerMediaEngine(addMediaEngine);
+ #endif
+ 
++
++#if ENABLE(ELIS_MEDIA)
++        MediaPlayerPrivateElisIPC::registerMediaEngine(addMediaEngine);
++#endif
++
+ #if USE(AVFOUNDATION)
+         if (Settings::isAVFoundationEnabled()) {
+ #if PLATFORM(MAC)
+@@ -245,18 +254,27 @@ static const AtomicString& codecs()
+ static MediaPlayerFactory* bestMediaEngineForTypeAndCodecs(const String& type, const String& codecs, MediaPlayerFactory* current)
+ {
+     if (type.isEmpty())
++    {
++    	fprintf( stderr, "%s %s %d\n", __FILE__, __func__, __LINE__ );
+         return 0;
++    }
+ 
+     Vector<MediaPlayerFactory*>& engines = installedMediaEngines();
+     if (engines.isEmpty())
++    {
++    	fprintf( stderr, "%s %s %d\n", __FILE__, __func__, __LINE__ );
+         return 0;
++    }
+ 
+     // 4.8.10.3 MIME types - In the absence of a specification to the contrary, the MIME type "application/octet-stream" 
+     // when used with parameters, e.g. "application/octet-stream;codecs=theora", is a type that the user agent knows 
+     // it cannot render.
+     if (type == applicationOctetStream()) {
+         if (!codecs.isEmpty())
++        {
++        	fprintf( stderr, "%s %s %d\n", __FILE__, __func__, __LINE__ );
+             return 0;
++        }
+     }
+ 
+     MediaPlayerFactory* engine = 0;
+@@ -349,7 +367,7 @@ bool MediaPlayer::load(const String& url, const ContentType& contentType)
+             }
+         }
+     }
+-
++    fprintf( stderr, "%s %s %d url %s\n", __FILE__, __func__, __LINE__, url.utf8().data() );
+     m_url = url;
+     m_contentMIMEType = type;
+     m_contentTypeCodecs = typeCodecs;
+diff --git a/Source/WebCore/platform/graphics/MediaPlayerPrivate.h b/Source/WebCore/platform/graphics/MediaPlayerPrivate.h
+index 660b887..f4179b3 100644
+--- a/Source/WebCore/platform/graphics/MediaPlayerPrivate.h
++++ b/Source/WebCore/platform/graphics/MediaPlayerPrivate.h
+@@ -26,7 +26,7 @@
+ #ifndef MediaPlayerPrivate_h
+ #define MediaPlayerPrivate_h
+ 
+-#if ENABLE(VIDEO)
++#if ENABLE_VIDEO
+ 
+ #include "MediaPlayer.h"
+ #include <wtf/Forward.h>
+diff --git a/Source/WebCore/platform/graphics/elis/MediaPlayerPrivateElisIPC.cpp b/Source/WebCore/platform/graphics/elis/MediaPlayerPrivateElisIPC.cpp
+new file mode 100644
+index 0000000..7c79806
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/elis/MediaPlayerPrivateElisIPC.cpp
+@@ -0,0 +1,807 @@
++/*
++ * MediaPlayerPrivateElisIPC.cpp
++ *
++ *  Created on: 2013. 9. 29.
++ *      Author: kdhong
++ */
++
++#include "config.h"
++#include "MediaPlayerPrivateElisIPC.h"
++
++#if ENABLE_VIDEO && ENABLE_ELIS_MEDIA
++
++#include "ColorSpace.h"
++#include "Document.h"
++#include "Frame.h"
++#include "FrameView.h"
++#include "GraphicsContext.h"
++#include "GraphicsTypes.h"
++#include "IntRect.h"
++#include "KURL.h"
++#include "MIMETypeRegistry.h"
++#include "MediaPlayer.h"
++#include "NotImplemented.h"
++#include "SecurityOrigin.h"
++#include "TimeRanges.h"
++#include <GOwnPtr.h>
++#include <limits>
++#include <math.h>
++#include <wtf/text/CString.h>
++#include "Logging.h"
++#include <gtk/gtk.h>
++#include "PlatformContextCairo.h"
++#include <dlfcn.h>
++
++#if defined(XP_UNIX)
++#include "RefPtrCairo.h"
++#if PLATFORM(X11)
++#define Bool int // this got undefined somewhere
++#define Status int // ditto
++#include <X11/extensions/Xrender.h>
++#include <cairo/cairo-xlib.h>
++#include <gdk/gdkx.h>
++#elif defined(GDK_WINDOWING_DIRECTFB)
++#include <gdk/gdk.h>
++#endif
++#elif defined(GDK_WINDOWING_WIN32)
++#include "PluginMessageThrottlerWin.h"
++#include <gdk/gdkwin32.h>
++#endif
++
++using namespace std;
++
++namespace WebCore {
++
++static void* _ipc_handle = NULL;
++static bool _load_failed = false;
++
++static int (*html5_server_load)( const char* );
++static int (*html5_server_cancelLoad)();
++static int (*html5_server_play)();
++static int (*html5_server_pause)();
++static int (*html5_server_seek)( float );
++static int (*html5_server_setRate)( float );
++static int (*html5_server_setVolume)( float );
++static int (*html5_server_setSize)( int, int );
++static int (*html5_server_setMuted)( bool );
++static int (*html5_server_getStatus)( int*, int*, int*, int*, int*, uint64_t*, uint64_t* );
++static int (*html5_server_getVideoDimension)( int*, int* );
++
++static void _ipc_init()
++{
++	if( _ipc_handle == NULL && _load_failed == false )
++	{
++		fprintf( stderr, "ipc_init\n");
++		html5_server_load = NULL;
++		html5_server_cancelLoad = NULL;
++		html5_server_play = NULL;
++		html5_server_pause = NULL;
++		html5_server_seek = NULL;
++		html5_server_setRate = NULL;
++		html5_server_setVolume = NULL;
++		html5_server_setSize = NULL;
++		html5_server_setMuted = NULL;
++		html5_server_getStatus = NULL;
++		html5_server_getVideoDimension = NULL;
++
++		char* ipc_dl_path = "/webkit/usr/lib/libhtml5_video.so";
++
++		if( getenv( "HTML5_IPC_PATH" ) )
++		{
++			ipc_dl_path = getenv( "HTML5_IPC_PATH" );
++		}
++
++		_ipc_handle = dlopen( ipc_dl_path, RTLD_NOW );
++
++		fprintf( stderr, "ipc handle %x\n", _ipc_handle );
++
++		if( _ipc_handle )
++		{
++			*(void **) (&html5_server_load) = dlsym(_ipc_handle, "html5_video_client_load");
++			*(void **) (&html5_server_cancelLoad) = dlsym(_ipc_handle, "html5_video_client_cancel_load");
++			*(void **) (&html5_server_play) = dlsym(_ipc_handle, "html5_video_client_play");
++			*(void **) (&html5_server_pause) = dlsym(_ipc_handle, "html5_video_client_pause");
++			*(void **) (&html5_server_seek) = dlsym(_ipc_handle, "html5_video_client_seek");
++			*(void **) (&html5_server_setRate) = dlsym(_ipc_handle, "html5_video_client_setRate");
++			*(void **) (&html5_server_setVolume) = dlsym(_ipc_handle, "html5_video_client_setVolume");
++			*(void **) (&html5_server_setSize) = dlsym(_ipc_handle, "html5_video_client_setSize");
++			*(void **) (&html5_server_setMuted) = dlsym(_ipc_handle, "html5_video_client_setMuted");
++			*(void **) (&html5_server_getStatus) = dlsym(_ipc_handle, "html5_video_get_status");
++			*(void **) (&html5_server_getVideoDimension) = dlsym(_ipc_handle, "html5_video_get_video_dimension");
++
++		}
++		else
++		{
++			fprintf( stderr, "error %s\n", dlerror() );
++			_load_failed = true;
++		}
++	}
++}
++
++bool MediaPlayerPrivateElisIPC::isAvailable()
++{
++    return true;
++}
++
++PassOwnPtr<MediaPlayerPrivateInterface> MediaPlayerPrivateElisIPC::create(MediaPlayer* player)
++{
++    return adoptPtr(new MediaPlayerPrivateElisIPC(player));
++}
++
++
++MediaPlayerPrivateElisIPC::MediaPlayerPrivateElisIPC(MediaPlayer* player)
++    : m_player(player)
++    , m_seekTime(0)
++    , m_changingRate(false)
++    , m_endTime(numeric_limits<float>::infinity())
++    , m_networkState(MediaPlayer::Empty)
++    , m_readyState(MediaPlayer::HaveNothing)
++    , m_isStreaming(false)
++    , m_size(IntSize())
++    , m_mediaLocationCurrentIndex(0)
++    , m_resetPipeline(false)
++    , m_paused(true)
++    , m_seeking(false)
++    , m_buffering(false)
++    , m_playbackRate(1)
++    , m_errorOccured(false)
++    , m_mediaDuration(0)
++    , m_startedBuffering(false)
++    , m_fillTimer(this, &MediaPlayerPrivateElisIPC::fillTimerFired)
++    , m_maxTimeLoaded(0)
++    , m_bufferingPercentage(0)
++    , m_preload(MediaPlayer::Auto)
++    , m_delayingLoad(false)
++    , m_mediaDurationKnown(true)
++    , m_volumeTimerHandler(0)
++    , m_muteTimerHandler(0)
++    , m_hasVideo(false)
++    , m_hasAudio(false)
++    , m_audioTimerHandler(0)
++    , m_videoTimerHandler(0)
++	, m_videoSize( 0, 0 )
++	, m_totalBytes( 0 )
++	, m_bytesLoaded( 0 )
++{
++	fprintf( stderr, "MediaPlayer IPC created\n" );
++
++	if( _ipc_handle == NULL )
++		_ipc_init();
++}
++
++MediaPlayerPrivateElisIPC::~MediaPlayerPrivateElisIPC()
++{
++	fprintf(stderr, "MediaPlayer IPC Destroyed\n" );
++
++    if (m_fillTimer.isActive())
++        m_fillTimer.stop();
++
++    fprintf( stderr, "cancel load %x", html5_server_cancelLoad );
++
++	if( html5_server_cancelLoad )
++		html5_server_cancelLoad();
++
++    m_player = 0;
++}
++
++void MediaPlayerPrivateElisIPC::registerMediaEngine(MediaEngineRegistrar registrar)
++{
++    if (isAvailable())
++        registrar(create, getSupportedTypes, supportsType, 0, 0, 0);
++}
++
++void MediaPlayerPrivateElisIPC::getSupportedTypes(HashSet<String>& types)
++{
++    types.add( "video/mp4" );
++}
++
++MediaPlayer::SupportsType MediaPlayerPrivateElisIPC::supportsType(const String& type, const String& codecs)
++{
++    if (type.isNull() || type.isEmpty())
++        return MediaPlayer::IsNotSupported;
++
++    // spec says we should not return "probably" if the codecs string is empty
++    if ( type == "video/mp4" )
++        return MediaPlayer::IsSupported;
++
++    return MediaPlayer::IsNotSupported;
++}
++
++
++void MediaPlayerPrivateElisIPC::load(const String& url)
++{
++	fprintf( stderr, "Load %s %x\n", url.utf8().data(), html5_server_load );
++
++	m_size = IntSize( 0, 0 );
++	m_prevStatus = 0;
++
++    if (m_fillTimer.isActive())
++        m_fillTimer.stop();
++
++	m_fillTimer.startRepeating(1.0);
++
++	if( html5_server_load )
++		(*html5_server_load)( (const char*)url.utf8().data() );
++}
++
++
++float MediaPlayerPrivateElisIPC::playbackPosition() const
++{
++    return m_playbackPosition;
++}
++
++void MediaPlayerPrivateElisIPC::prepareToPlay()
++{
++	/* TBD */
++}
++
++void MediaPlayerPrivateElisIPC::play()
++{
++	if( html5_server_play )
++		html5_server_play();
++}
++
++void MediaPlayerPrivateElisIPC::pause()
++{
++	if( html5_server_pause )
++		html5_server_pause();
++}
++
++float MediaPlayerPrivateElisIPC::duration() const
++{
++    if (m_errorOccured)
++        return 0.0f;
++
++    // Media duration query failed already, don't attempt new useless queries.
++    if (!m_mediaDurationKnown)
++        return numeric_limits<float>::infinity();
++
++    if (m_mediaDuration)
++        return m_mediaDuration;
++
++    return 0.0f;
++}
++
++float MediaPlayerPrivateElisIPC::currentTime() const
++{
++    if (m_errorOccured)
++        return 0.0f;
++
++    if (m_seeking)
++        return m_seekTime;
++
++    return playbackPosition();
++
++}
++
++void MediaPlayerPrivateElisIPC::seek(float time)
++{
++    // Avoid useless seeking.
++    if (time == playbackPosition())
++        return;
++
++    if (m_errorOccured)
++        return;
++
++    // Extract the integer part of the time (seconds) and the
++    // fractional part (microseconds). Attempt to round the
++    // microseconds so no floating point precision is lost and we can
++    // perform an accurate seek.
++    m_seekTime = time;
++    m_seeking = true;
++
++	if( html5_server_seek )
++		html5_server_seek( time );
++}
++
++bool MediaPlayerPrivateElisIPC::paused() const
++{
++    return m_paused;
++}
++
++bool MediaPlayerPrivateElisIPC::seeking() const
++{
++    return m_seeking;
++}
++
++// Returns the size of the video
++IntSize MediaPlayerPrivateElisIPC::naturalSize() const
++{
++//    if (!hasVideo())
++//        return IntSize();
++
++    // TODO: handle possible clean aperture data. See
++    // https://bugzilla.gnome.org/show_bug.cgi?id=596571
++    // TODO: handle possible transformation matrix. See
++    // https://bugzilla.gnome.org/show_bug.cgi?id=596326
++
++    // Get the video PAR and original size.
++    return m_videoSize;
++}
++
++void MediaPlayerPrivateElisIPC::videoChanged()
++{
++}
++
++void MediaPlayerPrivateElisIPC::notifyPlayerOfVideo()
++{
++    m_videoTimerHandler = 0;
++}
++
++void MediaPlayerPrivateElisIPC::audioChanged()
++{
++}
++
++void MediaPlayerPrivateElisIPC::notifyPlayerOfAudio()
++{
++}
++
++void MediaPlayerPrivateElisIPC::setVolume(float volume)
++{
++	if( html5_server_setVolume )
++		html5_server_setVolume( volume );
++}
++
++void MediaPlayerPrivateElisIPC::notifyPlayerOfVolumeChange()
++{
++}
++
++void MediaPlayerPrivateElisIPC::volumeChanged()
++{
++}
++
++void MediaPlayerPrivateElisIPC::setRate(float rate)
++{
++	if( html5_server_setRate )
++		html5_server_setRate( rate );
++}
++
++MediaPlayer::NetworkState MediaPlayerPrivateElisIPC::networkState() const
++{
++    return m_networkState;
++}
++
++MediaPlayer::ReadyState MediaPlayerPrivateElisIPC::readyState() const
++{
++    return m_readyState;
++}
++
++PassRefPtr<TimeRanges> MediaPlayerPrivateElisIPC::buffered() const
++{
++	RefPtr<TimeRanges> timeRanges = TimeRanges::create();
++    return timeRanges.release();
++}
++
++void MediaPlayerPrivateElisIPC::fillTimerFired(Timer<MediaPlayerPrivateElisIPC>*)
++{
++	int playTime = 0;
++	int endTime = 0;
++	int speed = 100;
++	int status = 0;
++	int inSeek = 0;
++	uint64_t totalBytes = 0;
++	uint64_t currentOffset = 0;
++
++	if( html5_server_getStatus )
++		html5_server_getStatus( &playTime, &endTime, &speed, &status, &inSeek, &totalBytes, &currentOffset );
++
++	int videoWidth = 0, videoHeight = 0;
++
++	if( html5_server_getVideoDimension )
++		html5_server_getVideoDimension( &videoWidth, &videoHeight );
++
++	float duration = endTime / 1000.0;
++	float currentPos = playTime / 1000.0;
++	float ratio = speed / 100.0;
++
++	fprintf( stderr, "Duration %f, currentPos %f, ratio %f videoWidth = %d, videoHeight = %d Download[%lld:%lld]\n",
++						duration, currentPos, ratio, videoWidth, videoHeight, totalBytes, currentOffset );
++
++	m_totalBytes = totalBytes;
++	m_bytesLoaded = m_totalBytes;
++
++	if( m_mediaDuration != duration )
++	{
++		m_mediaDuration = duration;
++		m_mediaDurationKnown = true;
++		durationChanged();
++	}
++
++	MediaPlayer::ReadyState readyState = MediaPlayer::HaveMetadata;
++	MediaPlayer::NetworkState networkState = MediaPlayer::Loading;
++
++	switch( status )
++	{
++	case 0: /* STOPPED */
++//		readyState = MediaPlayer::HaveNothing;
++//		networkState = MediaPlayer::Idle;
++		break;
++
++	case 1: /* PLAYING */
++		if( videoWidth > 0 )
++			readyState = MediaPlayer::HaveEnoughData;
++		networkState = MediaPlayer::Loading;
++		break;
++
++	case 2: /* Paused */
++		break;
++	case 3: /* Connecting */
++		readyState = MediaPlayer::HaveMetadata;
++		networkState = MediaPlayer::Loading;
++		break;
++	case 4: /* Buffering */
++		readyState = MediaPlayer::HaveMetadata;
++		networkState = MediaPlayer::Loading;
++		break;
++	case 5: /* Finished */
++		readyState = MediaPlayer::HaveEnoughData;
++		networkState = MediaPlayer::Loaded;
++		break;
++	case 6: /* Error */
++		readyState = MediaPlayer::HaveNothing;
++		break;
++	}
++#if 1
++	bool paused = false;
++	if( ratio == 0.0f )
++		paused = true;
++
++	if( paused != m_paused && status != 5 && status !=  6 )
++	{
++		m_paused = paused;
++	}
++
++	if( status == 5 )
++		m_paused = false;
++
++	if( inSeek == 0 )
++		m_seeking = false;
++
++	m_playbackPosition = currentPos;
++
++
++	if( networkState != m_networkState )
++	{
++		m_networkState = networkState;
++		m_player->networkStateChanged();
++	}
++	
++	if( readyState != m_readyState )
++	{
++		m_readyState = readyState;
++		m_player->readyStateChanged();
++	}
++	
++	if( status == 5 && m_prevStatus != 5 )
++	{
++		m_prevStatus = status;
++		m_player->playbackStateChanged();
++	}
++
++	if( status == 1 && m_prevStatus != 1 )
++	{
++		m_prevStatus = status;
++		m_player->playbackStateChanged();
++	}
++
++	if( m_videoSize.width() != videoWidth || m_videoSize.height() != videoHeight )
++	{
++		m_videoSize.setWidth( videoWidth );
++		m_videoSize.setHeight( videoHeight );
++
++		m_player->sizeChanged();
++	}
++
++	m_player->timeChanged();
++
++#else
++	if( status == 5 && m_prevStatus != 5 )
++	{
++		m_prevStatus = status;
++		m_player->playbackStateChanged();
++	}
++
++	if( status == 1 && m_prevStatus != 1 )
++	{
++		m_prevStatus = status;
++		m_player->playbackStateChanged();
++	}
++
++	if( readyState != m_readyState )
++	{
++		m_readyState = readyState;
++		m_player->readyStateChanged();
++	}
++
++	if( networkState != m_networkState )
++	{
++		m_networkState = networkState;
++		m_player->networkStateChanged();
++	}
++
++	if( m_videoSize.width() != videoWidth || m_videoSize.height() != videoHeight )
++	{
++		m_videoSize.setWidth( videoWidth );
++		m_videoSize.setHeight( videoHeight );
++
++		m_player->sizeChanged();
++	}
++
++	m_player->timeChanged();
++
++	bool paused = false;
++	if( ratio == 0.0f )
++		paused = true;
++
++	if( paused != m_paused && status != 5 && status !=  6 )
++	{
++		m_paused = paused;
++	}
++
++	if( status == 5 )
++		m_paused = false;
++
++	if( inSeek == 0 )
++		m_seeking = false;
++
++	m_playbackPosition = currentPos;
++	
++#endif
++}
++
++float MediaPlayerPrivateElisIPC::maxTimeSeekable() const
++{
++    if (m_errorOccured)
++        return 0.0f;
++
++    LOG_VERBOSE(Media, "maxTimeSeekable");
++    // infinite duration means live stream
++    if (isinf(duration()))
++        return 0.0f;
++
++    return duration();
++}
++
++float MediaPlayerPrivateElisIPC::maxTimeLoaded() const
++{
++    if (m_errorOccured)
++        return 0.0f;
++
++    float loaded = m_maxTimeLoaded;
++    if (!loaded && !m_fillTimer.isActive())
++        loaded = duration();
++    LOG_VERBOSE(Media, "maxTimeLoaded: %f", loaded);
++    return loaded;
++}
++
++unsigned MediaPlayerPrivateElisIPC::bytesLoaded() const
++{
++    if (!m_mediaDuration)
++        return 0;
++
++    return m_bytesLoaded;
++}
++
++unsigned MediaPlayerPrivateElisIPC::totalBytes() const
++{
++    if (m_errorOccured)
++        return 0;
++
++    return m_totalBytes;
++}
++
++unsigned MediaPlayerPrivateElisIPC::decodedFrameCount() const
++{
++	return 0;
++}
++
++unsigned MediaPlayerPrivateElisIPC::droppedFrameCount() const
++{
++	return 0;
++}
++
++unsigned MediaPlayerPrivateElisIPC::audioDecodedByteCount() const
++{
++	return 0;
++}
++
++unsigned MediaPlayerPrivateElisIPC::videoDecodedByteCount() const
++{
++	return 0;
++}
++
++void MediaPlayerPrivateElisIPC::updateAudioSink()
++{
++}
++
++
++void MediaPlayerPrivateElisIPC::sourceChanged()
++{
++}
++
++void MediaPlayerPrivateElisIPC::cancelLoad()
++{
++    if (m_fillTimer.isActive())
++        m_fillTimer.stop();
++
++    fprintf( stderr, "cancel load %x", html5_server_cancelLoad );
++
++	if( html5_server_cancelLoad )
++		html5_server_cancelLoad();
++}
++
++void MediaPlayerPrivateElisIPC::updateStates()
++{
++}
++
++
++bool MediaPlayerPrivateElisIPC::loadNextLocation()
++{
++}
++
++void MediaPlayerPrivateElisIPC::loadStateChanged()
++{
++    updateStates();
++}
++
++void MediaPlayerPrivateElisIPC::sizeChanged()
++{
++    notImplemented();
++}
++
++void MediaPlayerPrivateElisIPC::timeChanged()
++{
++    updateStates();
++    m_player->timeChanged();
++}
++
++void MediaPlayerPrivateElisIPC::didEnd()
++{
++    // EOS was reached but in case of reverse playback the position is
++    // not always 0. So to not confuse the HTMLMediaElement we
++    // synchronize position and duration values.
++    float now = currentTime();
++    if (now > 0) {
++        m_mediaDuration = now;
++        m_mediaDurationKnown = true;
++        m_player->durationChanged();
++    }
++}
++
++void MediaPlayerPrivateElisIPC::cacheDuration()
++{
++    // Reset cached media duration
++    m_mediaDuration = 0;
++}
++
++void MediaPlayerPrivateElisIPC::durationChanged()
++{
++    m_player->durationChanged();
++}
++
++bool MediaPlayerPrivateElisIPC::supportsMuting() const
++{
++    return true;
++}
++
++void MediaPlayerPrivateElisIPC::setMuted(bool muted)
++{
++	if( html5_server_setMuted )
++		html5_server_setMuted( muted );
++}
++
++void MediaPlayerPrivateElisIPC::notifyPlayerOfMute()
++{
++    m_muteTimerHandler = 0;
++
++}
++
++void MediaPlayerPrivateElisIPC::muteChanged()
++{
++    if (m_muteTimerHandler)
++        g_source_remove(m_muteTimerHandler);
++}
++
++void MediaPlayerPrivateElisIPC::loadingFailed(MediaPlayer::NetworkState error)
++{
++    m_errorOccured = true;
++    if (m_networkState != error) {
++        m_networkState = error;
++        m_player->networkStateChanged();
++    }
++    if (m_readyState != MediaPlayer::HaveNothing) {
++        m_readyState = MediaPlayer::HaveNothing;
++        m_player->readyStateChanged();
++    }
++}
++
++void MediaPlayerPrivateElisIPC::setSize(const IntSize& size)
++{
++	fprintf( stderr, "setsize %d %d\n", size.width(), size.height() );
++    m_size = size;
++}
++
++void MediaPlayerPrivateElisIPC::setVisible(bool visible)
++{
++}
++
++
++
++void MediaPlayerPrivateElisIPC::paint(GraphicsContext* context, const IntRect& rect)
++{
++
++    if (context->paintingDisabled())
++    {
++    	fprintf( stderr, "%s %s %d\n", __FILE__, __func__, __LINE__ );
++        return;
++    }
++
++    if (!m_player->visible())
++    {
++    	fprintf( stderr, "%s %s %d\n", __FILE__, __func__, __LINE__ );
++        return;
++    }
++
++#if defined(XP_UNIX)
++#if PLATFORM(X11)
++		Display* display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
++
++		cairo_t* cr = context->platformContext()->cr();
++		cairo_save(cr);
++
++		cairo_rectangle(cr,
++				rect.x(), rect.y(),
++				rect.width(), rect.height());
++
++		cairo_set_source_rgba(cr, 0xff, 0x0, 0x0, 0xff );
++
++        cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
++	    cairo_fill(cr);
++
++		cairo_restore(cr);
++#else
++		cairo_t* cr = context->platformContext()->cr();
++		cairo_save(cr);
++
++		cairo_rectangle(cr,
++				rect.x(), rect.y(),
++				rect.width(), rect.height());
++
++		cairo_set_source_rgba(cr, 0, 0x0, 0x0, 0 );
++
++        cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
++	    cairo_fill(cr);
++
++		cairo_restore(cr);
++
++#endif
++#endif
++}
++
++static HashSet<String> mimeTypeCache()
++{
++
++}
++
++bool MediaPlayerPrivateElisIPC::hasSingleSecurityOrigin() const
++{
++    return true;
++}
++
++bool MediaPlayerPrivateElisIPC::supportsFullscreen() const
++{
++    return true;
++}
++
++PlatformMedia MediaPlayerPrivateElisIPC::platformMedia() const
++{
++}
++
++void MediaPlayerPrivateElisIPC::setPreload(MediaPlayer::Preload preload)
++{
++}
++
++}
++#endif // USE(GSTREAMER)
++
++
+diff --git a/Source/WebCore/platform/graphics/elis/MediaPlayerPrivateElisIPC.h b/Source/WebCore/platform/graphics/elis/MediaPlayerPrivateElisIPC.h
+new file mode 100644
+index 0000000..89558a8
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/elis/MediaPlayerPrivateElisIPC.h
+@@ -0,0 +1,170 @@
++/*
++ * MediaPlayerPrivateElisIPC.h
++ *
++ *  Created on: 2013. 9. 29.
++ *      Author: kdhong
++ */
++
++#ifndef MEDIAPLAYERPRIVATEELISIPC_H_
++#define MEDIAPLAYERPRIVATEELISIPC_H_
++
++#if ENABLE_VIDEO && ENABLE_ELIS_MEDIA
++#include <wtf/Forward.h>
++#include "MediaPlayerPrivate.h"
++#include "Timer.h"
++
++
++namespace WebCore {
++
++class GraphicsContext;
++class IntSize;
++class IntRect;
++class GStreamerGWorld;
++class MediaPlayerPrivateElisIPC;
++
++class MediaPlayerPrivateElisIPC : public MediaPlayerPrivateInterface {
++
++        public:
++            ~MediaPlayerPrivateElisIPC();
++            static void registerMediaEngine(MediaEngineRegistrar);
++//            gboolean handleMessage(GstMessage*);
++
++            IntSize naturalSize() const;
++            bool hasVideo() const { return m_hasVideo; }
++            bool hasAudio() const { return m_hasAudio; }
++
++            void load(const String &url);
++            void commitLoad();
++            void cancelLoad();
++
++            void prepareToPlay();
++            void play();
++            void pause();
++
++            bool paused() const;
++            bool seeking() const;
++
++            float duration() const;
++            float currentTime() const;
++            void seek(float);
++
++            void setRate(float);
++
++            void setVolume(float);
++            void volumeChanged();
++            void notifyPlayerOfVolumeChange();
++
++            bool supportsMuting() const;
++            void setMuted(bool);
++            void muteChanged();
++            void notifyPlayerOfMute();
++
++            void setPreload(MediaPlayer::Preload);
++            void fillTimerFired(Timer<MediaPlayerPrivateElisIPC>*);
++
++            MediaPlayer::NetworkState networkState() const;
++            MediaPlayer::ReadyState readyState() const;
++
++            PassRefPtr<TimeRanges> buffered() const;
++            float maxTimeSeekable() const;
++            unsigned bytesLoaded() const;
++            unsigned totalBytes() const;
++
++            void setVisible(bool);
++            void setSize(const IntSize&);
++
++            void loadStateChanged();
++            void sizeChanged();
++            void timeChanged();
++            void didEnd();
++            void durationChanged();
++            void loadingFailed(MediaPlayer::NetworkState);
++
++//            void triggerRepaint(GstBuffer*);
++            void repaint();
++            void paint(GraphicsContext*, const IntRect&);
++
++            bool hasSingleSecurityOrigin() const;
++
++            bool supportsFullscreen() const;
++            PlatformMedia platformMedia() const;
++
++            void videoChanged();
++            void audioChanged();
++            void notifyPlayerOfVideo();
++            void notifyPlayerOfAudio();
++
++            void sourceChanged();
++
++            unsigned decodedFrameCount() const;
++            unsigned droppedFrameCount() const;
++            unsigned audioDecodedByteCount() const;
++            unsigned videoDecodedByteCount() const;
++
++        private:
++            MediaPlayerPrivateElisIPC(MediaPlayer*);
++
++            static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
++
++            static void getSupportedTypes(HashSet<String>&);
++            static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
++            static bool isAvailable();
++
++            void updateAudioSink();
++
++            float playbackPosition() const;
++
++            void cacheDuration();
++            void updateStates();
++            float maxTimeLoaded() const;
++
++            void createGSTPlayBin();
++//            bool changePipelineState(GstState state);
++
++            bool loadNextLocation();
++//            void mediaLocationChanged(GstMessage*);
++
++//            void processBufferingStats(GstMessage*);
++
++        private:
++            MediaPlayer* m_player;
++            float m_seekTime;
++            bool m_changingRate;
++            float m_endTime;
++            bool m_isEndReached;
++            MediaPlayer::NetworkState m_networkState;
++            MediaPlayer::ReadyState m_readyState;
++            mutable bool m_isStreaming;
++            IntSize m_size;
++            IntSize m_videoSize;
++            int m_prevStatus;
++            int m_mediaLocationCurrentIndex;
++            bool m_resetPipeline;
++            bool m_paused;
++            bool m_seeking;
++            bool m_buffering;
++            float m_playbackRate;
++            float m_playbackPosition;
++            bool m_errorOccured;
++            gfloat m_mediaDuration;
++            bool m_startedBuffering;
++            Timer<MediaPlayerPrivateElisIPC> m_fillTimer;
++            float m_maxTimeLoaded;
++            int m_bufferingPercentage;
++            MediaPlayer::Preload m_preload;
++            bool m_delayingLoad;
++            bool m_mediaDurationKnown;
++            guint m_volumeTimerHandler;
++            guint m_muteTimerHandler;
++            bool m_hasVideo;
++            bool m_hasAudio;
++            guint m_audioTimerHandler;
++            guint m_videoTimerHandler;
++            uint64_t m_totalBytes;
++            uint64_t m_bytesLoaded;
++    };
++}
++
++#endif
++
++#endif /* MEDIAPLAYERPRIVATEELISIPC_H_ */
+diff --git a/Source/WebCore/platform/graphics/filters/arm/FEGaussianBlurNEON.cpp b/Source/WebCore/platform/graphics/filters/arm/FEGaussianBlurNEON.cpp
+index 6f39085..e0e02d1 100644
+--- a/Source/WebCore/platform/graphics/filters/arm/FEGaussianBlurNEON.cpp
++++ b/Source/WebCore/platform/graphics/filters/arm/FEGaussianBlurNEON.cpp
+@@ -26,6 +26,7 @@
+ 
+ #include "config.h"
+ #include "FEGaussianBlurNEON.h"
++#if ENABLE(FILTERS)
+ 
+ #if CPU(ARM_NEON) && COMPILER(GCC)
+ 
+@@ -341,3 +342,5 @@ TOSTRING(neonDrawAlphaChannelGaussianBlur) ":" NL
+ } // namespace WebCore
+ 
+ #endif // CPU(ARM_NEON) && COMPILER(GCC)
++#endif //#if ENABLE(FILTERS)
++
+diff --git a/Source/WebCore/platform/graphics/filters/arm/FEGaussianBlurNEON.h b/Source/WebCore/platform/graphics/filters/arm/FEGaussianBlurNEON.h
+index 96037aa..eb05539 100644
+--- a/Source/WebCore/platform/graphics/filters/arm/FEGaussianBlurNEON.h
++++ b/Source/WebCore/platform/graphics/filters/arm/FEGaussianBlurNEON.h
+@@ -29,6 +29,8 @@
+ 
+ #include <wtf/Platform.h>
+ 
++#if ENABLE(FILTERS)
++
+ #if CPU(ARM_NEON) && COMPILER(GCC)
+ 
+ #include "FEGaussianBlur.h"
+@@ -112,5 +114,6 @@ inline void FEGaussianBlur::platformApplyNeon(ByteArray* srcPixelArray, ByteArra
+ } // namespace WebCore
+ 
+ #endif // CPU(ARM_NEON) && COMPILER(GCC)
++#endif //#if ENABLE(FILTERS)
+ 
+ #endif // FEGaussianBlurNEON_h
+diff --git a/Source/WebCore/platform/graphics/filters/arm/FELightingNEON.cpp b/Source/WebCore/platform/graphics/filters/arm/FELightingNEON.cpp
+index 513b749..dba8bf3 100644
+--- a/Source/WebCore/platform/graphics/filters/arm/FELightingNEON.cpp
++++ b/Source/WebCore/platform/graphics/filters/arm/FELightingNEON.cpp
+@@ -26,6 +26,7 @@
+ 
+ #include "config.h"
+ #include "FELightingNEON.h"
++#if ENABLE(FILTERS)
+ 
+ #if CPU(ARM_NEON) && COMPILER(GCC)
+ 
+@@ -504,3 +505,6 @@ int FELighting::getPowerCoefficients(float exponent)
+ } // namespace WebCore
+ 
+ #endif // CPU(ARM_NEON) && COMPILER(GCC)
++
++#endif //#if ENABLE(FILTERS)
++
+diff --git a/Source/WebCore/platform/graphics/filters/arm/FELightingNEON.h b/Source/WebCore/platform/graphics/filters/arm/FELightingNEON.h
+index d69e227..6e4d785 100644
+--- a/Source/WebCore/platform/graphics/filters/arm/FELightingNEON.h
++++ b/Source/WebCore/platform/graphics/filters/arm/FELightingNEON.h
+@@ -28,6 +28,7 @@
+ #define FELightingNeon_h
+ 
+ #include <wtf/Platform.h>
++#if ENABLE(FILTERS)
+ 
+ #if CPU(ARM_NEON) && COMPILER(GCC)
+ 
+@@ -202,4 +203,6 @@ inline void FELighting::platformApplyNeon(LightingData& data, LightSource::Paint
+ 
+ #endif // CPU(ARM_NEON) && COMPILER(GCC)
+ 
++#endif //#if ENABLE(FILTERS)
++
+ #endif // FELightingNeon_h
+diff --git a/Source/WebCore/platform/gtk/PlatformKeyboardEventGtk.cpp b/Source/WebCore/platform/gtk/PlatformKeyboardEventGtk.cpp
+index b1c61af..8ee5cd7 100644
+--- a/Source/WebCore/platform/gtk/PlatformKeyboardEventGtk.cpp
++++ b/Source/WebCore/platform/gtk/PlatformKeyboardEventGtk.cpp
+@@ -486,7 +486,7 @@ int PlatformKeyboardEvent::windowsKeyCodeForGdkKeyCode(unsigned keycode)
+             // VK_OEM_CLEAR (FE) Clear key
+         case GDK_F1:
+         case GDK_F2:
+-        case GDK_F3:
++//        case GDK_F3:
+   //      case GDK_F4:
+  //       case GDK_F9:
+   //      case GDK_F10:
+@@ -520,9 +520,10 @@ int PlatformKeyboardEvent::windowsKeyCodeForGdkKeyCode(unsigned keycode)
+ 			return 412;
+ 		case GDK_F12:	/* FF */			
+ 			return 417;
+-
+-		case GDK_F4:	/* BACK */
+-			return 461;
++		case GDK_F3:	/* PLAY_PAUSE */
++			return 402;
++		case GDK_F4:
++			return VK_ESCAPE;
+ 			
+         default:
+             return 0;
+@@ -598,6 +599,12 @@ String PlatformKeyboardEvent::singleCharacterString(unsigned val)
+ 			return String( &ch, 1 );
+ 		}
+ 
++		case GDK_F3:	/* PLAY PAUSE */
++		{
++			UChar ch = 402;
++			return String( &ch, 1 );
++		}
++
+ 		case GDK_Pause:	/* PAUSE */			
+ 		{
+ 			UChar ch = 19;
+diff --git a/Source/WebCore/platform/gtk/SharedTimerGtk.cpp b/Source/WebCore/platform/gtk/SharedTimerGtk.cpp
+index 98c8b3d..b421fda 100644
+--- a/Source/WebCore/platform/gtk/SharedTimerGtk.cpp
++++ b/Source/WebCore/platform/gtk/SharedTimerGtk.cpp
+@@ -37,8 +37,6 @@ namespace WebCore {
+ 
+ static guint sharedTimer;
+ static void (*sharedTimerFiredFunction)();
+-#define FN_IN if(1){}// struct timeval tv; gettimeofday( &tv, NULL );  fprintf(stderr, "%s,%d : FN IN - %u\n",__FUNCTION__, __LINE__, tv.tv_sec*1000 + tv.tv_usec/1000 ); }
+-#define FN_OUT if(1){}// struct timeval tv; gettimeofday( &tv, NULL );  fprintf(stderr,  "%s,%d : FN OUT - %u\n",__FUNCTION__, __LINE__, tv.tv_sec*1000 + tv.tv_usec/1000 ); }
+ 
+ void setSharedTimerFiredFunction(void (*f)())
+ {
+diff --git a/Source/WebCore/plugins/gtk/PluginViewGtk.cpp b/Source/WebCore/plugins/gtk/PluginViewGtk.cpp
+index 69d7585..afc51c3 100644
+--- a/Source/WebCore/plugins/gtk/PluginViewGtk.cpp
++++ b/Source/WebCore/plugins/gtk/PluginViewGtk.cpp
+@@ -231,7 +231,9 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
+ 			equalIgnoringCase( m_mimeType, "application/oipfapplicationmanager" ) ||
+ 			equalIgnoringCase( m_mimeType, "application/oipfconfiguration" ) ||
+ 			equalIgnoringCase( m_mimeType, "application/oipfdrmagent" ) ||
+-			equalIgnoringCase( m_mimeType, "application/oipfcapabilities" ))
++			equalIgnoringCase( m_mimeType, "application/oipfcapabilities" ) ||
++			equalIgnoringCase( m_mimeType, "humax/portalprofile" ) ||
++			equalIgnoringCase( m_mimeType, "valups/system"  ))
+ 		{
+ 			m_oipfType = OIPF_TYPE_NO_DISPLAY;
+ 		}
+diff --git a/Source/WebCore/rendering/RenderVideo.cpp b/Source/WebCore/rendering/RenderVideo.cpp
+index b876eb2..b6ff80b 100644
+--- a/Source/WebCore/rendering/RenderVideo.cpp
++++ b/Source/WebCore/rendering/RenderVideo.cpp
+@@ -113,6 +113,7 @@ IntSize RenderVideo::calculateIntrinsicSize()
+     // of the video resource, if that is available; otherwise it is the intrinsic 
+     // height of the poster frame, if that is available; otherwise it is 150 CSS pixels.
+     MediaPlayer* player = mediaElement()->player();
++    fprintf( stderr, "player %x, video readyState %d\n", player, video->readyState() );
+     if (player && video->readyState() >= HTMLVideoElement::HAVE_METADATA)
+         return player->naturalSize();
+ 
+diff --git a/Source/WebKit/gtk/WebCoreSupport/FullscreenVideoController.cpp b/Source/WebKit/gtk/WebCoreSupport/FullscreenVideoController.cpp
+index 3300fe1..70ba5bc 100644
+--- a/Source/WebKit/gtk/WebCoreSupport/FullscreenVideoController.cpp
++++ b/Source/WebKit/gtk/WebCoreSupport/FullscreenVideoController.cpp
+@@ -21,6 +21,42 @@
+ 
+ #if ENABLE(VIDEO)
+ 
++#if !USE(GSTREAMER)
++
++#include "FullscreenVideoController.h"
++#include "GRefPtrGtk.h"
++#include "GtkVersioning.h"
++#include "MediaPlayer.h"
++#include "HTMLMediaElement.h"
++
++FullscreenVideoController::FullscreenVideoController()
++    : m_hudTimeoutId(0)
++    , m_progressBarUpdateId(0)
++    , m_seekLock(false)
++    , m_window(0)
++    , m_hudWindow(0)
++{
++}
++
++FullscreenVideoController::~FullscreenVideoController()
++{
++}
++
++void FullscreenVideoController::enterFullscreen()
++{
++}
++
++void FullscreenVideoController::exitFullscreen()
++{
++
++}
++
++void FullscreenVideoController::setMediaElement(WebCore::HTMLMediaElement* mediaElement)
++{
++}
++
++
++#else
+ #include "FullscreenVideoController.h"
+ 
+ #include "GRefPtrGtk.h"
+@@ -393,6 +429,8 @@ void FullscreenVideoController::playStateChanged()
+ 
+ void FullscreenVideoController::togglePlay()
+ {
++		fprintf(stderr, " %s, %d\n", __FUNCTION__, __LINE__);
++
+     if (canPlay())
+         play();
+     else
+@@ -584,3 +622,5 @@ void FullscreenVideoController::createHud()
+ }
+ 
+ #endif
++
++#endif
+diff --git a/Source/WebKit/gtk/WebCoreSupport/FullscreenVideoController.h b/Source/WebKit/gtk/WebCoreSupport/FullscreenVideoController.h
+index 3fb8b16..8c63759 100644
+--- a/Source/WebKit/gtk/WebCoreSupport/FullscreenVideoController.h
++++ b/Source/WebKit/gtk/WebCoreSupport/FullscreenVideoController.h
+@@ -74,7 +74,9 @@ private:
+     void updateHudPosition();
+ 
+     RefPtr<WebCore::HTMLMediaElement> m_mediaElement;
++#if USE(GSTREAMER)
+     RefPtr<WebCore::GStreamerGWorld> m_gstreamerGWorld;
++#endif
+ 
+     guint m_hudTimeoutId;
+     guint m_progressBarUpdateId;
+diff --git a/Source/WebKit/gtk/webkit/webkitwebview.cpp b/Source/WebKit/gtk/webkit/webkitwebview.cpp
+index 1159f7e..9883303 100644
+--- a/Source/WebKit/gtk/webkit/webkitwebview.cpp
++++ b/Source/WebKit/gtk/webkit/webkitwebview.cpp
+@@ -642,14 +642,13 @@ static bool shouldCoalesce(const IntRect& rect, const Vector<IntRect>& rects)
+         useUnionedRect = true;
+     return useUnionedRect;
+ }
+-#define FN_IN if(1){ }//struct timeval tv; gettimeofday( &tv, NULL );  fprintf(stderr, "FN IN - %u\n", tv.tv_sec*1000 + tv.tv_usec/1000 ); }
+-#define FN_OUT if(1){ }//struct timeval tv; gettimeofday( &tv, NULL );  fprintf(stderr,  "FN OUT - %u\n", tv.tv_sec*1000 + tv.tv_usec/1000 ); }
+ 
+ static void paintWebView(Frame* frame, gboolean transparent, GraphicsContext& context, const IntRect& clipRect, const Vector<IntRect>& rects)
+ {
+     bool coalesce = true;
++
+ //	fprintf( stderr, " <><><> paintWebView\n" );
+-	FN_IN;
++
+     if (rects.size() > 0)
+         coalesce = shouldCoalesce(clipRect, rects);
+ 
+diff --git a/Tools/GtkLauncher/main.c b/Tools/GtkLauncher/main.c
+index d383f41..816450c 100644
+--- a/Tools/GtkLauncher/main.c
++++ b/Tools/GtkLauncher/main.c
+@@ -677,6 +677,21 @@ static void request_unqueued   (SoupSession *session,
+ 	}
+ }
+ 
++void
++destroy_handler (GtkWidget *ignored, gpointer happily_ignored)
++{
++  printf ("hi\n");     /* #### This doesn't get printed. */
++}
++
++gint
++timeout_handler (gpointer ignored)
++{
++	printf("now quit browser timeout\n");
++  /*gtk_main_quit ();*/
++   gtk_widget_destroy( main_window );
++  return 0;
++}
++
+ int main(int argc, char* argv[])
+ {
+ #ifndef WEBKIT2
+@@ -753,7 +768,7 @@ int main(int argc, char* argv[])
+         g_object_set(webkit_get_default_session(), SOUP_SESSION_PROXY_URI, proxyUri, NULL);
+         soup_uri_free(proxyUri);
+     }
+-#if 0	
++#if 1
+ 		{
+ 		GTlsBackend *backend;
+ 		GTlsDatabase *database;
+@@ -768,6 +783,7 @@ int main(int argc, char* argv[])
+ 
+ 	/*	database = g_tls_backend_get_default_database (backend);  */
+ 		database = g_tls_file_database_new( "/etc/pki/tls/cert.pem", &error );  
++		fprintf( stderr, "database = %x\n", database );
+ 
+ 		g_assert (G_IS_TLS_DATABASE (database));
+ 		fprintf( stderr, "database = %x\n", database );
+@@ -783,6 +799,7 @@ int main(int argc, char* argv[])
+ 		g_assert_no_error (error);		
+ 	    g_assert_cmpuint (errors, ==, 0);			*/
+         g_object_set(webkit_get_default_session(), "SSL credentials", database, NULL);		
++        g_object_set(webkit_get_default_session(), "tls-database", database, NULL);		
+         g_object_set(webkit_get_default_session(), "ssl-strict", FALSE, NULL);		
+ 
+ 
+@@ -868,6 +885,7 @@ int main(int argc, char* argv[])
+ 
+     gtk_widget_grab_focus(GTK_WIDGET(webView));
+     gtk_widget_show_all(main_window);
++/*	gtk_timeout_add (10000, timeout_handler, NULL);*/
+     gtk_main();
+ 
+     return 0;
+@@ -1152,6 +1170,14 @@ static unsigned int _keyset = 0;
+ static int webkit_go( gpointer param )
+ {
+ 	LOG_TRACE( "1 url = %s", _url );
++
++	if( strncmp( _url, "http://QUITBROSER.html",22) == 0 )
++	{
++		LOG_TRACE("This commad is quit browser");
++		gtk_timeout_add (100, timeout_handler, NULL);
++		LOG_TRACE("Quit Browser");
++		return FALSE;
++	}
+ 	webkit_web_view_load_uri( _webView, _url );
+ 	LOG_TRACE( "2 url = %s", _url );
+ 	
+@@ -1223,6 +1249,7 @@ static void _webkitCmdCallback( WebkitCmd* aCmd, int aSockFd )
+ 
+ 			switch( aCmd->u.mKeyCode )
+ 			{
++				case VKEY_BACK:
+ 				case VKEY_EXIT:
+ 					if( _keyset & KEYSET_NAVIGATION )
+ 					{
+@@ -1902,6 +1929,9 @@ void show_stackframe( int sig ) {
+ 		found = true;
+ 	
+   }  
++
++  LOG_TRACE("Now Close GtkLauncher");
++    gtk_main_quit ();
+ }
+ 

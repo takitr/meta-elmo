@@ -2,9 +2,9 @@ DESCRIPTION = "Hardware drivers and M/W for ELMO"
 LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
-PV = "1.6.1"
-SRCDATE = "20140515"
-PR = "r28"
+PV = "1.8.0"
+SRCDATE = "20140715"
+PR = "r30"
 
 INHIBIT_PACKAGE_STRIP = "1"
 
@@ -73,7 +73,8 @@ do_install() {
         cp ${WORKDIR}/maruapp.service ${D}/lib/systemd/system/
         cd ${D}/lib/systemd/system/multi-user.target.wants
         ln -sf /lib/systemd/system/maruapp.service maruapp.service
-
+        install -d ${D}/webkit/usr/lib/
+        install -m 0777 ${WORKDIR}/release/libhtml5_video.so ${D}/webkit/usr/lib/
 }
 do_package_qa() {
 }
@@ -81,8 +82,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "203735bfe20e09f6ec34087150176f26"
-SRC_URI[sha256sum] = "7afe8403028fc83ae51310b098309bdee4bf8c9fed7aab3a79393ca318f357de"
+SRC_URI[md5sum] = "c658ab80ad7f3a000e924498e7f65a34"
+SRC_URI[sha256sum] = "c4ac8e30e124c0bba01ca535fa3256cf3181e5708263299141c9ab71668691d9"
 
 PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "

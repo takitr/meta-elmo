@@ -1,5 +1,5 @@
 FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
-PR = "ruby-r1"
+PR = "ruby-r3"
 DEPENDS += "avahi"
 
 SRC_URI = "http://samba.org/samba/ftp/stable/samba-${PV}.tar.gz \
@@ -31,4 +31,5 @@ SRC_URI = "http://samba.org/samba/ftp/stable/samba-${PV}.tar.gz \
     file://only_export_public_symbols.patch;patchdir=.. \
     file://configure-disable-getaddrinfo-cross.patch;patchdir=.. \
     file://configure-disable-core_pattern-cross-check.patch;patchdir=.. \
+    file://0001-sambaclient_patch.patch;apply=yes;striplevel=1 \
 "

@@ -1,0 +1,154 @@
+diff --git a/src/cairo-directfb-surface.c b/src/cairo-directfb-surface.c
+index fc7509c..81cd2b7 100644
+--- a/src/cairo-directfb-surface.c
++++ b/src/cairo-directfb-surface.c
+@@ -738,7 +738,10 @@ _cairo_directfb_surface_clone_similar (void             *abstract_surface,
+ 
+ 	format = _directfb_from_pixman_format (image_src->pixman_format);
+ 	if (format == 0)
++	{		
++	 	D_DEBUG_AT (CairoDFB_Render, "======> doliyu:cairo:No Hw Unsupported format .\n");
+ 	    return CAIRO_INT_STATUS_UNSUPPORTED;
++	}
+ 
+ 	clone = (cairo_directfb_surface_t *)
+ 	    _cairo_directfb_surface_create_internal (surface->dfb, format,
+@@ -782,6 +785,7 @@ _cairo_directfb_surface_clone_similar (void             *abstract_surface,
+ 	*clone_out = &clone->base;
+ 	return CAIRO_STATUS_SUCCESS;
+     }
++	 D_DEBUG_AT (CairoDFB_Render, "======> doliyu:cairo:No Hw unsupported clone similiar .\n");
+ 
+     return CAIRO_INT_STATUS_UNSUPPORTED;
+ }
+@@ -808,21 +812,28 @@ _directfb_prepare_composite (cairo_directfb_surface_t    *dst,
+     const cairo_color_t        *color;
+ 
+     /* XXX Unbounded operators are not handled correctly */
+-    if (! _cairo_operator_bounded_by_source (op))
+-        return CAIRO_INT_STATUS_UNSUPPORTED;
++    /*if (! _cairo_operator_bounded_by_source (op))
++        return CAIRO_INT_STATUS_UNSUPPORTED;*/ // 2012. 06.05
+ 
+     if (! _directfb_get_operator (op, &sblend, &dblend))
+-	return CAIRO_INT_STATUS_UNSUPPORTED;
++    {
++	 	D_DEBUG_AT (CairoDFB_Render, "======> doliyu:cairo:No Hw Composite .\n");
++		return CAIRO_INT_STATUS_UNSUPPORTED;
++    }
+ 
+     if (mask_pattern) {
+-		return CAIRO_INT_STATUS_UNSUPPORTED;
+ 	if (mask_pattern->type != CAIRO_PATTERN_TYPE_SOLID) {
++	 	D_DEBUG_AT (CairoDFB_Render, "======> doliyu:cairo:No Hw Composite. No type solid.\n");
++		return CAIRO_INT_STATUS_UNSUPPORTED; //2012. 06.05
+ 	    const cairo_pattern_t *tmp;
+ 	    int              tmp_x, tmp_y;
+ 
+ 	    if (src_pattern->type != CAIRO_PATTERN_TYPE_SOLID ||
+ 		sblend == DSBF_INVDESTALPHA) /* Doesn't work correctly */
+-		return CAIRO_INT_STATUS_UNSUPPORTED;
++	    {
++			D_DEBUG_AT (CairoDFB_Render, "======> doliyu:cairo:No Hw src_pattern->type != CAIRO_PATTERN_TYPE_SOLID || sblend == DSBF_INVDESTALPHA .\n");
++			return CAIRO_INT_STATUS_UNSUPPORTED;
++	    }
+ 
+ 	    D_DEBUG_AT (CairoDFB_Render, "Replacing src pattern by mask pattern.\n");
+ 
+@@ -858,6 +869,8 @@ _directfb_prepare_composite (cairo_directfb_surface_t    *dst,
+ 	src->dfb != dst->dfb)
+     {
+ 	_cairo_pattern_release_surface (src_pattern, &src->base, &src_attr);
++	
++	D_DEBUG_AT (CairoDFB_Render, "======> doliyu:cairo:No Hw no cairo backend .\n");
+ 	return CAIRO_INT_STATUS_UNSUPPORTED;
+     }
+ 
+@@ -888,10 +901,27 @@ _directfb_prepare_composite (cairo_directfb_surface_t    *dst,
+     flags = (sblend == DSBF_ONE && dblend == DSBF_ZERO)
+ 	? DSBLIT_NOFX : DSBLIT_BLEND_ALPHACHANNEL;
+     if (! CAIRO_COLOR_IS_OPAQUE (color))
+-	flags |= DSBLIT_BLEND_COLORALPHA;
++	flags |= DSBLIT_BLEND_COLORALPHA | DSBLIT_SRC_PREMULTCOLOR; // 2012. 06. 05
++#if 0 //	 2012. 06. 05
+     if (! _cairo_color_equal (color, _cairo_stock_color (CAIRO_STOCK_WHITE)))
+ 	flags |= DSBLIT_COLORIZE;
+ 
++#else
++	 if ( mask_pattern && _cairo_color_get_content (color)== CAIRO_CONTENT_ALPHA )
++	 {
++	 	
++		D_DEBUG_AT (CairoDFB_Render, "CAIRO_STOCK_BLACK\n");
++			if( sblend == DSBF_ONE )
++				sblend = DSBF_SRCALPHA;
++	 }
++	 else if (mask_pattern && !_cairo_color_equal (color, _cairo_stock_color (CAIRO_STOCK_WHITE)))
++	 {
++	 	
++		D_DEBUG_AT (CairoDFB_Render, "CAIRO_STOCK_WHITE\n");
++		flags |= DSBLIT_COLORIZE;
++	 }
++#endif
++
+     dst->dfbsurface->SetBlittingFlags (dst->dfbsurface, flags);
+ 
+     if (flags & (DSBLIT_BLEND_ALPHACHANNEL | DSBLIT_BLEND_COLORALPHA)) {
+@@ -900,6 +930,40 @@ _directfb_prepare_composite (cairo_directfb_surface_t    *dst,
+     }
+ 
+     if (flags & (DSBLIT_BLEND_COLORALPHA | DSBLIT_COLORIZE)) {
++#if 0
++		if( mask_pattern )
++		{
++			if (dst->blit_premultiplied) {
++				dst->dfbsurface->SetColor (dst->dfbsurface,
++				0,
++				0,
++				0,
++				color->alpha_short >> 8);
++			} else {
++				dst->dfbsurface->SetColor (dst->dfbsurface,
++				0,
++				0,
++				0,
++				color->alpha * 0xff);
++			}
++		}
++		else
++		{
++			if (dst->blit_premultiplied) {
++				dst->dfbsurface->SetColor (dst->dfbsurface,
++				color->red_short >> 8,
++				color->green_short >> 8,
++				color->blue_short >> 8,
++				color->alpha_short >> 8);
++			} else {
++				dst->dfbsurface->SetColor (dst->dfbsurface,
++				color->red * 0xff,
++				color->green * 0xff,
++				color->blue * 0xff,
++				color->alpha * 0xff);
++			}
++		}
++#else
+ 	if (dst->blit_premultiplied) {
+ 	    dst->dfbsurface->SetColor (dst->dfbsurface,
+ 				       color->red_short >> 8,
+@@ -913,6 +977,7 @@ _directfb_prepare_composite (cairo_directfb_surface_t    *dst,
+ 				       color->blue * 0xff,
+ 				       color->alpha * 0xff);
+ 	}
++#endif
+     }
+ 
+     *ret_src = src;
+@@ -1050,6 +1115,9 @@ _cairo_directfb_surface_composite (cairo_operator_t  op,
+ 						    src->dfbsurface,
+ 						    &sr, dst_x, dst_y));
+ 	    } else if (src_attr.extend == CAIRO_EXTEND_REPEAT) {
++	    //by doliyu
++	    _directfb_finish_composite (dst, src_pattern, &src->base, &src_attr);
++	    return CAIRO_INT_STATUS_UNSUPPORTED;
+ 		DFBRegion clip;
+ 
+ 		clip.x1 = dst_x;

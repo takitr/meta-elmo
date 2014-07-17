@@ -1,0 +1,40 @@
+Version=1.8.0
+Date=2014.07.15
+
+1.8.0 Release Note
+[FIXED] TTX bug on 1080p50Hz resolution
+[FIXED] Hang up bugs on zapping
+[FIXED] Recording bug after changing OSD language
+[FIXED] Hang up after stopping recording
+[FIXED] Satellite longitute input bug
+[FIXED] YouTube and HbbTV menu operation in Advanced options
+[FIXED] Update the file list in Archive when USB is connected/disconnected
+[FIXED] Some minor issues on NAS recording
+[FIXED] Channel list bug in Show more EPG mode
+[FIXED] XBMC hangup on addon browser window
+[FIXED] Reloading channel list bug after changing OSD language
+[FIXED] Booting failure issue when all channellogos and "ChannelLogo.xml" file are deleted in folder "channellogo" via FTP
+[FIXED] AVSYNC Problem
+[FIXED] Diacritic issue on NAS recording
+[FIXED] OSD display bug when teletext is on
+[FIXED] NAS remount when IP address is changed
+[FIXED] PVR features when playback recording files from NAS
+[FIXED] Starting recording on NAS with a broken connection
+[FIXED] A hang up caused by disconnecting NAS while playing a file in Archive
+[MODIFIED] Polish OSD translation update
+[MODIFIED] Russian OSD translation update
+[MODIFIED] German OSD translation update
+[MODIFIED] Pre-installed XBMC addons update
+[MODIFIED] Recommend a mount path when you entered inaccessible path
+[NEW] NAS mode on slide menu in Archive ( shown only when NAS is connected )
+[NEW] YouTube TV support
+[NEW] CrossEPG support
+[NEW] Support recording on USB memory
+[NEW] NAS and USB recording icons in Archive
+
+
+Known Issues
+[UNRESOLVED] PIP stability in fast scan fav group and scrambled channels
+[UNRESOLVED] Having trouble to connect to hidden wifi network
+[UNRESOLVED] Blind scan missing
+

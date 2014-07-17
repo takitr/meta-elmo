@@ -18,4 +18,5 @@ RDEPENDS_${PN} = " \
 	script-module-elisinterface \
 	script-module-elementtree \
 	script-module-beatifulsoup \
+        script-crossepg \
 "
