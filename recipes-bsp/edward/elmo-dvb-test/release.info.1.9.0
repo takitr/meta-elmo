@@ -1,0 +1,12 @@
+Version=1.9.0(dev version)
+Date=2014.06.23
+
+1.9.0 Release Note
+[FIXED] XBMC upgrade to Gotham
+
+Known Issues
+[UNRESOLVED] PIP stability in fast scan fav group and scrambled channels
+[UNRESOLVED] Having trouble to connect to hidden wifi network
+[UNRESOLVED] Blind scan missing
+[UNRESOLVED] Cross EPG support
+

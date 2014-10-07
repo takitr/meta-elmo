@@ -1,12 +1,12 @@
 DESCRIPTION = "script.mbox addon for Ruby development version"
 LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
-DEPENDS = "xbmc"
+DEPENDS = "gotham"
 COMPATIBLE_MACHINE = "(elmo)"
 
-RV = "1.7.7"
-PR = "r41"
-TAG = "7e6ea412a7ace08138961ec06f5aaf1853c87db3"
+RV = "2.1.0"
+PR = "r43"
+TAG = "686375b9a1d924a11b430cf5d0e616d14da3cee6"
 SRC_URI = "git://update.prismcube.com/script.mbox.git;protocol=git;tag=${TAG} \
           "
 

@@ -1,10 +1,10 @@
 DESCRIPTION = "script.mbox addon for Ruby"
 LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
-DEPENDS = "xbmc"
+DEPENDS = "gotham"
 COMPATIBLE_MACHINE = "(elmo)"
 SRCREV = "HEAD"
-RV = "1.0.0.beta8"
+RV = "1.9.0"
 
 SRC_URI = "git://update.prismcube.com/script.module.elementtree.git;protocol=git;branch=master \
           "

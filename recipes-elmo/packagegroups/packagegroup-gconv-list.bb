@@ -26,4 +26,5 @@ RDEPENDS_${PN} = " \
 	eglibc-gconv-cp774  \
 	eglibc-gconv-cp775  \
 	eglibc-gconv-cp932  \
+	eglibc-gconv-utf-32 \
 "
