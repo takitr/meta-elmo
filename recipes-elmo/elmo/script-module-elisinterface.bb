@@ -1,12 +1,12 @@
 DESCRIPTION = "script.mbox addon for Ruby"
 LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
-DEPENDS = "xbmc"
+DEPENDS = "gotham"
 COMPATIBLE_MACHINE = "(elmo)"
 
-RV = "1.8.0"
-PR = "r15"
-TAG = "41a53168059e14cfcbd843509d3ee08879b5fd0e"
+RV = "2.0.0"
+PR = "r16"
+TAG = "36ffe6b46d1c9987af049a91628e35a28a2d65ce"
 SRC_URI = "git://update.prismcube.com/script.module.elisinterface;protocol=git;tag=${TAG} \
           "
 

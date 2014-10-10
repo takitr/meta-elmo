@@ -1,0 +1,39 @@
+Version=2.0.0
+Date=2014.10.10
+
+2.0.0 Release Note
+[NEW] XBMC Gotham 13.2 support
+[NEW] Aeon Nox 5 skin for Gotham
+[NEW] Metropolis skin for Gotham
+[MODIFIED] German OSD translation update
+[MODIFIED] Default EPG grid timeline ( 4 hour -> 2 hour )
+[FIXED] Connect xbmc web server
+[FIXED] Delete archive files in NAS
+[FIXED] Unicable recording
+[FIXED] Standby hang-up issue
+[FIXED] Web interface remote control
+[FIXED] Focusing bug on EPG channel view
+[FIXED] Display extend EPG bugs
+[FIXED] Manual timer edition bug
+[FIXED] Updating pre and post recording time bug
+[FIXED] Focusing bug on recording path in installation menu
+[FIXED] Setting video and audio bug in first installation menu
+[FIXED] Drawing EPG grid timeline bug
+[FIXED] EPG update bug after tune in EPG grid mode
+[FIXED] Recording deletion issue on post recording time
+[FIXED] Audio language change bug
+[FIXED] Empty FTA/CAS list issue in channel list
+[FIXED] Broken character in web interface
+[FIXED] Slow PIG close in channel list
+[FIXED] Displaying Dolby/Dolby Plus icon on live plate
+[FIXED] Saving channels after channel update
+[FIXED] Live plate GUI
+[FIXED] Running record color bug on EPG
+[FIXED] Timeshift plate GUI
+[FIXED] Displaying CAS icon
+[FIXED] Displaying Lock/Unlock info
+[FIXED] Saving video output setting
+[FIXED] EPG update after changing channel
+[FIXED] Channel change by view timer bug
+[FIXED] Locked tv channel's audio issue after changing to radio mode
+
