@@ -23,13 +23,15 @@ do
 		/etc/init.d/transmission restart &
 		modprobe usb_storage
 		echo "Find runMaru, so Run XBMC"
-		mkdir /mnt/hdd0/program/.xbmc/userdata -p
+		mkdir /mnt/hdd0/program/.xbmc/userdata/addon_data/script.mbox -p
 		cp /usr/share/xbmc/autoexec.py /mnt/hdd0/program/.xbmc/userdata/ -a
+		cp /config/guisettings.xml /mnt/hdd0/program/.xbmc/userdata/ -a
+		cp /config/settings.xml /mnt/hdd0/program/.xbmc/userdata/addon_data/script.mbox/ -a
 		/app/check_script.sh post &
 		ulimit -s 1024
 		while true
 		do
-			xbmc 
+			xbmc
 			sleep 1
 		done
 	fi
