@@ -27,4 +27,18 @@ RDEPENDS_${PN} = " \
 	eglibc-gconv-cp775  \
 	eglibc-gconv-cp932  \
 	eglibc-gconv-utf-32 \
+        eglibc-gconv-euc-kr \
+        eglibc-gconv-big5   \
+        eglibc-gconv-big5hkscs  \
+        eglibc-gconv-iso8859-2  \
+        eglibc-gconv-iso8859-3  \
+        eglibc-gconv-iso8859-4  \
+        eglibc-gconv-iso8859-5  \
+        eglibc-gconv-iso8859-6  \
+        eglibc-gconv-iso8859-7  \
+        eglibc-gconv-iso8859-8  \
+        eglibc-gconv-iso8859-9  \
+        eglibc-gconv-iso8859-11 \
+        eglibc-gconv-gbk        \
+        eglibc-gconv-euc-jp     \
 "
