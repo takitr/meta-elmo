@@ -12,9 +12,9 @@ SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
 
 PV = "13.1"
 
-PR = "r3"
+PR = "r5"
 
-TAG = "a55845a8e5124982ddb4b330a8014aad654b6893"
+TAG = "6e47366afed9939e7915025140396df577005585"
 SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${TAG} \
 "
 
@@ -49,7 +49,7 @@ do_configure_prepend() {
         if [ ! -e ${S}/pvr-addons ]; then
                 git clone git://update.prismcube.com/pvr-addons.git ${S}/pvr-addons
                 cd ${S}/pvr-addons
-                git checkout -b ruby remotes/origin/ruby
+                git checkout -b Gotham remotes/origin/Gotham
         else
                 cd ${S}/pvr-addons
                 git pull
