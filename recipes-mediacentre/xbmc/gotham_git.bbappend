@@ -13,9 +13,9 @@ SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
 
 PV = "13.1"
 
-PR = "r16"
+PR = "r18"
 
-TAG = "6e47366afed9939e7915025140396df577005585"
+TAG = "5121ac46b5624b30d5f105917ec7912920424891"
 SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${TAG} \
 "
 

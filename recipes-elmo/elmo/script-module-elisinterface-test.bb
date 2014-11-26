@@ -4,9 +4,9 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3
 DEPENDS = "gotham"
 COMPATIBLE_MACHINE = "(elmo)"
 
-RV = "2.1.2"
-PR = "r22"
-TAG = "448bfc8a468ef08d9e581406878facd6f07b08c4"
+RV = "2.1.3"
+PR = "r23"
+TAG = "aac592b865de27a3f640fcaf94d532b31ae73694"
 SRC_URI = "git://update.prismcube.com/script.module.elisinterface;protocol=git;tag=${TAG} \
           "
 
