@@ -5,7 +5,7 @@ DEPENDS = "gotham"
 COMPATIBLE_MACHINE = "(elmo)"
 
 RV = "2.0.2"
-PR = "r18"
+PR = "r19"
 TAG = "f4f71b9f04d32e21f61fe5cddef65663dbccadb9"
 SRC_URI = "git://update.prismcube.com/script.module.elisinterface;protocol=git;tag=${TAG} \
           "

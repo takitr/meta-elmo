@@ -5,8 +5,8 @@ DEPENDS = "gotham"
 COMPATIBLE_MACHINE = "(elmo)"
 
 RV = "2.0.2"
-PR = "r38"
-TAG = "f2c2090c648874f2cdb9b05bde480746c4224a06"
+PR = "r39"
+TAG = "9efb9ca54e139b22916c6fca89056a150f351c61"
 SRC_URI = "git://update.prismcube.com/script.mbox.git;protocol=git;tag=${TAG} \
           "
 
