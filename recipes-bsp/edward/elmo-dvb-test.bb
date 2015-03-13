@@ -2,9 +2,9 @@ DESCRIPTION = "Hardware drivers and M/W for ELMO"
 LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
-PV = "2.1.7"
-SRCDATE = "20141230"
-PR = "r46"
+PV = "2.1.8"
+SRCDATE = "20150313"
+PR = "r56"
 
 INHIBIT_PACKAGE_STRIP = "1"
 
@@ -24,6 +24,7 @@ SRC_URI += "file://S10_stb_sys_startup.sh \
             file://upnp_xml.tar.gz \
             file://release.info.${PV} \
             file://maruapp.service \
+	    file://check_pyo \
 	    "
 
 S = "${WORKDIR}"
@@ -70,6 +71,7 @@ do_install() {
         install -m 0777 ${WORKDIR}/checkswap ${D}/app/
         install -m 0777 ${WORKDIR}/none.html ${D}/app/tmp/
         install -m 0777 ${WORKDIR}/check_script.sh ${D}/app/
+	install -m 0777 ${WORKDIR}/check_pyo ${D}/app/
         install -d ${D}/config
         install -d ${D}/devel
         install -d ${D}/var/CI
@@ -91,8 +93,8 @@ do_package_qa() {
 #HACK! These are binaries, so we can't guarantee that LDFLAGS match :(
 INSANE_SKIP_${PN} = "ldflags dev-so" 
 
-SRC_URI[md5sum] = "cf8fdffb7ef8f6117342a6d672b835db"
-SRC_URI[sha256sum] = "badb2cbd8b5e51c706e0d9903adb2f6a27a733f3c8718c4b8d602143bc076092"
+SRC_URI[md5sum] = "06596609f307f553af9d5f98042fb2f2"
+SRC_URI[sha256sum] = "684b65a783e9221b6d0b48b4d2e98d1f54f096d4070bd78f101b5defa3cca583"
 
 PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGE := "${PN} ${PN}-dbg "

@@ -13,9 +13,9 @@ SRCREV = "fb595f23fbf4f4a4bc9297373f5f0138a1e01a9f"
 
 PV = "13.1"
 
-PR = "r21"
+PR = "r28"
 
-TAG = "f008a19a7d0c69b596ae29d714ce5baa9c39dbb6"
+TAG = "ad76841a393afa949ef75d9d9b3687de7c956cd3"
 SRC_URI = "git://update.prismcube.com/frodo.git;protocol=git;tag=${TAG} \
 "
 
@@ -23,6 +23,7 @@ SRC_URI += "file://autoexec.py \
             file://run.xbmc.sh \
             file://xbmc.service \
             file://resetXBMC.sh \
+	    file://compile.py \
         "
 
 S = "${WORKDIR}/git"
@@ -64,6 +65,7 @@ do_install_append() {
 	install -d ${D}/app/
 	install -d ${D}/home/root
 	cp ${WORKDIR}/autoexec.py ${D}/usr/share/xbmc/autoexec.py
+	cp ${WORKDIR}/compile.py ${D}/app/compile.py
 	cp ${WORKDIR}/run.xbmc.sh ${D}/app/run.xbmc.sh
 	cp ${WORKDIR}/resetXBMC.sh ${D}/app/resetXBMC.sh
 	ln -sf /mnt/hdd0/program/.xbmc ${D}/home/root/.xbmc

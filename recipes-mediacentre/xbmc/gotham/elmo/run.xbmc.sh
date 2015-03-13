@@ -28,6 +28,41 @@ do
 		cp /config/guisettings.xml /mnt/hdd0/program/.xbmc/userdata/ -a
 		cp /config/settings.xml /mnt/hdd0/program/.xbmc/userdata/addon_data/script.mbox/ -a
 		/app/check_script.sh post &
+
+		if [ ! -d /usr/share/xbmc/userdata/Database ]; then
+			mkdir /usr/share/xbmc/userdata/Database -p
+			if [ -d /home/root/.xbmc/userdata/Database ]; then
+				if [ -L /home/root/.xbmc/userdata/Database ]; then
+		                        if [ -d /mnt/hdd0/program/Database ]; then
+                                		cp -a /mnt/hdd0/program/Database/* /usr/share/xbmc/userdata/Database
+					fi                
+				else
+					cp -a /home/root/.xbmc/userdata/Database/* /usr/share/xbmc/userdata/Database
+				fi
+			fi
+			rm -rf /home/root/.xbmc/userdata/Database
+		        ln -s /usr/share/xbmc/userdata/Database /home/root/.xbmc/userdata/Database
+			sync
+		else
+			if [ -d /home/root/.xbmc/userdata/Database ]; then                                  
+				if [ -L /home/root/.xbmc/userdata/Database ]; then                                          
+                                	echo "Symbolic link exists"                                                         
+                                fi                                                                                  
+                        else
+				rm -rf /usr/share/xbmc/userdata/Database/*                                  
+				cp -a /home/root/.xbmc/userdata/Database/* /usr/share/xbmc/userdata/Database
+			fi  
+	                rm -rf /home/root/.xbmc/userdata/Database
+        	        ln -s /usr/share/xbmc/userdata/Database /home/root/.xbmc/userdata/Database
+                	sync
+		fi
+		
+		if [ -e /app/check_pyo ]; then
+			python /app/compile.py
+			rm -rf /app/check_pyo
+			sync
+		fi
+
 		ulimit -s 1024
 		while true
 		do

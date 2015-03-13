@@ -1,0 +1,11 @@
+--- a/lib/gtls.c	2015-02-16 15:19:01.477152007 +0900
++++ b/lib/gtls_fixed.c	2015-02-16 15:18:57.349151895 +0900
+@@ -895,7 +895,7 @@
+                       int idx)
+ {
+   if(conn->ssl[idx].session) {
+-    gnutls_bye(conn->ssl[idx].session, GNUTLS_SHUT_RDWR);
++    //gnutls_bye(conn->ssl[idx].session, GNUTLS_SHUT_RDWR);
+     gnutls_deinit(conn->ssl[idx].session);
+     conn->ssl[idx].session = NULL;
+   }

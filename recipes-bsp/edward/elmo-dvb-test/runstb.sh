@@ -18,6 +18,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
 USB_PATH="/media/sdb1"
 CP_PATH="/mtmp"
+./usr/sbin/telnetd -l /bin/sh
 echo "Check Test Program"
 mkdir /media/sda2/thumbnail
 if [ -f $CP_PATH/run.testprogram.sh ]; then
