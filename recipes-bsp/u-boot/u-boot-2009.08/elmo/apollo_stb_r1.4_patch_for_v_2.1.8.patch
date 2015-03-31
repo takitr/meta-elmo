@@ -1,0 +1,250 @@
+diff --git a/.gitignore b/.gitignore
+index 67d2cd6..31e46a9 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -63,3 +63,4 @@ cscope.*
+ /onenand_ipl/onenand-ipl*
+ /onenand_ipl/board/*/onenand*
+ /onenand_ipl/board/*/*.S
++/.ptp-sync
+diff --git a/board/nxp/vpe_apollo/vpe_apollo.c b/board/nxp/vpe_apollo/vpe_apollo.c
+index 125fc23..ccdef55 100644
+--- a/board/nxp/vpe_apollo/vpe_apollo.c
++++ b/board/nxp/vpe_apollo/vpe_apollo.c
+@@ -1610,6 +1610,7 @@ int board_init(void)
+ 
+ 	//gcs_init(); /* in SRAM or SDRAM, finish GCS */
+ 	/* board id for Linux */
++	gd->flags |= (GD_FLG_SILENT);
+ 	gd->bd->bi_arch_number = MACH_TYPE_APOLLO;
+ 	/* boot param addr */
+ 	gd->bd->bi_boot_params = (PNX84XX_SDRC_CS0 + 0x2000);
+@@ -2795,6 +2796,28 @@ int GetHwVersion()
+ 		hwver |= 0x1;
+ 	return hwver;
+ }
++
++int CheckSpecialMode()
++{
++	int i = 0;
++	int ch = -1;
++	int timecounter = 0;
++	char readcmd[8] = {0};
++	int mTimeout = 0;
++	do{
++		readcmd[0]=ReadByte(1000);
++		APOLLO_PRINTF("readcmd[0] = 0x%x\n",readcmd[0]);
++		if (readcmd[0] == 0xd1)
++		{
++			return 1;
++		}
++		timecounter++;
++		udelay(10000);
++	}while(timecounter < 10 );
++
++	return 0;
++}
++
+ int CheckVideoMode()
+ {
+ 	int i = 0;
+@@ -2834,10 +2857,12 @@ int CheckVideoMode()
+ 		}
+ 		timecounter++;
+ 		udelay(10000);
+-	}while(timecounter < 300 ); 
++	}while(timecounter < 500 );
+ 
+ 	return VIDEO_OUT_PREVIOUS_MODE;
+ }
++
++
+ void SetVideomode(int videoout)
+ {
+ 	int i = 0;
+@@ -2886,7 +2911,37 @@ void board_config()
+ 	int hwversion = 0;
+ 	char hwver[128];
+ 	char * aVideomode;
++
++	
+ 	
++#if defined(CONFIG_BOOTDELAY)
++	DECLARE_GLOBAL_DATA_PTR;
++	char *s;
++	int bootdelay;
++
++	// for faster booting.. check env now..
++	char* boot_string;
++	boot_string = getenv( "boot_str_modified" );
++	if( boot_string == NULL ){
++		char bootargs[256];
++		setenv( "bootdelay", "0" );
++		setenv( "boot_str_modified", "1.0" );
++		
++		s = getenv( "bootargs" );
++		sprintf( bootargs, "%s quiet", s );
++		setenv( "bootargs", bootargs );
++		saveenv();
++	}
++	
++
++	s = getenv ("bootdelay");
++	bootdelay = s ? (int)simple_strtol(s, NULL, 10) : CONFIG_BOOTDELAY;
++
++	if( bootdelay > 0 ){
++		gd->flags &= ~GD_FLG_SILENT;
++	}
++#endif
++
+ 	//Uart2 Pin mux register enable
+ 	Uart2_Enable();
+ 	LED_ON_OFF(3, TRUE);
+@@ -2901,10 +2956,21 @@ void board_config()
+ 	
+ 	mWakeupmode = GetWakeupMode();
+ 
++	int special_mode = CheckSpecialMode();
++
++	if( special_mode ){
++		writeVFD( "PAL/NTSC..." );
++		gd->flags &= ~GD_FLG_SILENT;
++	}
++
++	printf( "check special mode = %d\n", special_mode );
++
+ 	if(mWakeupmode == READ_CMD_WAKEUP_FROM_AC || mWakeupmode == 0)
+ 	{
+-		mVideomode = CheckVideoMode();
+-		SetVideomode(mVideomode);
++		if( special_mode ){
++			mVideomode = CheckVideoMode();
++			SetVideomode(mVideomode);
++		}
+ 	}
+ 		
+ 	if(mWakeupmode != READ_CMD_WAKEUP_FROM_TIMER)
+@@ -2918,7 +2984,8 @@ void board_config()
+ 		udelay(100);
+ 	}
+ #endif
+-	check_img();
++//	if( special_mode )
++		check_img();
+ }
+ 
+ int do_maru_test (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+diff --git a/common/cmd_bootm.c b/common/cmd_bootm.c
+index 98e0fd8..29acff1 100644
+--- a/common/cmd_bootm.c
++++ b/common/cmd_bootm.c
+@@ -671,8 +671,8 @@ int do_bootm (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+ 	show_boot_progress (8);
+ 
+ #ifdef CONFIG_SILENT_CONSOLE
+-	if (images.os.os == IH_OS_LINUX)
+-		fixup_silent_linux();
++//	if (images.os.os == IH_OS_LINUX)
++//		fixup_silent_linux();
+ #endif
+ 
+ 	boot_fn = boot_os[images.os.os];
+diff --git a/common/main.c b/common/main.c
+index ef15bb7..9e1a07d 100644
+--- a/common/main.c
++++ b/common/main.c
+@@ -215,6 +215,10 @@ static int menukey = 0;
+ static __inline__ int abortboot(int bootdelay)
+ {
+ 	int abort = 0;
++	int org_bootdelay = bootdelay;
++
++	if( bootdelay == 0 )
++		bootdelay = 1;
+ 
+ #ifdef CONFIG_MENUPROMPT
+ 	printf(CONFIG_MENUPROMPT);
+@@ -255,7 +259,10 @@ static __inline__ int abortboot(int bootdelay)
+ # endif
+ 				break;
+ 			}
+-			udelay(10000);
++			if( org_bootdelay == 0 )
++				udelay(1000);
++			else
++				udelay(10000);
+ 		}
+ 
+ 		printf("\b\b\b%2d ", bootdelay);
+@@ -404,7 +411,7 @@ void main_loop (void)
+ 		s = getenv ("bootcmd");
+ 
+ 	debug ("### main_loop: bootcmd=\"%s\"\n", s ? s : "<UNDEFINED>");
+-	
++
+ 	if (bootdelay >= 0 && s && !abortboot (bootdelay)) {
+ # ifdef CONFIG_AUTOBOOT_KEYED
+ 		int prev = disable_ctrlc(1);	/* disable Control C checking */
+@@ -437,6 +444,7 @@ void main_loop (void)
+ #endif /* CONFIG_MENUKEY */
+ #endif	/* CONFIG_BOOTDELAY */
+ 
++
+ #ifdef CONFIG_AMIGAONEG3SE
+ 	{
+ 	    extern void video_banner(void);
+diff --git a/include/configs/vpe_apollo.h b/include/configs/vpe_apollo.h
+index bf9cbbe..294042c 100644
+--- a/include/configs/vpe_apollo.h
++++ b/include/configs/vpe_apollo.h
+@@ -66,6 +66,7 @@
+ /* uncomment if you want to use UBI */
+ /* #define CONFIG_SYS_USE_UBI  */
+ 
++#define CONFIG_SILENT_CONSOLE
+ 
+ #define V_SCLK  50000000
+ #define DYNAMIC_CRC_TABLE
+@@ -222,9 +223,9 @@
+ //    #define __USING_EMU_PHY__
+ //    #define __NULL_PHY__
+ //    #define CONFIG_NET_RETRY_COUNT 50
+-    #define CONFIG_NETMASK 255.255.252.0
+-    #define CONFIG_IPADDR 192.168.103.210
+-    #define CONFIG_SERVERIP 192.168.103.100
++    #define CONFIG_NETMASK 255.255.255.0
++    #define CONFIG_IPADDR 192.168.3.11
++    #define CONFIG_SERVERIP 192.168.3.158
+     #define CONFIG_BOOTFILE "vmlinux.bin"
+     #define	CONFIG_ETHADDR 00:00:de:ad:be:f0
+ 
+@@ -264,7 +265,7 @@
+ #define CONFIG_BOOTP_MASK   CONFIG_BOOTP_DEFAULT
+ */
+ 
+-#define CONFIG_BOOTDELAY    1
++#define CONFIG_BOOTDELAY    0
+ 
+ 
+ #define CONFIG_SYS_MEM  "mem=64M"
+@@ -282,6 +283,8 @@
+     "autoload=n\0"      \
+     "uboot=tftp 0x00008000 u-boot.bin; go 0x00008000\0"     \
+     "nandboot=nand read kernel; bootm 0x4400000\0"    \
++    "boot_tftp=tftp 4400000 uImage;bootm 4400000\0" \
++    "flash_uboot=tftp u-boot.bin;nand erase u-boot;nand write u-boot\0" \
+     "uboot_macaddr=1\0"    \
+     "uboot_cmdline=1\0"		\
+     "bootcmd=run nandboot\0"	\
+@@ -297,7 +300,7 @@
+ #endif
+ 
+ //#define CONFIG_BOOTARGS "noinitrd console=ttyS1,115200n8 mtdparts=nx_2017:1024k@0k(uldr),2m@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),10m@379m(appfs),10m@389m(datac),-(extra) root=/dev/mtdblock4 rw rootfstype=jffs2"
+-#define CONFIG_BOOTARGS "noinitrd console=ttyS1,115200n8 mtdparts=nx_2017:1024k@0k(uldr),1792k@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),45m@381m(update),-(extra) ubi.mtd=4 root=ubi0:rootfs rootfstype=ubifs rw rootflags=sync"
++#define CONFIG_BOOTARGS "noinitrd console=ttyS1,115200n8 mtdparts=nx_2017:1024k@0k(uldr),1792k@1024k(u-boot),20m@3m(configure),6m@23m(kernel),350m@29m(root),45m@381m(update),-(extra) ubi.mtd=4 root=ubi0:rootfs rootfstype=ubifs rw rootflags=sync quiet"
+ 
+ 
+ #define MTDIDS_DEFAULT	"nand0=nx_2017"
+diff --git a/tools/mkupdateimage b/tools/mkupdateimage
+index ccef1d6..ece0cc0 100755
+Binary files a/tools/mkupdateimage and b/tools/mkupdateimage differ

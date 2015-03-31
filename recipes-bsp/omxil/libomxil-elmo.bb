@@ -9,7 +9,7 @@ KV = "2.6.34"
 
 PV = "${KV}"
 
-SRCDATE = "20140715"
+SRCDATE = "20150227"
 
 
 PR = "r101-${SRCDATE}"
@@ -37,8 +37,8 @@ do_package_qa() {
 }
 
 INSANE_SKIP_${PN} = "ldflags dev-so" 
-SRC_URI[md5sum] = "e2088c2b216262f6c73524b366c0e253"
-SRC_URI[sha256sum] = "db8c380a2e6c17eeb46ab73ba8fffab097da5ed75462e1918e406065a33072fb"
+SRC_URI[md5sum] = "ef8ee8d1600883e627fb09286dde7f94"
+SRC_URI[sha256sum] = "ac776cb0d2f507beecd2b232babbd79c88f9ac4a535b40aaba7c9f50cf1836ea"
 
 #PACKAGE_ARCH := "${MACHINE_ARCH}"
 PACKAGES = "${PN} ${PN}-dbg "

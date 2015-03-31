@@ -21,80 +21,135 @@
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 KERNEL_VERSION=`uname -r`
+INSMOD_DEBUG=FALSE
 
-if [ -f /opt/.appfs ] ; then
-echo "Running insmod now ......."
+insmod_module() {
+        if [ "$INSMOD_DEBUG" = TRUE ]; then
+                echo "insmod " $1 > /dev/ttyS1 2>&1
+                if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/$1 ]; then
+                        time insmod /opt/lib/modules/$KERNEL_VERSION/extra/$1 > /dev/ttyS1 2>&1
+                fi
+        else
+                if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/$1 ]; then
+			echo insmod /opt/lib/modules/$KERNEL_VERSION/extra/$1
+                        insmod /opt/lib/modules/$KERNEL_VERSION/extra/$1
+                fi
+        fi
+}
 
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxplatnativeDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxplatnativeDrv.ko
-fi
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxKKALDrv.ko
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxnotifyqDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxnotifyqDrv.ko
-fi
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxplatDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxplatDrv.ko
-fi
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxscsDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxscsDrv.ko
-fi
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxfssDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxfssDrv.ko
-fi
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxcssDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxcssDrv.ko
-fi
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxtmasDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxtmasDrv.ko
-fi
+insmod_group() {
+        args="$@";
+        echo $args
+        for i in $args
+        do
+                echo insmod $i
+               insmod_module $i
+        done;
+}
 
-#mount stotage Device
-/app/mount.sh
 
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxtmvssDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxtmvssDrv.ko
-fi
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxpvrDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxpvrDrv.ko
-fi
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko ]; then
-CMDLINE=`cat /proc/cmdline`
-
-echo $CMDLINE
 
 foundNTSC="False"
-for X in $CMDLINE
-do
-        #echo $X
+
+check_tvtype() {
+	for X in $CMDLINE
+	do
+       	 #echo $X
         case $X in
                 videomode=NTSC)
                         echo found ntsc value = $X
                         foundNTSC="True"
         esac
-done
+	done
+}
 
-if [ $foundNTSC = "True" ]
+module_group_platnative="lnxplatnativeDrv.ko"
+module_group_KAL="lnxKKALDrv.ko lnxnotifyqDrv.ko"
+
+
+
+if [ -f /opt/.appfs ] ; then
+echo "Running insmod now ......."
+
+if [ $INSMOD_DEBUG = "TRUE" ]
 then
-echo "found NTSC Mode"
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=2 ntscmode=1
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=0 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1 ntscmode=1
+	time /app/mount.sh > /dev/ttyS1 2>&1 &
 else
-echo "found PAL Mode"
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=2 ntscmode=0
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=0 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1 ntscmode=0
+	/app/mount.sh &
 fi
-fi
-if [ -f /opt/lib/modules/$KERNEL_VERSION/extra/lnxIPfeDrv.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/extra/lnxIPfeDrv.ko
-fi
+mount_pid=$!
 
-if [ -f opt/lib/modules/$KERNEL_VERSION/extra/lnxdvbciDrv.ko ]; then
-insmod opt/lib/modules/$KERNEL_VERSION/extra/lnxdvbciDrv.ko
-fi
+insmod_group $module_group_platnative &
+pid_platnative=$!
+wait $pid_platnative
+insmod_group $module_group_KAL &
+pid_KAL=$!
 
-if [ -f /opt/lib/modules/$KERNEL_VERSION/fuse.ko ]; then
-insmod /opt/lib/modules/$KERNEL_VERSION/fuse.ko
-fi
+wait $pid_KAL
+
+insmod_module lnxplatDrv.ko
+insmod_module lnxscsDrv.ko
+
+insmod_group_fss="lnxfssDrv.ko"
+insmod_group_av="lnxcssDrv.ko lnxtmasDrv.ko lnxtmvssDrv.ko lnxpvrDrv.ko"
+
+insmod_group $insmod_group_fss &
+pid_fss=$!
+insmod_group $insmod_group_av &
+pid_av=$1
+
+check_tvtype &
+
+wait $pid_fss
+wait $pid_av
+
+
+insmod_vpmfb() {
+	if [ $foundNTSC = "True" ]
+	then
+		echo "found NTSC Mode"
+		insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=2 ntscmode=1
+		#insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=0 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1 ntscmode=1
+	else
+		echo "found PAL Mode"
+		if [ $INSMOD_DEBUG = "TRUE" ]
+		then 
+			time insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=2 ntscmode=0 > /dev/ttyS1 2>&1 
+		else
+			insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=1 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=2 ntscmode=0 
+		fi
+		insmod /opt/lib/modules/$KERNEL_VERSION/extra/vpmfbDrv_g.ko cnxtfb_hdwidth=1280 cnxtfb_hdheight=720 cnxtfb_start_unblanked=0 cnxtfb_sddevice=0 cnxtfb_autoscale_sd=1 ntscmode=0 > /dev/ttyS1 2>&1 
+	fi
+}
+
+insmod_module lnxIpfeDrv.ko &
+insmod_module lnxdvbciDrv.ko &
+insmod_module fusion.ko &
+insmod_vpmfb &
+
+insmod_linuxdvb() {
+	echo "insmod LinuxDVB" > /dev/ttyS1 2>&1
+	if [ -f /mtmp/run.testprogram.sh ]; then
+		echo "run.testprogram.sh found. Do not insmod DVB"
+	else
+		modprobe dvb-core > /dev/ttyS1 2>&1
+		insmod /lib/modules/2.6.34/kernel/drivers/media/dvb/dvb-core/dvb-core.ko
+		if [ $INSMOD_DEBUG = "TRUE" ]; then
+		time insmod /opt/lib/modules/2.6.34/extra/LinuxDVB.ko > /dev/ttyS1 2>&1
+		time insmod /opt/lib/modules/2.6.34/extra/LinuxDVBSC.ko > /dev/ttyS1 2>&1
+		else
+		insmod /opt/lib/modules/2.6.34/extra/LinuxDVB.ko 
+		insmod /opt/lib/modules/2.6.34/extra/LinuxDVBSC.ko 
+		fi
+		mknod /dev/sci0 c 230 0
+		mknod /dev/sci1 c 230 1
+	fi
+}
+
+insmod_linuxdvb &
+
+echo "Driver modules loaded, please start the app now"
+wait $mount_pid
 
 if [ -f /media/sdb1/run.checkusb.sh ]; then
 	echo "TEST LOG !!"
@@ -106,18 +161,5 @@ elif [ -f /media/sda1/run.checkusb2.sh ]; then
 else
 	echo "Test File not found"
 fi
-
-if [ -f /mtmp/run.testprogram.sh ]; then
-	echo "run.testprogram.sh found. Do not insmod DVB"
-else
-	modprobe dvb-core
-	insmod /opt/lib/modules/2.6.34/extra/LinuxDVB.ko
-	insmod /opt/lib/modules/2.6.34/extra/LinuxDVBSC.ko
-	mknod /dev/sci0 c 230 0
-	mknod /dev/sci1 c 230 1
-fi
-
-
-echo "Driver modules loaded, please start the app now"
 
 fi
