@@ -1,0 +1,14 @@
+Version=2.1.11(devel version)
+Date=2015.06.26
+
+2.1.11 Release Note
+
+[MODIFIED] Picon image update
+[MODIFIED] FF/RW in XBMC playback for upnp
+[MODIFIED] EPG load modify for EPG window
+[MODIFIED] Default Antenna and tp change
+
+Known Issues
+[UNRESOLVED] PIP stability in fast scan fav group and scrambled channels
+[UNRESOLVED] Having trouble to connect to hidden wifi network
+[UNRESOLVED] Blind scan missing

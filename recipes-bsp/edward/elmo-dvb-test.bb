@@ -2,9 +2,9 @@ DESCRIPTION = "Hardware drivers and M/W for ELMO"
 LICENSE = "proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/LICENSE;md5=3f40d7994397109285ec7b81fdeb3b58"
 
-PV = "2.1.10"
-SRCDATE = "20150511"
-PR = "r61"
+PV = "2.1.11"
+SRCDATE = "20150625"
+PR = "r62"
 
 INHIBIT_PACKAGE_STRIP = "1"
 
